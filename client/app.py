@@ -7,7 +7,7 @@ import subprocess
 from flask import Flask, render_template, jsonify, request
 
 from traffic_engine import TrafficEngine
-from security_engine import SecurityTestEngine
+from security_engine import SecurityTestEngine, CustomPatternStore
 import network_shaper
 from router_shaper import router_manager
 
@@ -16,7 +16,8 @@ logging.basicConfig(level=logging.INFO,
 
 app = Flask(__name__)
 engine = TrafficEngine()
-security_engine = SecurityTestEngine()
+custom_pattern_store = CustomPatternStore()
+security_engine = SecurityTestEngine(custom_store=custom_pattern_store)
 
 SERVER_HOST = os.environ.get('SERVER_HOST', 'server')
 
@@ -486,6 +487,54 @@ def security_status():
 def security_clear():
     security_engine.clear()
     return jsonify({"ok": True, "message": "Security results cleared"})
+
+
+# ─── Custom Attack Patterns ──────────────────────────────
+
+@app.route('/api/security/patterns', methods=['GET'])
+def list_patterns():
+    return jsonify(custom_pattern_store.list())
+
+
+@app.route('/api/security/patterns', methods=['POST'])
+def add_pattern():
+    data = _get_json()
+    required = ['name', 'category', 'payload']
+    for field in required:
+        if not data.get(field):
+            return jsonify({"error": f"{field} is required"}), 400
+    pattern = {
+        'name': data['name'],
+        'category': data.get('category', 'web_attacks'),
+        'description': data.get('description', ''),
+        'payload': data['payload'],
+        'method': data.get('method', 'GET'),
+        'headers': data.get('headers', {}),
+        'target_path': data.get('target_path', '/echo'),
+        'expected_action': data.get('expected_action', 'block'),
+        'panos_feature': data.get('panos_feature', 'Vulnerability Protection'),
+    }
+    result = custom_pattern_store.add(pattern)
+    security_engine.reload_catalog()
+    return jsonify({"ok": True, "pattern": result})
+
+
+@app.route('/api/security/patterns/<pattern_id>', methods=['PUT'])
+def update_pattern(pattern_id):
+    data = _get_json()
+    result = custom_pattern_store.update(pattern_id, data)
+    if result is None:
+        return jsonify({"error": "Pattern not found"}), 404
+    security_engine.reload_catalog()
+    return jsonify({"ok": True, "pattern": result})
+
+
+@app.route('/api/security/patterns/<pattern_id>', methods=['DELETE'])
+def delete_pattern(pattern_id):
+    if custom_pattern_store.delete(pattern_id):
+        security_engine.reload_catalog()
+        return jsonify({"ok": True, "message": "Pattern deleted"})
+    return jsonify({"error": "Pattern not found"}), 404
 
 
 if __name__ == '__main__':

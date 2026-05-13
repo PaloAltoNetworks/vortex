@@ -391,6 +391,119 @@ DASHBOARD_HTML = r"""
         @media (max-width: 900px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
+
+        /* ─── Security Testing ──────────────────────────────────── */
+        .security-config {
+            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+            margin-bottom: 10px; padding: 8px 10px;
+            background: var(--bg-sub); border: 1px solid var(--border); border-radius: 6px;
+        }
+        .security-category { margin-bottom: 10px; }
+        .security-category-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 6px 10px; background: var(--bg-card-header);
+            border: 1px solid var(--border); border-radius: 6px 6px 0 0;
+            cursor: pointer; user-select: none;
+        }
+        .security-category-header:hover { background: var(--bg-hover); }
+        .security-category-title {
+            font-size: 12px; font-weight: 600; color: var(--text-primary);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .security-category-badge {
+            font-size: 10px; padding: 1px 8px; border-radius: 10px; font-weight: 500;
+        }
+        .security-category-badge.vuln { background: #fef3c7; color: #92400e; }
+        .security-category-badge.malware { background: #fce7f3; color: #9d174d; }
+        .security-category-badge.url { background: #e0e7ff; color: #3730a3; }
+        .security-test-list {
+            border: 1px solid var(--border); border-top: none;
+            border-radius: 0 0 6px 6px; overflow: hidden;
+        }
+        .security-test-row {
+            display: grid; grid-template-columns: 24px 1fr 120px 80px 80px;
+            gap: 8px; align-items: center; padding: 6px 10px;
+            font-size: 11px; border-bottom: 1px solid var(--border); background: var(--bg-card);
+        }
+        .security-test-row:last-child { border-bottom: none; }
+        .security-test-row:hover { background: var(--bg-hover); }
+        .security-test-row.header {
+            font-weight: 600; color: var(--text-secondary); font-size: 10px;
+            text-transform: uppercase; letter-spacing: 0.3px; background: var(--bg-sub);
+        }
+        .security-test-row.clickable { cursor: pointer; }
+        .security-test-name { color: var(--text-primary); font-weight: 500; }
+        .security-test-desc { font-size: 10px; color: var(--text-secondary); margin-top: 1px; }
+        .security-test-feature { font-size: 10px; color: var(--accent); }
+        .sec-verdict {
+            font-size: 10px; font-weight: 600; padding: 2px 8px;
+            border-radius: 10px; text-align: center; display: inline-block;
+        }
+        .sec-verdict.pass { background: #dcfce7; color: #166534; }
+        .sec-verdict.fail { background: #fee2e2; color: #991b1b; }
+        .sec-verdict.error { background: #fef3c7; color: #92400e; }
+        .sec-verdict.pending { background: var(--bg-hover); color: var(--text-secondary); }
+        .security-summary-bar {
+            display: flex; gap: 12px; align-items: center; padding: 8px 10px;
+            margin-bottom: 10px; background: var(--bg-sub);
+            border: 1px solid var(--border); border-radius: 6px; font-size: 12px;
+        }
+        .security-summary-item { display: flex; align-items: center; gap: 4px; font-weight: 600; }
+        .security-summary-item .dot {
+            width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+        }
+        .security-summary-item .dot.green { background: #22c55e; }
+        .security-summary-item .dot.red { background: #ef4444; }
+        .security-summary-item .dot.yellow { background: #eab308; }
+        .security-summary-item .dot.gray { background: #94a3b8; }
+        .security-select-all {
+            font-size: 10px; color: var(--accent); cursor: pointer; margin-left: auto;
+        }
+        .security-select-all:hover { text-decoration: underline; }
+        .security-test-detail {
+            padding: 10px 14px; background: var(--bg-sub);
+            border-bottom: 1px solid var(--border);
+            animation: detailSlide 0.2s ease-out;
+        }
+        .security-detail-grid {
+            display: grid; grid-template-columns: 120px 1fr;
+            gap: 6px 12px; font-size: 11px;
+        }
+        .detail-label {
+            color: var(--text-secondary); font-weight: 500;
+            text-transform: uppercase; font-size: 10px; letter-spacing: 0.3px; padding-top: 2px;
+        }
+        .detail-value { color: var(--text-primary); }
+        .detail-pre {
+            background: #1e2a3a; color: #b0bec5; padding: 6px 8px; border-radius: 4px;
+            font-size: 10px; font-family: 'SF Mono','Consolas','Monaco',monospace;
+            overflow-x: auto; max-height: 120px; white-space: pre-wrap; word-break: break-all; margin: 2px 0;
+        }
+        @keyframes detailSlide { from { opacity: 0; } to { opacity: 1; } }
+        .sec-custom-actions { margin-left: 6px; display: inline-flex; gap: 2px; }
+        .sec-edit-btn, .sec-del-btn {
+            background: none; border: 1px solid var(--border); border-radius: 3px;
+            cursor: pointer; font-size: 10px; padding: 0 4px;
+            color: var(--text-secondary); line-height: 16px;
+        }
+        .sec-edit-btn:hover { color: var(--accent); border-color: var(--accent); }
+        .sec-del-btn:hover { color: var(--danger); border-color: var(--danger); }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); display: flex;
+            align-items: center; justify-content: center; z-index: 1000;
+        }
+        .modal {
+            background: var(--bg-card); border-radius: 8px; padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;
+        }
+        @media (max-width: 900px) {
+            .security-test-row { grid-template-columns: 24px 1fr 80px 60px; }
+            .security-test-row .security-test-feature { display: none; }
+            .security-detail-grid { grid-template-columns: 1fr; }
+            .detail-label { margin-top: 6px; }
+            .modal { width: 95% !important; }
+        }
     </style>
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 </head>
@@ -949,6 +1062,26 @@ async function renderClientTab(name) {
         '<button class="btn btn-danger" onclick="clientStopAll(\'' + name + '\')">Stop All</button>' +
         '</div><span class="chevron" id="chevron-c-' + name + '-protos">&#9660;</span></div>' +
         '</div><div class="card-body" id="section-c-' + name + '-protos"><div class="protocol-grid">' + protoCardsHtml + '</div></div></div>' +
+        // Security Testing
+        '<div class="card"><div class="card-header" onclick="toggleSection(\'c-' + name + '-security\')"><span>Security Testing</span>' +
+        '<div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">' +
+        '<button class="btn btn-start" onclick="clientStartSecurity(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Run Selected</button>' +
+        '<button class="btn btn-stop" onclick="clientStopSecurity(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Stop</button>' +
+        '<button class="btn btn-secondary" onclick="clientClearSecurity(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Clear</button>' +
+        '<button class="btn btn-primary" onclick="clientShowCustomPattern(\'' + name + '\')" style="padding:3px 10px;font-size:10px">+ Custom</button>' +
+        '<span class="chevron collapsed" id="chevron-c-' + name + '-security">&#9660;</span></div></div>' +
+        '<div class="card-body collapsed" id="section-c-' + name + '-security">' +
+        '<div class="security-config">' +
+        '<label style="font-size:11px;color:var(--text-secondary)">HTTP Port</label>' +
+        '<input type="number" id="c-' + name + '-sec-http-port" value="9999" style="width:70px;padding:3px 6px;font-size:11px;' + inputStyle + '">' +
+        '<label style="font-size:11px;color:var(--text-secondary)">HTTPS Port</label>' +
+        '<input type="number" id="c-' + name + '-sec-https-port" value="443" style="width:70px;padding:3px 6px;font-size:11px;' + inputStyle + '">' +
+        '<label style="font-size:11px;color:var(--text-secondary)">Interval (s)</label>' +
+        '<input type="number" id="c-' + name + '-sec-interval" value="2" step="0.5" style="width:60px;padding:3px 6px;font-size:11px;' + inputStyle + '">' +
+        '</div>' +
+        '<div id="c-' + name + '-security-summary" style="display:none"></div>' +
+        '<div id="c-' + name + '-security-panel"></div>' +
+        '</div></div>' +
         // Log
         '<div class="card"><div class="card-header" onclick="toggleSection(\'c-' + name + '-logs\')"><span>Activity Log</span>' +
         '<div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">' +
@@ -960,6 +1093,7 @@ async function renderClientTab(name) {
         '</div>';
 
     document.body.appendChild(div);
+    clientLoadSecurityCatalog(name);
 }
 
 // ─── Client Actions ──────────────────────────────────────────
@@ -1902,6 +2036,313 @@ async function loadClients() {
     } catch(e) {}
 }
 
+// ─── Security Testing ─────────────────────────────────────────
+var _clientSecCatalogs = {};
+var _clientSecResults = {};
+var _clientSecPolling = {};
+
+var SEC_CATEGORY_META = {
+    web_attacks: { label: 'Web Attacks (OWASP)', badge: 'vuln', icon: '\u26A0\uFE0F' },
+    malware_threats: { label: 'Malware / Threat Prevention', badge: 'malware', icon: '\uD83D\uDEE1\uFE0F' },
+    url_filtering: { label: 'URL Filtering', badge: 'url', icon: '\uD83C\uDF10' },
+};
+
+async function clientLoadSecurityCatalog(name) {
+    try {
+        var resp = await fetch('/api/client/' + name + '/security/catalog');
+        var catalog = await resp.json();
+        _clientSecCatalogs[name] = catalog;
+        clientRenderSecurityPanel(name, catalog);
+    } catch(e) {
+        var panel = document.getElementById('c-' + name + '-security-panel');
+        if (panel) panel.innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:12px;text-align:center">Failed to load security catalog</div>';
+    }
+}
+
+function clientRenderSecurityPanel(name, catalog) {
+    var panel = document.getElementById('c-' + name + '-security-panel');
+    if (!panel || !catalog) return;
+    var html = '';
+    for (var cat in catalog) {
+        var tests = catalog[cat];
+        var meta = SEC_CATEGORY_META[cat] || { label: cat, badge: 'vuln', icon: '' };
+        html += '<div class="security-category">' +
+            '<div class="security-category-header" onclick="toggleSection(\'c-' + name + '-sec-' + cat + '\')">' +
+            '<div class="security-category-title"><span>' + meta.icon + '</span><span>' + meta.label + '</span>' +
+            '<span class="security-category-badge ' + meta.badge + '">' + tests.length + ' tests</span></div>' +
+            '<div style="display:flex;align-items:center;gap:6px">' +
+            '<span class="security-select-all" onclick="event.stopPropagation();clientToggleSecCategorySelect(\'' + name + '\',\'' + cat + '\')">[Select All]</span>' +
+            '<span class="chevron" id="chevron-c-' + name + '-sec-' + cat + '" style="font-size:10px;color:var(--text-secondary)">&#9660;</span></div></div>' +
+            '<div class="security-test-list" id="section-c-' + name + '-sec-' + cat + '">' +
+            '<div class="security-test-row header"><span></span><span>Test</span><span>PAN-OS Feature</span><span>Expected</span><span>Result</span></div>';
+        for (var i = 0; i < tests.length; i++) {
+            var t = tests[i];
+            var customBtns = t.custom ? '<span class="sec-custom-actions" onclick="event.stopPropagation()">' +
+                '<button class="sec-edit-btn" onclick="clientEditCustomPattern(\'' + name + '\',\'' + t.id + '\')" title="Edit">&#9998;</button>' +
+                '<button class="sec-del-btn" onclick="clientDeleteCustomPattern(\'' + name + '\',\'' + t.id + '\')" title="Delete">&#10005;</button></span>' : '';
+            html += '<div class="security-test-row clickable" id="c-' + name + '-sec-row-' + t.id + '" onclick="clientToggleSecDetail(\'' + name + '\',\'' + t.id + '\')">' +
+                '<input type="checkbox" class="sec-checkbox-' + name + '" data-cat="' + cat + '" data-id="' + t.id + '" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">' +
+                '<div><div class="security-test-name">' + t.name + customBtns + '</div><div class="security-test-desc">' + (t.description || '') + '</div></div>' +
+                '<span class="security-test-feature">' + t.panos_feature + '</span>' +
+                '<span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">' + t.expected_action + '</span>' +
+                '<span id="c-' + name + '-sec-verdict-' + t.id + '"><span class="sec-verdict pending">--</span></span></div>' +
+                '<div class="security-test-detail" id="c-' + name + '-sec-detail-' + t.id + '" style="display:none"></div>';
+        }
+        html += '</div></div>';
+    }
+    panel.innerHTML = html;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function clientToggleSecDetail(name, testId) {
+    var detail = document.getElementById('c-' + name + '-sec-detail-' + testId);
+    if (!detail) return;
+    if (detail.style.display === 'none') {
+        detail.style.display = '';
+        clientRenderSecDetail(name, testId);
+    } else {
+        detail.style.display = 'none';
+    }
+}
+
+function clientRenderSecDetail(name, testId) {
+    var detail = document.getElementById('c-' + name + '-sec-detail-' + testId);
+    if (!detail) return;
+    var key = name + ':' + testId;
+    var r = (_clientSecResults[name] || {})[testId];
+    if (!r) {
+        var testInfo = null;
+        var catalog = _clientSecCatalogs[name];
+        if (catalog) {
+            for (var cat in catalog) {
+                for (var i = 0; i < catalog[cat].length; i++) {
+                    if (catalog[cat][i].id === testId) { testInfo = catalog[cat][i]; break; }
+                }
+                if (testInfo) break;
+            }
+        }
+        if (testInfo) {
+            detail.innerHTML = '<div class="security-detail-grid">' +
+                '<div class="detail-label">Description</div><div class="detail-value">' + (testInfo.description || 'N/A') + '</div>' +
+                '<div class="detail-label">PAN-OS Feature</div><div class="detail-value">' + testInfo.panos_feature + '</div>' +
+                '<div class="detail-label">Status</div><div class="detail-value" style="color:var(--text-secondary)">Not yet executed</div></div>';
+        } else {
+            detail.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text-secondary)">No results yet</div>';
+        }
+        return;
+    }
+    var ts = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString() : 'N/A';
+    var vCls = r.verdict === 'PASS' ? 'pass' : r.verdict === 'FAIL' ? 'fail' : r.verdict === 'ERROR' ? 'error' : 'pending';
+    var payloadHtml = r.payload ? '<pre class="detail-pre">' + escapeHtml(r.payload) + '</pre>' : '<span style="color:var(--text-secondary)">N/A</span>';
+    var respBodyHtml = r.response_body_snippet ? '<pre class="detail-pre">' + escapeHtml(r.response_body_snippet) + '</pre>' : '<span style="color:var(--text-secondary)">N/A</span>';
+    var headersHtml = '<span style="color:var(--text-secondary)">N/A</span>';
+    if (r.response_headers && Object.keys(r.response_headers).length > 0) {
+        headersHtml = '<pre class="detail-pre">' + escapeHtml(Object.entries(r.response_headers).map(function(e){return e[0]+': '+e[1]}).join('\n')) + '</pre>';
+    }
+    detail.innerHTML = '<div class="security-detail-grid">' +
+        '<div class="detail-label">Description</div><div class="detail-value">' + (r.description || 'N/A') + '</div>' +
+        '<div class="detail-label">Payload Sent</div><div class="detail-value">' + payloadHtml + '</div>' +
+        '<div class="detail-label">Target URL</div><div class="detail-value" style="word-break:break-all;font-family:monospace;font-size:10px">' + escapeHtml(r.url || 'N/A') + '</div>' +
+        '<div class="detail-label">HTTP Method</div><div class="detail-value">' + (r.method || 'N/A') + '</div>' +
+        '<div class="detail-label">Expected Behavior</div><div class="detail-value">' + (r.expected_behavior || 'N/A') + '</div>' +
+        '<div class="detail-label">Response Code</div><div class="detail-value"><strong>' + (r.response_code || 'N/A') + '</strong></div>' +
+        '<div class="detail-label">Response Body</div><div class="detail-value">' + respBodyHtml + '</div>' +
+        '<div class="detail-label">Response Headers</div><div class="detail-value">' + headersHtml + '</div>' +
+        '<div class="detail-label">PAN-OS Feature</div><div class="detail-value">' + (r.panos_feature || 'N/A') + '</div>' +
+        '<div class="detail-label">Timestamp</div><div class="detail-value">' + ts + '</div>' +
+        '<div class="detail-label">Verdict</div><div class="detail-value"><span class="sec-verdict ' + vCls + '" style="font-size:11px;padding:3px 10px">' + r.verdict + '</span>' +
+        '<span style="margin-left:8px;font-size:11px">' + (r.verdict_explanation || r.detail || '') + '</span></div></div>';
+}
+
+function clientToggleSecCategorySelect(name, cat) {
+    var boxes = document.querySelectorAll('.sec-checkbox-' + name + '[data-cat="' + cat + '"]');
+    var allChecked = Array.from(boxes).every(function(b){return b.checked});
+    boxes.forEach(function(b){b.checked = !allChecked});
+}
+
+async function clientStartSecurity(name) {
+    var boxes = document.querySelectorAll('.sec-checkbox-' + name + ':checked');
+    var tests = Array.from(boxes).map(function(b){return b.dataset.id});
+    if (!tests.length) return;
+    var config = {
+        http_port: parseInt(document.getElementById('c-' + name + '-sec-http-port').value) || 9999,
+        https_port: parseInt(document.getElementById('c-' + name + '-sec-https-port').value) || 443,
+        interval: parseFloat(document.getElementById('c-' + name + '-sec-interval').value) || 2,
+    };
+    await fetch('/api/client/' + name + '/security/start', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ tests: tests, config: config })
+    });
+    clientStartSecurityPolling(name);
+}
+
+async function clientStopSecurity(name) {
+    await fetch('/api/client/' + name + '/security/stop', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+}
+
+async function clientClearSecurity(name) {
+    await fetch('/api/client/' + name + '/security/clear', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+    if (_clientSecResults[name]) _clientSecResults[name] = {};
+    document.querySelectorAll('[id^="c-' + name + '-sec-verdict-"]').forEach(function(el) {
+        el.innerHTML = '<span class="sec-verdict pending">--</span>';
+    });
+    document.querySelectorAll('[id^="c-' + name + '-sec-detail-"]').forEach(function(el) {
+        el.style.display = 'none'; el.innerHTML = '';
+    });
+    var summaryEl = document.getElementById('c-' + name + '-security-summary');
+    if (summaryEl) summaryEl.style.display = 'none';
+}
+
+function clientStartSecurityPolling(name) {
+    if (_clientSecPolling[name]) return;
+    _clientSecPolling[name] = true;
+    clientPollSecurity(name);
+}
+
+async function clientPollSecurity(name) {
+    if (!_clientSecPolling[name]) return;
+    try {
+        var resp = await fetch('/api/client/' + name + '/security/status');
+        var data = await resp.json();
+        clientUpdateSecurityUI(name, data);
+        if (!data.running && data.summary.pending === 0) {
+            _clientSecPolling[name] = false;
+            return;
+        }
+    } catch(e) {}
+    setTimeout(function() { clientPollSecurity(name); }, 1500);
+}
+
+function clientUpdateSecurityUI(name, data) {
+    if (!_clientSecResults[name]) _clientSecResults[name] = {};
+    for (var i = 0; i < data.results.length; i++) {
+        var r = data.results[i];
+        _clientSecResults[name][r.test_id] = r;
+        var el = document.getElementById('c-' + name + '-sec-verdict-' + r.test_id);
+        if (!el) continue;
+        var cls = 'pending', label = '--';
+        if (r.verdict === 'PASS') { cls = 'pass'; label = 'PASS'; }
+        else if (r.verdict === 'FAIL') { cls = 'fail'; label = 'FAIL'; }
+        else if (r.verdict === 'ERROR') { cls = 'error'; label = 'ERROR'; }
+        else if (r.verdict === 'PENDING') { cls = 'pending'; label = 'PENDING'; }
+        el.innerHTML = '<span class="sec-verdict ' + cls + '" title="' + escapeHtml(r.detail || '') + '">' + label + '</span>';
+        var detail = document.getElementById('c-' + name + '-sec-detail-' + r.test_id);
+        if (detail && detail.style.display !== 'none') clientRenderSecDetail(name, r.test_id);
+    }
+    var s = data.summary;
+    var summaryEl = document.getElementById('c-' + name + '-security-summary');
+    if (summaryEl && s.total > 0) {
+        summaryEl.style.display = '';
+        var runLabel = data.running ? '<span style="color:var(--accent);font-weight:600">Running...</span>' : '<span style="color:var(--text-secondary)">Complete</span>';
+        summaryEl.innerHTML = '<div class="security-summary-bar">' + runLabel +
+            '<span style="color:var(--text-secondary);font-size:11px">Total: <strong>' + s.total + '</strong></span>' +
+            '<span class="security-summary-item"><span class="dot green"></span> Pass: ' + s.passed + '</span>' +
+            '<span class="security-summary-item"><span class="dot red"></span> Fail: ' + s.failed + '</span>' +
+            (s.errors > 0 ? '<span class="security-summary-item"><span class="dot yellow"></span> Error: ' + s.errors + '</span>' : '') +
+            (s.pending > 0 ? '<span class="security-summary-item"><span class="dot gray"></span> Pending: ' + s.pending + '</span>' : '') +
+            '</div>';
+    } else if (summaryEl) {
+        summaryEl.style.display = 'none';
+    }
+}
+
+// Custom patterns from server dashboard
+function clientShowCustomPattern(name, editId) {
+    var modal = document.getElementById('srv-custom-pattern-modal');
+    if (!modal) {
+        document.body.insertAdjacentHTML('beforeend',
+            '<div class="modal-overlay" id="srv-custom-pattern-modal" style="display:none">' +
+            '<div class="modal" style="width:480px">' +
+            '<h3 id="srv-cp-title" style="font-size:14px;margin-bottom:12px">Add Custom Attack Pattern</h3>' +
+            '<input type="hidden" id="srv-cp-client" value="">' +
+            '<input type="hidden" id="srv-cp-edit-id" value="">' +
+            '<div style="display:grid;grid-template-columns:100px 1fr;gap:6px 8px;align-items:center;font-size:12px">' +
+            '<label style="color:var(--text-secondary)">Name *</label><input type="text" id="srv-cp-name" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
+            '<label style="color:var(--text-secondary)">Category</label><select id="srv-cp-category" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"><option value="web_attacks">Web Attacks</option><option value="malware_threats">Malware / Threats</option><option value="url_filtering">URL Filtering</option></select>' +
+            '<label style="color:var(--text-secondary)">Payload *</label><textarea id="srv-cp-payload" rows="3" style="padding:4px 8px;font-size:11px;font-family:monospace;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;resize:vertical"></textarea>' +
+            '<label style="color:var(--text-secondary)">Method</label><select id="srv-cp-method" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"><option value="GET">GET</option><option value="POST">POST</option></select>' +
+            '<label style="color:var(--text-secondary)">Target Path</label><input type="text" id="srv-cp-target-path" value="/echo" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
+            '<label style="color:var(--text-secondary)">Headers</label><textarea id="srv-cp-headers" rows="2" placeholder=\'{"X-Custom":"value"}\' style="padding:4px 8px;font-size:11px;font-family:monospace;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;resize:vertical"></textarea>' +
+            '<label style="color:var(--text-secondary)">Description</label><textarea id="srv-cp-description" rows="2" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;resize:vertical"></textarea>' +
+            '<label style="color:var(--text-secondary)">PAN-OS Feature</label><select id="srv-cp-panos-feature" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"><option value="Vulnerability Protection">Vulnerability Protection</option><option value="Anti-Virus">Anti-Virus</option><option value="Anti-Spyware">Anti-Spyware</option><option value="URL Filtering">URL Filtering</option></select></div>' +
+            '<div style="margin-top:12px;display:flex;gap:6px;justify-content:flex-end">' +
+            '<button class="btn btn-secondary" onclick="document.getElementById(\'srv-custom-pattern-modal\').style.display=\'none\'" style="padding:5px 14px;font-size:12px">Cancel</button>' +
+            '<button class="btn btn-primary" onclick="clientSaveCustomPattern()" style="padding:5px 14px;font-size:12px">Save</button></div></div></div>');
+        modal = document.getElementById('srv-custom-pattern-modal');
+    }
+    document.getElementById('srv-cp-client').value = name;
+    document.getElementById('srv-cp-edit-id').value = editId || '';
+    document.getElementById('srv-cp-title').textContent = editId ? 'Edit Custom Pattern' : 'Add Custom Attack Pattern';
+    if (!editId) {
+        document.getElementById('srv-cp-name').value = '';
+        document.getElementById('srv-cp-category').value = 'web_attacks';
+        document.getElementById('srv-cp-payload').value = '';
+        document.getElementById('srv-cp-method').value = 'GET';
+        document.getElementById('srv-cp-target-path').value = '/echo';
+        document.getElementById('srv-cp-headers').value = '';
+        document.getElementById('srv-cp-description').value = '';
+        document.getElementById('srv-cp-panos-feature').value = 'Vulnerability Protection';
+    } else {
+        fetch('/api/client/' + name + '/security/patterns').then(function(r){return r.json()}).then(function(patterns){
+            var p = patterns.find(function(x){return x.id === editId});
+            if (p) {
+                document.getElementById('srv-cp-name').value = p.name || '';
+                document.getElementById('srv-cp-category').value = p.category || 'web_attacks';
+                document.getElementById('srv-cp-payload').value = p.payload || '';
+                document.getElementById('srv-cp-method').value = p.method || 'GET';
+                document.getElementById('srv-cp-target-path').value = p.target_path || '/echo';
+                document.getElementById('srv-cp-headers').value = p.headers ? JSON.stringify(p.headers,null,2) : '';
+                document.getElementById('srv-cp-description').value = p.description || '';
+                document.getElementById('srv-cp-panos-feature').value = p.panos_feature || 'Vulnerability Protection';
+            }
+        });
+    }
+    modal.style.display = 'flex';
+}
+
+async function clientSaveCustomPattern() {
+    var name = document.getElementById('srv-cp-client').value;
+    var editId = document.getElementById('srv-cp-edit-id').value;
+    var cpName = document.getElementById('srv-cp-name').value.trim();
+    var payload = document.getElementById('srv-cp-payload').value.trim();
+    if (!cpName || !payload) { alert('Name and payload are required'); return; }
+    var headers = {};
+    var headersStr = document.getElementById('srv-cp-headers').value.trim();
+    if (headersStr) { try { headers = JSON.parse(headersStr); } catch(e) { alert('Headers must be valid JSON'); return; } }
+    var data = {
+        name: cpName, category: document.getElementById('srv-cp-category').value,
+        payload: payload, method: document.getElementById('srv-cp-method').value,
+        target_path: document.getElementById('srv-cp-target-path').value || '/echo',
+        headers: headers, description: document.getElementById('srv-cp-description').value.trim(),
+        panos_feature: document.getElementById('srv-cp-panos-feature').value, expected_action: 'block'
+    };
+    if (editId) {
+        await fetch('/api/client/' + name + '/security/patterns/' + editId, {
+            method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+        });
+    } else {
+        await fetch('/api/client/' + name + '/security/patterns', {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+        });
+    }
+    document.getElementById('srv-custom-pattern-modal').style.display = 'none';
+    await clientLoadSecurityCatalog(name);
+}
+
+function clientEditCustomPattern(name, patternId) {
+    clientShowCustomPattern(name, patternId);
+}
+
+async function clientDeleteCustomPattern(name, patternId) {
+    if (!confirm('Delete this custom pattern?')) return;
+    await fetch('/api/client/' + name + '/security/patterns/' + patternId, { method: 'DELETE' });
+    await clientLoadSecurityCatalog(name);
+}
+
 // ─── Init ────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     loadClients();
@@ -1984,6 +2425,8 @@ def proxy_to_client(name, path, method='GET', data=None):
     try:
         if method == 'POST':
             r = http_client.post(target, json=data, timeout=10)
+        elif method == 'PUT':
+            r = http_client.put(target, json=data, timeout=10)
         elif method == 'DELETE':
             r = http_client.delete(target, timeout=10)
         else:
@@ -2278,6 +2721,54 @@ def client_topology(name):
 @app.route('/api/client/<name>/clear_stats', methods=['POST'])
 def client_clear_stats(name):
     result, code = proxy_to_client(name, '/api/clear_stats', 'POST', {})
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/security/catalog')
+def client_security_catalog(name):
+    result, code = proxy_to_client(name, '/api/security/catalog')
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/security/start', methods=['POST'])
+def client_security_start(name):
+    result, code = proxy_to_client(name, '/api/security/start', 'POST', request.json or {})
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/security/stop', methods=['POST'])
+def client_security_stop(name):
+    result, code = proxy_to_client(name, '/api/security/stop', 'POST', {})
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/security/status')
+def client_security_status(name):
+    result, code = proxy_to_client(name, '/api/security/status')
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/security/clear', methods=['POST'])
+def client_security_clear(name):
+    result, code = proxy_to_client(name, '/api/security/clear', 'POST', {})
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/security/patterns', methods=['GET', 'POST'])
+def client_security_patterns(name):
+    if request.method == 'POST':
+        result, code = proxy_to_client(name, '/api/security/patterns', 'POST', request.json or {})
+    else:
+        result, code = proxy_to_client(name, '/api/security/patterns')
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/security/patterns/<pattern_id>', methods=['PUT', 'DELETE'])
+def client_security_pattern(name, pattern_id):
+    if request.method == 'DELETE':
+        result, code = proxy_to_client(name, f'/api/security/patterns/{pattern_id}', 'DELETE')
+    else:
+        result, code = proxy_to_client(name, f'/api/security/patterns/{pattern_id}', 'PUT', request.json or {})
     return jsonify(result), code
 
 

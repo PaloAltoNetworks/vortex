@@ -520,9 +520,98 @@ div.vis-tooltip {
 }
 .security-select-all:hover { text-decoration: underline; }
 
+/* Clickable test rows */
+.security-test-row.clickable { cursor: pointer; }
+.security-test-row.clickable:hover { background: var(--bg-hover); }
+
+/* Expandable test detail panel */
+.security-test-detail {
+    padding: 10px 14px;
+    background: var(--bg-sub);
+    border-bottom: 1px solid var(--border);
+    animation: detailSlide 0.2s ease-out;
+}
+.security-detail-grid {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 6px 12px;
+    font-size: 11px;
+}
+.detail-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.3px;
+    padding-top: 2px;
+}
+.detail-value {
+    color: var(--text-primary);
+}
+.detail-pre {
+    background: #1e2a3a;
+    color: #b0bec5;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    overflow-x: auto;
+    max-height: 120px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 2px 0;
+}
+@keyframes detailSlide {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Custom pattern edit/delete buttons */
+.sec-custom-actions {
+    margin-left: 6px;
+    display: inline-flex;
+    gap: 2px;
+}
+.sec-edit-btn, .sec-del-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 0 4px;
+    color: var(--text-secondary);
+    line-height: 16px;
+}
+.sec-edit-btn:hover { color: var(--accent); border-color: var(--accent); }
+.sec-del-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Custom pattern modal */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.modal {
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
 @media (max-width: 900px) {
     .security-test-row {
         grid-template-columns: 24px 1fr 80px 60px;
     }
     .security-test-row .security-test-feature { display: none; }
+    .security-detail-grid {
+        grid-template-columns: 1fr;
+    }
+    .detail-label { margin-top: 6px; }
+    .modal { width: 95% !important; }
 }

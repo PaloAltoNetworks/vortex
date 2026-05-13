@@ -161,6 +161,7 @@
                 <button class="btn btn-start" onclick="startSecurityTests()" style="padding:3px 10px;font-size:10px">Run Selected</button>
                 <button class="btn btn-stop" onclick="stopSecurityTests()" style="padding:3px 10px;font-size:10px">Stop</button>
                 <button class="btn btn-secondary" onclick="clearSecurityResults()" style="padding:3px 10px;font-size:10px">Clear</button>
+                <button class="btn btn-primary" onclick="showCustomPatternForm()" style="padding:3px 10px;font-size:10px">+ Custom</button>
                 <span class="chevron collapsed" id="chevron-security">&#9660;</span>
             </div>
         </div>
@@ -198,6 +199,48 @@
         </div>
     </div>
 
+</div>
+
+<!-- Custom Pattern Modal -->
+<div class="modal-overlay" id="custom-pattern-modal" style="display:none">
+    <div class="modal" style="width:480px">
+        <h3 id="custom-pattern-title" style="font-size:14px;margin-bottom:12px">Add Custom Attack Pattern</h3>
+        <input type="hidden" id="custom-pattern-edit-id" value="">
+        <div style="display:grid;grid-template-columns:100px 1fr;gap:6px 8px;align-items:center;font-size:12px">
+            <label style="color:var(--text-secondary)">Name *</label>
+            <input type="text" id="cp-name" placeholder="My SQL Injection Test" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
+            <label style="color:var(--text-secondary)">Category</label>
+            <select id="cp-category" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
+                <option value="web_attacks">Web Attacks</option>
+                <option value="malware_threats">Malware / Threats</option>
+                <option value="url_filtering">URL Filtering</option>
+            </select>
+            <label style="color:var(--text-secondary)">Payload *</label>
+            <textarea id="cp-payload" rows="3" placeholder="' OR 1=1 --" style="padding:4px 8px;font-size:11px;font-family:monospace;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;resize:vertical"></textarea>
+            <label style="color:var(--text-secondary)">Method</label>
+            <select id="cp-method" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+            </select>
+            <label style="color:var(--text-secondary)">Target Path</label>
+            <input type="text" id="cp-target-path" value="/echo" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
+            <label style="color:var(--text-secondary)">Headers</label>
+            <textarea id="cp-headers" rows="2" placeholder='{"X-Custom": "value"}' style="padding:4px 8px;font-size:11px;font-family:monospace;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;resize:vertical"></textarea>
+            <label style="color:var(--text-secondary)">Description</label>
+            <textarea id="cp-description" rows="2" placeholder="What this test does..." style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;resize:vertical"></textarea>
+            <label style="color:var(--text-secondary)">PAN-OS Feature</label>
+            <select id="cp-panos-feature" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
+                <option value="Vulnerability Protection">Vulnerability Protection</option>
+                <option value="Anti-Virus">Anti-Virus</option>
+                <option value="Anti-Spyware">Anti-Spyware</option>
+                <option value="URL Filtering">URL Filtering</option>
+            </select>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:6px;justify-content:flex-end">
+            <button class="btn btn-secondary" onclick="hideCustomPatternForm()" style="padding:5px 14px;font-size:12px">Cancel</button>
+            <button class="btn btn-primary" onclick="saveCustomPattern()" style="padding:5px 14px;font-size:12px">Save</button>
+        </div>
+    </div>
 </div>
 
 <script>const SERVER_HOST = {{ server_host | tojson }};</script>

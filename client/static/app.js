@@ -1255,6 +1255,7 @@ const SEC_CATEGORY_META = {
 
 let _securityCatalog = null;
 let _securityPollActive = false;
+let _securityResults = {};
 
 async function loadSecurityCatalog() {
     try {
@@ -1295,20 +1296,108 @@ function renderSecurityPanel() {
                     <span>Result</span>
                 </div>`;
         for (const t of tests) {
-            html += `<div class="security-test-row" id="sec-row-${t.id}">
-                <input type="checkbox" class="sec-checkbox" data-cat="${cat}" data-id="${t.id}" checked style="width:14px;height:14px;accent-color:var(--accent)">
+            const customBtns = t.custom ? `<span class="sec-custom-actions" onclick="event.stopPropagation()">
+                <button class="sec-edit-btn" onclick="editCustomPattern('${t.id}')" title="Edit">&#9998;</button>
+                <button class="sec-del-btn" onclick="deleteCustomPattern('${t.id}')" title="Delete">&#10005;</button>
+            </span>` : '';
+            html += `<div class="security-test-row clickable" id="sec-row-${t.id}" onclick="toggleSecDetail('${t.id}')">
+                <input type="checkbox" class="sec-checkbox" data-cat="${cat}" data-id="${t.id}" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">
                 <div>
-                    <div class="security-test-name">${t.name}</div>
-                    <div class="security-test-desc">${t.description}</div>
+                    <div class="security-test-name">${t.name}${customBtns}</div>
+                    <div class="security-test-desc">${t.description || ''}</div>
                 </div>
                 <span class="security-test-feature">${t.panos_feature}</span>
                 <span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">${t.expected_action}</span>
                 <span id="sec-verdict-${t.id}"><span class="sec-verdict pending">--</span></span>
-            </div>`;
+            </div>
+            <div class="security-test-detail" id="sec-detail-${t.id}" style="display:none"></div>`;
         }
         html += '</div></div>';
     }
     panel.innerHTML = html;
+}
+
+function toggleSecDetail(testId) {
+    const detail = document.getElementById('sec-detail-' + testId);
+    if (!detail) return;
+    if (detail.style.display === 'none') {
+        detail.style.display = '';
+        renderSecDetail(testId);
+    } else {
+        detail.style.display = 'none';
+    }
+}
+
+function renderSecDetail(testId) {
+    const detail = document.getElementById('sec-detail-' + testId);
+    if (!detail) return;
+    const r = _securityResults[testId];
+    if (!r) {
+        // No result yet — show catalog info
+        let testInfo = null;
+        if (_securityCatalog) {
+            for (const tests of Object.values(_securityCatalog)) {
+                for (const t of tests) {
+                    if (t.id === testId) { testInfo = t; break; }
+                }
+                if (testInfo) break;
+            }
+        }
+        if (testInfo) {
+            detail.innerHTML = `<div class="security-detail-grid">
+                <div class="detail-label">Description</div>
+                <div class="detail-value">${testInfo.description || 'N/A'}</div>
+                <div class="detail-label">PAN-OS Feature</div>
+                <div class="detail-value">${testInfo.panos_feature}</div>
+                <div class="detail-label">Expected Action</div>
+                <div class="detail-value">${testInfo.expected_action}</div>
+                <div class="detail-label">Status</div>
+                <div class="detail-value" style="color:var(--text-secondary)">Not yet executed — run test to see results</div>
+            </div>`;
+        } else {
+            detail.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text-secondary)">No results yet</div>';
+        }
+        return;
+    }
+
+    const ts = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString() : 'N/A';
+    const verdictClass = r.verdict === 'PASS' ? 'pass' : r.verdict === 'FAIL' ? 'fail' : r.verdict === 'ERROR' ? 'error' : 'pending';
+    const payloadHtml = r.payload ? `<pre class="detail-pre">${escapeHtml(r.payload)}</pre>` : '<span style="color:var(--text-secondary)">N/A</span>';
+    const respBodyHtml = r.response_body_snippet ? `<pre class="detail-pre">${escapeHtml(r.response_body_snippet)}</pre>` : '<span style="color:var(--text-secondary)">N/A</span>';
+    const headersHtml = r.response_headers && Object.keys(r.response_headers).length > 0
+        ? `<pre class="detail-pre">${escapeHtml(Object.entries(r.response_headers).map(([k,v]) => k + ': ' + v).join('\n'))}</pre>`
+        : '<span style="color:var(--text-secondary)">N/A</span>';
+
+    detail.innerHTML = `<div class="security-detail-grid">
+        <div class="detail-label">Description</div>
+        <div class="detail-value">${r.description || 'N/A'}</div>
+        <div class="detail-label">Payload Sent</div>
+        <div class="detail-value">${payloadHtml}</div>
+        <div class="detail-label">Target URL</div>
+        <div class="detail-value" style="word-break:break-all;font-family:monospace;font-size:10px">${escapeHtml(r.url || 'N/A')}</div>
+        <div class="detail-label">HTTP Method</div>
+        <div class="detail-value">${r.method || 'N/A'}</div>
+        <div class="detail-label">Expected Behavior</div>
+        <div class="detail-value">${r.expected_behavior || 'N/A'}</div>
+        <div class="detail-label">Response Code</div>
+        <div class="detail-value"><strong>${r.response_code || 'N/A'}</strong></div>
+        <div class="detail-label">Response Body</div>
+        <div class="detail-value">${respBodyHtml}</div>
+        <div class="detail-label">Response Headers</div>
+        <div class="detail-value">${headersHtml}</div>
+        <div class="detail-label">PAN-OS Feature</div>
+        <div class="detail-value">${r.panos_feature || 'N/A'}</div>
+        <div class="detail-label">Timestamp</div>
+        <div class="detail-value">${ts}</div>
+        <div class="detail-label">Verdict</div>
+        <div class="detail-value"><span class="sec-verdict ${verdictClass}" style="font-size:11px;padding:3px 10px">${r.verdict}</span>
+            <span style="margin-left:8px;font-size:11px">${r.verdict_explanation || r.detail || ''}</span></div>
+    </div>`;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function toggleSecurityCategory(cat) {
@@ -1348,9 +1437,13 @@ async function stopSecurityTests() {
 
 async function clearSecurityResults() {
     await apiPost('/api/security/clear', {});
-    // Reset all verdict badges
+    _securityResults = {};
     document.querySelectorAll('[id^="sec-verdict-"]').forEach(el => {
         el.innerHTML = '<span class="sec-verdict pending">--</span>';
+    });
+    document.querySelectorAll('[id^="sec-detail-"]').forEach(el => {
+        el.style.display = 'none';
+        el.innerHTML = '';
     });
     document.getElementById('security-summary').style.display = 'none';
     addLog('[SECURITY] Results cleared');
@@ -1377,8 +1470,8 @@ async function pollSecurityStatus() {
 }
 
 function updateSecurityUI(data) {
-    // Update verdict badges
     for (const r of data.results) {
+        _securityResults[r.test_id] = r;
         const el = document.getElementById('sec-verdict-' + r.test_id);
         if (!el) continue;
         let cls = 'pending', label = '--';
@@ -1386,10 +1479,12 @@ function updateSecurityUI(data) {
         else if (r.verdict === 'FAIL') { cls = 'fail'; label = 'FAIL'; }
         else if (r.verdict === 'ERROR') { cls = 'error'; label = 'ERROR'; }
         else if (r.verdict === 'PENDING') { cls = 'pending'; label = 'PENDING'; }
-        el.innerHTML = `<span class="sec-verdict ${cls}" title="${r.detail || ''}">${label}</span>`;
+        el.innerHTML = `<span class="sec-verdict ${cls}" title="${escapeHtml(r.detail || '')}">${label}</span>`;
+        // Update expanded detail if visible
+        const detail = document.getElementById('sec-detail-' + r.test_id);
+        if (detail && detail.style.display !== 'none') renderSecDetail(r.test_id);
     }
 
-    // Update summary bar
     const s = data.summary;
     const summaryEl = document.getElementById('security-summary');
     if (s.total > 0) {
@@ -1406,6 +1501,97 @@ function updateSecurityUI(data) {
     } else {
         summaryEl.style.display = 'none';
     }
+}
+
+// ─── Custom Attack Patterns ─────────────────────────────────
+
+function showCustomPatternForm(editId) {
+    const modal = document.getElementById('custom-pattern-modal');
+    if (!modal) return;
+    if (editId) {
+        document.getElementById('custom-pattern-title').textContent = 'Edit Custom Pattern';
+        document.getElementById('custom-pattern-edit-id').value = editId;
+        // Load pattern data
+        fetch('/api/security/patterns').then(r => r.json()).then(patterns => {
+            const p = patterns.find(x => x.id === editId);
+            if (p) {
+                document.getElementById('cp-name').value = p.name || '';
+                document.getElementById('cp-category').value = p.category || 'web_attacks';
+                document.getElementById('cp-payload').value = p.payload || '';
+                document.getElementById('cp-method').value = p.method || 'GET';
+                document.getElementById('cp-target-path').value = p.target_path || '/echo';
+                document.getElementById('cp-headers').value = p.headers ? JSON.stringify(p.headers, null, 2) : '';
+                document.getElementById('cp-description').value = p.description || '';
+                document.getElementById('cp-panos-feature').value = p.panos_feature || 'Vulnerability Protection';
+            }
+        });
+    } else {
+        document.getElementById('custom-pattern-title').textContent = 'Add Custom Attack Pattern';
+        document.getElementById('custom-pattern-edit-id').value = '';
+        document.getElementById('cp-name').value = '';
+        document.getElementById('cp-category').value = 'web_attacks';
+        document.getElementById('cp-payload').value = '';
+        document.getElementById('cp-method').value = 'GET';
+        document.getElementById('cp-target-path').value = '/echo';
+        document.getElementById('cp-headers').value = '';
+        document.getElementById('cp-description').value = '';
+        document.getElementById('cp-panos-feature').value = 'Vulnerability Protection';
+    }
+    modal.style.display = 'flex';
+}
+
+function hideCustomPatternForm() {
+    const modal = document.getElementById('custom-pattern-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function saveCustomPattern() {
+    const editId = document.getElementById('custom-pattern-edit-id').value;
+    const name = document.getElementById('cp-name').value.trim();
+    const payload = document.getElementById('cp-payload').value.trim();
+    if (!name || !payload) { alert('Name and payload are required'); return; }
+
+    let headers = {};
+    const headersStr = document.getElementById('cp-headers').value.trim();
+    if (headersStr) {
+        try { headers = JSON.parse(headersStr); } catch(e) { alert('Headers must be valid JSON'); return; }
+    }
+
+    const data = {
+        name,
+        category: document.getElementById('cp-category').value,
+        payload,
+        method: document.getElementById('cp-method').value,
+        target_path: document.getElementById('cp-target-path').value || '/echo',
+        headers,
+        description: document.getElementById('cp-description').value.trim(),
+        panos_feature: document.getElementById('cp-panos-feature').value,
+        expected_action: 'block',
+    };
+
+    if (editId) {
+        await fetch('/api/security/patterns/' + editId, {
+            method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+        });
+    } else {
+        await fetch('/api/security/patterns', {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+        });
+    }
+    hideCustomPatternForm();
+    await loadSecurityCatalog();
+    addLog('[SECURITY] Custom pattern saved: ' + name);
+}
+
+async function editCustomPattern(patternId) {
+    showCustomPatternForm(patternId);
+}
+
+async function deleteCustomPattern(patternId) {
+    if (!confirm('Delete this custom pattern?')) return;
+    await fetch('/api/security/patterns/' + patternId, { method: 'DELETE' });
+    await loadSecurityCatalog();
+    addLog('[SECURITY] Custom pattern deleted');
 }
 
 // ─── Init ──────────────────────────────────────────────────
