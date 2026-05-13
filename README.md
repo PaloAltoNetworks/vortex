@@ -53,6 +53,16 @@ docker compose up -d
 
 ## Features
 
+### Security Testing (NGFW Validation)
+- **Web Attack Tests**: SQL Injection (UNION, OR 1=1, DROP TABLE), XSS (script tag, IMG onerror, SVG onload), Command Injection (cat, pipe, backtick), Path Traversal, Log4Shell (JNDI)
+- **Malware/Threat Tests**: EICAR anti-malware download over HTTP and HTTPS, EICAR in ZIP archive, C2 callback pattern, malicious User-Agent strings
+- **URL Filtering Tests**: PAN-DB category test URLs — malware, phishing, hacking, proxy/anonymizer
+- **Firewall detection**: Automatic pass/fail verdicts based on connection resets, timeouts, block pages, and response analysis
+- **Real-time results**: Live verdict updates with color-coded PASS (blocked by firewall) / FAIL (passed through) indicators
+- **SSL Decryption validation**: EICAR over HTTPS tests whether the firewall's SSL Decryption policy is working
+- **Configurable test URLs**: URL Filtering test URLs can be changed at runtime
+- **See [Security Testing Guide](SECURITY_TESTING.md)** for detailed usage instructions
+
 ### Traffic Control
 - **Duration control**: Default 15-minute test duration, configurable per protocol
 - **Rate control (pps)**: Set target packets-per-second instead of manual interval
@@ -128,7 +138,7 @@ docker compose up -d
 | 80 | HTTP (nginx) |
 | 443 | HTTPS (self-signed cert, HTTP/2 enabled) |
 | 5201-5203 | iperf3 (3 instances for concurrent clients) |
-| 9999 | HTTP echo server |
+| 9999 | HTTP echo server (+ security test endpoints) |
 | 53 | DNS server |
 | 21 | FTP |
 | 21100-21110 | FTP passive |
