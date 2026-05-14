@@ -10,13 +10,15 @@ Validate PAN-OS NGFW security profiles (Vulnerability Protection, Anti-Virus, UR
   - **Anti-Virus / Threat Prevention** profile (for malware detection)
   - **SSL Decryption** policy (for HTTPS-based malware detection)
   - **URL Filtering** profile (for URL category blocking)
+  - **Anti-Spyware** profile (for DNS-based attacks and C2 detection)
+  - **Zone Protection** profile (for brute-force and DoS detection)
 
 ## Quick Start
 
 1. Open the client dashboard: `https://<client-ip>:8443`
 2. Scroll down to the **Security Testing** section (click to expand)
 3. Select tests or click a category header checkbox to select all tests in that category
-4. Click **Run Selected**
+4. Click **Run Selected** to run all checked tests, or click the **▶** button next to any individual test to run just that one
 5. Watch results update in real-time
 
 ## Test Categories
@@ -65,6 +67,37 @@ Tests PAN-OS URL Filtering using PAN-DB category test URLs.
 | URL Category — Proxy/Anonymizer | `http://urlfiltering.paloaltonetworks.com/test-proxy-avoidance-and-anonymizers` | proxy avoidance and anonymizers |
 
 > **Note**: URL Filtering test URLs can be customized in the dashboard config fields before running tests.
+
+### DNS-Based Attacks (Anti-Spyware)
+
+Tests DNS-level threat detection capabilities.
+
+| Test | What It Does | Detection Target |
+|------|-------------|-----------------|
+| DNS Tunneling Detection | Sends DNS queries with long, base64-encoded subdomain labels | Anomalous DNS query patterns (iodine, dnscat2) |
+| DGA Domain Detection | Queries multiple high-entropy, algorithmically-generated domains | DGA-based botnet C2 communication |
+| DNS Rebinding Attempt | Queries domain with private IP resolution pattern | DNS rebinding bypass attempts |
+
+### Protocol Abuse (Vulnerability Protection)
+
+Tests protocol-level abuse detection.
+
+| Test | What It Does | Detection Target |
+|------|-------------|-----------------|
+| SSH Brute Force Pattern | Rapid successive SSH connection attempts | Brute-force attack detection |
+| FTP Bounce Scan | Sends FTP PORT command targeting internal IPs | FTP bounce scan reconnaissance |
+| HTTP Request Smuggling | Sends conflicting Content-Length / Transfer-Encoding headers | Request smuggling attacks |
+| Slowloris DoS Pattern | Opens connection with slow partial header delivery | Slow-rate DoS detection |
+
+### File-Based Threats (Anti-Virus / File Blocking)
+
+Tests file type detection and blocking.
+
+| Test | What It Does | Detection Target |
+|------|-------------|-----------------|
+| PDF with Embedded JavaScript | Downloads PDF with JavaScript `app.alert` action | PDF active content blocking |
+| Office Document with VBA Macro | Downloads file with OLE2 header and VBA `AutoOpen` macro | Office macro malware blocking |
+| PE Executable Download — HTTP | Downloads Windows PE file (MZ/PE header) over HTTP | Executable file type blocking |
 
 ## Understanding Results
 
@@ -120,10 +153,25 @@ In the Security Testing panel header:
 3. **Expected with URL Filtering profile**: All tests show PASS (blocked)
 4. Demonstrates PAN-DB category-based URL blocking
 
-### Scenario 4: Full Security Profile Validation
+### Scenario 4: Run Individual Tests
+
+1. Find the specific test you want to run
+2. Click the **▶** (play) button next to it — runs just that single test
+3. The test executes immediately without affecting other tests
+4. Useful for re-running a specific test after making firewall policy changes
+
+### Scenario 5: Edit a Built-in Test
+
+1. Click the **✏** (edit) button next to any test — works on built-in and custom tests
+2. Modify the payload, method, headers, description, or target path
+3. Click **Save** — built-in test edits are saved as overrides (original is preserved)
+4. Modified tests show a "modified" badge
+5. Click **↺** (reset) to restore the original built-in test configuration
+
+### Scenario 6: Full Security Profile Validation
 
 1. Click the header checkbox for each category to select all tests (or select individual tests)
-2. Click **Run Selected** — all 20 tests run sequentially
+2. Click **Run Selected** — all 30 tests run sequentially
 3. Review the summary bar: green (passed/blocked), red (failed/passed through), yellow (errors)
 4. Use results to demonstrate firewall effectiveness during PoC
 
@@ -132,11 +180,18 @@ In the Security Testing panel header:
 The security testing engine exposes these REST endpoints:
 
 ```
-GET  /api/security/catalog   — List all available tests grouped by category
-POST /api/security/start     — Start tests: {"tests": ["sqli_union", "xss_script", ...], "config": {"http_port": 9999, "https_port": 443, "interval": 2}}
-POST /api/security/stop      — Stop running tests
-GET  /api/security/status    — Get current status, results, and logs
-POST /api/security/clear     — Clear all results and logs
+GET  /api/security/catalog              — List all available tests grouped by category
+POST /api/security/start                — Start tests: {"tests": ["sqli_union", "xss_script", ...], "config": {"http_port": 9999, "https_port": 443, "interval": 2}}
+POST /api/security/stop                 — Stop running tests
+GET  /api/security/status               — Get current status, results, and logs
+POST /api/security/clear                — Clear all results and logs
+GET  /api/security/patterns             — List custom attack patterns
+POST /api/security/patterns             — Add custom pattern
+PUT  /api/security/patterns/<id>        — Update custom pattern
+DELETE /api/security/patterns/<id>      — Delete custom pattern
+GET  /api/security/builtin/<id>         — Get original built-in test (before override)
+PUT  /api/security/builtin/<id>         — Save override for a built-in test
+DELETE /api/security/builtin/<id>       — Reset built-in test to default
 ```
 
 ### Example: Run all web attack tests via curl
@@ -148,7 +203,7 @@ curl -s http://<client-ip>:8080/api/security/catalog | jq .
 # Start specific tests
 curl -X POST http://<client-ip>:8080/api/security/start \
   -H 'Content-Type: application/json' \
-  -d '{"tests": ["sqli_union", "xss_script", "eicar_http"], "config": {"interval": 2}}'
+  -d '{"tests": ["sqli_union", "xss_script", "eicar_http", "dns_tunnel", "pe_download"], "config": {"interval": 2}}'
 
 # Check status
 curl -s http://<client-ip>:8080/api/security/status | jq .

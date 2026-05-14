@@ -125,9 +125,11 @@ SERVER_HOST=<server-ip> docker compose -f docker-compose.client.yml up -d
 
 ### Server Dashboard (`dashboard.py`)
 - Server tab: aggregate stats (nginx, iperf3, DNS, FTP, SSH), per-service status, active connections
-- Client tabs: register clients by name + URL, full proxy to client API
+- Client tabs: register clients by name + URL, full proxy to client API (GET/POST/PUT/DELETE)
 - FTP file management: upload/delete files via dashboard
 - Service restart: individual or all services via supervisord
+- Security testing integration: proxies security API calls to registered clients, full UI with expandable details and custom patterns
+- CSS: uses `.modal-overlay` with `.show` class toggle — avoid adding duplicate `.modal-overlay` rules that override `display: none`
 
 ### Proxy Configuration
 - Global proxy: HTTP or SOCKS5 with optional auth
@@ -147,20 +149,39 @@ SERVER_HOST=<server-ip> docker compose -f docker-compose.client.yml up -d
 
 ### Security Testing (`security_engine.py`)
 - Separate engine from TrafficEngine — tests run once per case with pass/fail verdicts vs continuous traffic
-- Three categories: Web Attacks (SQL injection, XSS, command injection, path traversal, Log4Shell), Malware/Threats (EICAR HTTP/HTTPS/ZIP, C2 callback, malicious User-Agent), URL Filtering (PAN-DB test URLs)
+- Six categories: Web Attacks (SQL injection, XSS, command injection, path traversal, Log4Shell), Malware/Threats (EICAR HTTP/HTTPS/ZIP, C2 callback, malicious User-Agent), URL Filtering (PAN-DB test URLs), DNS-Based Attacks (tunneling, DGA, rebinding), Protocol Abuse (SSH brute force, FTP bounce, HTTP smuggling, Slowloris), File-Based Threats (PDF with JS, Office macros, PE download)
 - Detection heuristics: ConnectionReset/timeout = blocked by firewall (PASS), HTTP 200 with echoed payload = passed through (FAIL), block page markers = blocked (PASS)
 - EICAR over HTTPS only detected if firewall has SSL Decryption enabled
 - URL Filtering test URLs use PAN-DB test URLs (`urlfiltering.paloaltonetworks.com/test-*`), configurable at runtime
-- API: `/api/security/catalog`, `/api/security/start`, `/api/security/stop`, `/api/security/status`, `/api/security/clear`
-- Echo server endpoints: `GET/POST /echo` (reflects payloads for web attack testing), `GET /eicar`, `GET /eicar.zip`
+- Enriched results: each `SecurityTestResult` includes payload, URL, method, response body snippet, response headers, verdict explanation, expected behavior
+- `EXPECTED_BEHAVIOR` dict maps test IDs to human-readable firewall behavior descriptions
+- Expandable detail view: clicking a test row shows full payload, response, PAN-OS guidance
+- Per-test Run button (▶): runs a single test independently without needing to select/deselect checkboxes
+- Edit any test: all tests (built-in and custom) have an edit button (✏). Built-in test edits are saved as overrides via `save_override()` / `PUT /api/security/builtin/<id>`
+- Override store: modified built-in tests are stored in `CustomPatternStore` with `override_of` field, replacing the original in the catalog. Reset to default via `DELETE /api/security/builtin/<id>`
+- Custom attack patterns: `CustomPatternStore` with JSON persistence (`/data/custom_patterns.json` or `/tmp/custom_patterns.json`), CRUD via `/api/security/patterns` endpoints
+- Custom patterns support: name, category, payload, method, headers, target path, expected action, PAN-OS feature
+- `reload_catalog()` must be called after any custom pattern CRUD to refresh the test catalog
+- API: `/api/security/catalog`, `/api/security/start`, `/api/security/stop`, `/api/security/status`, `/api/security/clear`, `/api/security/patterns` (GET/POST), `/api/security/patterns/<id>` (PUT/DELETE), `/api/security/builtin/<id>` (GET/PUT/DELETE)
+- Echo server endpoints: `GET/POST /echo` (reflects payloads for web attack testing), `GET /eicar`, `GET /eicar.zip`, `GET /test-file/pe`, `GET /test-file/pdf-js`, `GET /test-file/office-macro`
+- Server dashboard proxies all security API via `/api/client/<name>/security/*` routes
 
 ### Container Capabilities
 - `NET_ADMIN`: required for tc/netem, ip addr, iptables
 - `NET_RAW`: required for hping3, raw sockets
 - Both set in docker-compose files and documented in docker run commands
 
+### Key Files Added/Modified
+- `client/security_engine.py` — `SecurityTestEngine` + `CustomPatternStore` classes
+- `client/app.py` — Security + custom pattern API endpoints
+- `client/static/app.js` — Expandable details, custom pattern modal, enriched result storage (`_securityResults` dict)
+- `client/templates/dashboard.html` — Custom pattern modal HTML
+- `server/dashboard.py` — Security proxy routes + full security UI in client tabs (JS functions prefixed `client*`)
+- `SECURITY_TESTING.md` — User guide for security testing feature
+
 ## Git
 
-- Remote: https://code.pan.run/netsec/netsec-tme/traffic-tool.git
+- Remote origin: https://github.com/ajaymare/traffic-gen.git
+- Remote gitlab: https://code.pan.run/netsec/netsec-tme/traffic-tool.git
 - Docker images: `ajaymare/traffic-client:latest`, `ajaymare/traffic-server:latest` (amd64)
 - Author: Ajay Mare (ajaymaray@gmail.com)

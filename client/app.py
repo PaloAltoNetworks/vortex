@@ -537,5 +537,36 @@ def delete_pattern(pattern_id):
     return jsonify({"error": "Pattern not found"}), 404
 
 
+# ─── Built-in Test Overrides ─────────────────────────────
+
+@app.route('/api/security/builtin/<test_id>', methods=['PUT'])
+def override_builtin(test_id):
+    """Save an override for a built-in test."""
+    data = _get_json()
+    result = security_engine.save_override(test_id, data)
+    if result is None:
+        return jsonify({"error": "Built-in test not found"}), 404
+    security_engine.reload_catalog()
+    return jsonify({"ok": True, "pattern": result})
+
+
+@app.route('/api/security/builtin/<test_id>', methods=['DELETE'])
+def reset_builtin(test_id):
+    """Remove override for a built-in test (reset to default)."""
+    if security_engine.delete_override(test_id):
+        security_engine.reload_catalog()
+        return jsonify({"ok": True, "message": "Reset to default"})
+    return jsonify({"error": "No override found for this test"}), 404
+
+
+@app.route('/api/security/builtin/<test_id>', methods=['GET'])
+def get_builtin(test_id):
+    """Get the original unmodified built-in test."""
+    test = security_engine.get_builtin_test(test_id)
+    if test is None:
+        return jsonify({"error": "Built-in test not found"}), 404
+    return jsonify(test)
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=False)

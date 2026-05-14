@@ -25,6 +25,42 @@ with zipfile.ZipFile(_eicar_zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
     zf.writestr('eicar.com', EICAR_STRING.decode())
 EICAR_ZIP_BYTES = _eicar_zip_buf.getvalue()
 
+# ─── Test file payloads for file-based threat detection ──────
+# Minimal valid PE (MZ header + PE signature) — not executable, just triggers file type detection
+PE_TEST_BYTES = (
+    b'MZ' + b'\x90' * 58 +                    # DOS header (64 bytes)
+    struct.pack('<I', 64) +                     # e_lfanew at offset 60 → PE header at 64
+    b'PE\x00\x00' +                            # PE signature
+    struct.pack('<HH', 0x14C, 1) +             # Machine: i386, 1 section
+    b'\x00' * 12 +                             # Timestamp, symbol table, etc.
+    struct.pack('<HH', 0x00E0, 0x0102) +       # Optional header size, characteristics (EXECUTABLE)
+    b'\x00' * 224 +                            # Minimal optional header
+    b'This is a test PE file for anti-malware detection testing.\x00'
+)
+
+# Minimal PDF with embedded JavaScript annotation
+PDF_JS_TEST_BYTES = (
+    b'%PDF-1.4\n'
+    b'1 0 obj\n<< /Type /Catalog /Pages 2 0 R /OpenAction 4 0 R >>\nendobj\n'
+    b'2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n'
+    b'3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n'
+    b'4 0 obj\n<< /Type /Action /S /JavaScript /JS (app.alert\\("Security Test"\\);) >>\nendobj\n'
+    b'xref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000074 00000 n \n'
+    b'0000000127 00000 n \n0000000206 00000 n \n'
+    b'trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n296\n%%EOF\n'
+)
+
+# Bytes mimicking a file with OLE/VBA macro signatures
+OFFICE_MACRO_TEST_BYTES = (
+    b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'  # OLE2 compound file magic
+    + b'\x00' * 20
+    + b'Attribute VB_Name = "ThisDocument"\r\n'
+    + b'Sub AutoOpen()\r\n'
+    + b'    MsgBox "Security Test Macro"\r\n'
+    + b'End Sub\r\n'
+    + b'\x00' * 100
+)
+
 STATS_FILE = '/tmp/echo_stats.json'
 stats_lock = threading.Lock()
 stats = {
@@ -96,6 +132,36 @@ class TrafficHTTPHandler(BaseHTTPRequestHandler):
                 self.wfile.write(EICAR_ZIP_BYTES)
                 with stats_lock:
                     stats['http']['bytes_sent'] += len(EICAR_ZIP_BYTES)
+
+            elif path == '/test-file/pe':
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/x-dosexec')
+                self.send_header('Content-Disposition', 'attachment; filename="testfile.exe"')
+                self.send_header('Content-Length', str(len(PE_TEST_BYTES)))
+                self.end_headers()
+                self.wfile.write(PE_TEST_BYTES)
+                with stats_lock:
+                    stats['http']['bytes_sent'] += len(PE_TEST_BYTES)
+
+            elif path == '/test-file/pdf-js':
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/pdf')
+                self.send_header('Content-Disposition', 'attachment; filename="testfile.pdf"')
+                self.send_header('Content-Length', str(len(PDF_JS_TEST_BYTES)))
+                self.end_headers()
+                self.wfile.write(PDF_JS_TEST_BYTES)
+                with stats_lock:
+                    stats['http']['bytes_sent'] += len(PDF_JS_TEST_BYTES)
+
+            elif path == '/test-file/office-macro':
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/vnd.ms-word')
+                self.send_header('Content-Disposition', 'attachment; filename="testfile.doc"')
+                self.send_header('Content-Length', str(len(OFFICE_MACRO_TEST_BYTES)))
+                self.end_headers()
+                self.wfile.write(OFFICE_MACRO_TEST_BYTES)
+                with stats_lock:
+                    stats['http']['bytes_sent'] += len(OFFICE_MACRO_TEST_BYTES)
 
             elif path.startswith('/download'):
                 # Parse size parameter (KB)

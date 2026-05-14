@@ -416,6 +416,9 @@ DASHBOARD_HTML = r"""
         .security-category-badge.vuln { background: #fef3c7; color: #92400e; }
         .security-category-badge.malware { background: #fce7f3; color: #9d174d; }
         .security-category-badge.url { background: #e0e7ff; color: #3730a3; }
+        .security-category-badge.dns { background: #dbeafe; color: #1e40af; }
+        .security-category-badge.proto { background: #fce7f3; color: #7c3aed; }
+        .security-category-badge.file { background: #d1fae5; color: #065f46; }
         .security-test-list {
             border: 1px solid var(--border); border-top: none;
             border-radius: 0 0 6px 6px; overflow: hidden;
@@ -488,15 +491,12 @@ DASHBOARD_HTML = r"""
         }
         .sec-edit-btn:hover { color: var(--accent); border-color: var(--accent); }
         .sec-del-btn:hover { color: var(--danger); border-color: var(--danger); }
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5); display: flex;
-            align-items: center; justify-content: center; z-index: 1000;
-        }
-        .modal {
-            background: var(--bg-card); border-radius: 8px; padding: 20px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;
-        }
+        .sec-reset-btn { background: none; border: 1px solid var(--border); border-radius: 3px; cursor: pointer; font-size: 10px; padding: 0 4px; color: var(--text-secondary); line-height: 16px; }
+        .sec-reset-btn:hover { color: #2563eb; border-color: #2563eb; }
+        .sec-run-btn { background: none; border: 1px solid #22c55e; border-radius: 3px; cursor: pointer; font-size: 9px; padding: 1px 5px; color: #22c55e; line-height: 16px; transition: all 0.15s; }
+        .sec-run-btn:hover { background: #22c55e; color: #fff; }
+        .sec-override-badge { font-size: 8px; background: #fef3c7; color: #92400e; padding: 0 4px; border-radius: 3px; margin-left: 4px; font-weight: 500; text-transform: uppercase; }
+        /* modal-overlay and modal base styles already defined above */
         @media (max-width: 900px) {
             .security-test-row { grid-template-columns: 24px 1fr 80px 60px; }
             .security-test-row .security-test-feature { display: none; }
@@ -2045,6 +2045,9 @@ var SEC_CATEGORY_META = {
     web_attacks: { label: 'Web Attacks (OWASP)', badge: 'vuln', icon: '\u26A0\uFE0F' },
     malware_threats: { label: 'Malware / Threat Prevention', badge: 'malware', icon: '\uD83D\uDEE1\uFE0F' },
     url_filtering: { label: 'URL Filtering', badge: 'url', icon: '\uD83C\uDF10' },
+    dns_attacks: { label: 'DNS-Based Attacks', badge: 'dns', icon: '\uD83D\uDD0D' },
+    protocol_abuse: { label: 'Protocol Abuse', badge: 'proto', icon: '\u26A1' },
+    file_threats: { label: 'File-Based Threats', badge: 'file', icon: '\uD83D\uDCC4' },
 };
 
 async function clientLoadSecurityCatalog(name) {
@@ -2077,12 +2080,15 @@ function clientRenderSecurityPanel(name, catalog) {
             '<div class="security-test-row header"><span></span><span>Test</span><span>PAN-OS Feature</span><span>Expected</span><span>Result</span></div>';
         for (var i = 0; i < tests.length; i++) {
             var t = tests[i];
-            var customBtns = t.custom ? '<span class="sec-custom-actions" onclick="event.stopPropagation()">' +
-                '<button class="sec-edit-btn" onclick="clientEditCustomPattern(\'' + name + '\',\'' + t.id + '\')" title="Edit">&#9998;</button>' +
-                '<button class="sec-del-btn" onclick="clientDeleteCustomPattern(\'' + name + '\',\'' + t.id + '\')" title="Delete">&#10005;</button></span>' : '';
+            var overrideBadge = t.overridden ? '<span class="sec-override-badge" title="Modified from default">modified</span>' : '';
+            var editBtn = '<button class="sec-edit-btn" onclick="event.stopPropagation();clientEditTestCase(\'' + name + '\',\'' + t.id + '\',' + (!!t.custom && !t.overridden) + ')" title="Edit">&#9998;</button>';
+            var deleteBtn = (t.custom && !t.overridden) ? '<button class="sec-del-btn" onclick="event.stopPropagation();clientDeleteCustomPattern(\'' + name + '\',\'' + t.id + '\')" title="Delete">&#10005;</button>' : '';
+            var resetBtn = t.overridden ? '<button class="sec-reset-btn" onclick="event.stopPropagation();clientResetBuiltinTest(\'' + name + '\',\'' + t.id + '\')" title="Reset to default">&#8634;</button>' : '';
             html += '<div class="security-test-row clickable" id="c-' + name + '-sec-row-' + t.id + '" onclick="clientToggleSecDetail(\'' + name + '\',\'' + t.id + '\')">' +
+                '<div style="display:flex;align-items:center;gap:4px">' +
                 '<input type="checkbox" class="sec-checkbox-' + name + '" data-cat="' + cat + '" data-id="' + t.id + '" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">' +
-                '<div><div class="security-test-name">' + t.name + customBtns + '</div><div class="security-test-desc">' + (t.description || '') + '</div></div>' +
+                '<button class="sec-run-btn" onclick="event.stopPropagation();clientRunSingleTest(\'' + name + '\',\'' + t.id + '\')" title="Run this test">&#9654;</button></div>' +
+                '<div><div class="security-test-name">' + t.name + overrideBadge + '<span class="sec-custom-actions" onclick="event.stopPropagation()">' + editBtn + resetBtn + deleteBtn + '</span></div><div class="security-test-desc">' + (t.description || '') + '</div></div>' +
                 '<span class="security-test-feature">' + t.panos_feature + '</span>' +
                 '<span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">' + t.expected_action + '</span>' +
                 '<span id="c-' + name + '-sec-verdict-' + t.id + '"><span class="sec-verdict pending">--</span></span></div>' +
@@ -2162,6 +2168,19 @@ function clientToggleSecCategorySelect(name, cat) {
     var boxes = document.querySelectorAll('.sec-checkbox-' + name + '[data-cat="' + cat + '"]');
     var allChecked = Array.from(boxes).every(function(b){return b.checked});
     boxes.forEach(function(b){b.checked = !allChecked});
+}
+
+async function clientRunSingleTest(name, testId) {
+    var config = {
+        http_port: parseInt(document.getElementById('c-' + name + '-sec-http-port').value) || 9999,
+        https_port: parseInt(document.getElementById('c-' + name + '-sec-https-port').value) || 443,
+        interval: 0,
+    };
+    await fetch('/api/client/' + name + '/security/start', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ tests: [testId], config: config })
+    });
+    clientStartSecurityPolling(name);
 }
 
 async function clientStartSecurity(name) {
@@ -2262,7 +2281,7 @@ function clientShowCustomPattern(name, editId) {
             '<input type="hidden" id="srv-cp-edit-id" value="">' +
             '<div style="display:grid;grid-template-columns:100px 1fr;gap:6px 8px;align-items:center;font-size:12px">' +
             '<label style="color:var(--text-secondary)">Name *</label><input type="text" id="srv-cp-name" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
-            '<label style="color:var(--text-secondary)">Category</label><select id="srv-cp-category" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"><option value="web_attacks">Web Attacks</option><option value="malware_threats">Malware / Threats</option><option value="url_filtering">URL Filtering</option></select>' +
+            '<label style="color:var(--text-secondary)">Category</label><select id="srv-cp-category" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"><option value="web_attacks">Web Attacks</option><option value="malware_threats">Malware / Threats</option><option value="url_filtering">URL Filtering</option><option value="dns_attacks">DNS-Based Attacks</option><option value="protocol_abuse">Protocol Abuse</option><option value="file_threats">File-Based Threats</option></select>' +
             '<label style="color:var(--text-secondary)">Payload *</label><textarea id="srv-cp-payload" rows="3" style="padding:4px 8px;font-size:11px;font-family:monospace;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;resize:vertical"></textarea>' +
             '<label style="color:var(--text-secondary)">Method</label><select id="srv-cp-method" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"><option value="GET">GET</option><option value="POST">POST</option></select>' +
             '<label style="color:var(--text-secondary)">Target Path</label><input type="text" id="srv-cp-target-path" value="/echo" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
@@ -2320,7 +2339,13 @@ async function clientSaveCustomPattern() {
         headers: headers, description: document.getElementById('srv-cp-description').value.trim(),
         panos_feature: document.getElementById('srv-cp-panos-feature').value, expected_action: 'block'
     };
-    if (editId) {
+    var modal = document.getElementById('srv-custom-pattern-modal');
+    var builtinEdit = modal ? modal.dataset.builtinEdit : '';
+    if (builtinEdit && !editId.startsWith('custom_')) {
+        await fetch('/api/client/' + name + '/security/builtin/' + builtinEdit, {
+            method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+        });
+    } else if (editId) {
         await fetch('/api/client/' + name + '/security/patterns/' + editId, {
             method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
         });
@@ -2329,12 +2354,53 @@ async function clientSaveCustomPattern() {
             method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
         });
     }
+    if (modal) modal.dataset.builtinEdit = '';
     document.getElementById('srv-custom-pattern-modal').style.display = 'none';
     await clientLoadSecurityCatalog(name);
 }
 
 function clientEditCustomPattern(name, patternId) {
     clientShowCustomPattern(name, patternId);
+}
+
+async function clientEditTestCase(name, testId, isCustom) {
+    if (isCustom) {
+        clientShowCustomPattern(name, testId);
+        return;
+    }
+    // Built-in test — load from catalog and save as override
+    var catalog = _clientSecCatalogs[name];
+    var testInfo = null;
+    if (catalog) {
+        for (var cat in catalog) {
+            for (var i = 0; i < catalog[cat].length; i++) {
+                if (catalog[cat][i].id === testId) { testInfo = catalog[cat][i]; break; }
+            }
+            if (testInfo) break;
+        }
+    }
+    if (!testInfo) return;
+    var modal = document.getElementById('srv-custom-pattern-modal');
+    if (!modal) return;
+    document.getElementById('srv-cp-title').textContent = 'Edit Test: ' + testInfo.name;
+    document.getElementById('srv-cp-edit-id').value = testId;
+    document.getElementById('srv-cp-client').value = name;
+    document.getElementById('srv-cp-name').value = testInfo.name || '';
+    document.getElementById('srv-cp-category').value = testInfo.category || 'web_attacks';
+    document.getElementById('srv-cp-payload').value = testInfo.payload || '';
+    document.getElementById('srv-cp-method').value = testInfo.method || 'GET';
+    document.getElementById('srv-cp-target-path').value = testInfo.target_path || '/echo';
+    document.getElementById('srv-cp-headers').value = testInfo.headers && Object.keys(testInfo.headers).length > 0 ? JSON.stringify(testInfo.headers, null, 2) : '';
+    document.getElementById('srv-cp-description').value = testInfo.description || '';
+    document.getElementById('srv-cp-panos-feature').value = testInfo.panos_feature || 'Vulnerability Protection';
+    modal.dataset.builtinEdit = testId;
+    modal.style.display = 'flex';
+}
+
+async function clientResetBuiltinTest(name, testId) {
+    if (!confirm('Reset this test to its default configuration?')) return;
+    await fetch('/api/client/' + name + '/security/builtin/' + testId, { method: 'DELETE' });
+    await clientLoadSecurityCatalog(name);
 }
 
 async function clientDeleteCustomPattern(name, patternId) {
@@ -2769,6 +2835,17 @@ def client_security_pattern(name, pattern_id):
         result, code = proxy_to_client(name, f'/api/security/patterns/{pattern_id}', 'DELETE')
     else:
         result, code = proxy_to_client(name, f'/api/security/patterns/{pattern_id}', 'PUT', request.json or {})
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/security/builtin/<test_id>', methods=['GET', 'PUT', 'DELETE'])
+def client_security_builtin(name, test_id):
+    if request.method == 'PUT':
+        result, code = proxy_to_client(name, f'/api/security/builtin/{test_id}', 'PUT', request.json or {})
+    elif request.method == 'DELETE':
+        result, code = proxy_to_client(name, f'/api/security/builtin/{test_id}', 'DELETE')
+    else:
+        result, code = proxy_to_client(name, f'/api/security/builtin/{test_id}')
     return jsonify(result), code
 
 

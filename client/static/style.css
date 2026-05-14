@@ -429,6 +429,9 @@ div.vis-tooltip {
 .security-category-badge.vuln { background: #fef3c7; color: #92400e; }
 .security-category-badge.malware { background: #fce7f3; color: #9d174d; }
 .security-category-badge.url { background: #e0e7ff; color: #3730a3; }
+.security-category-badge.dns { background: #dbeafe; color: #1e40af; }
+.security-category-badge.proto { background: #fce7f3; color: #7c3aed; }
+.security-category-badge.file { background: #d1fae5; color: #065f46; }
 
 .security-test-list {
     border: 1px solid var(--border);
@@ -584,6 +587,39 @@ div.vis-tooltip {
 }
 .sec-edit-btn:hover { color: var(--accent); border-color: var(--accent); }
 .sec-del-btn:hover { color: var(--danger); border-color: var(--danger); }
+.sec-reset-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 0 4px;
+    color: var(--text-secondary);
+    line-height: 16px;
+}
+.sec-reset-btn:hover { color: #2563eb; border-color: #2563eb; }
+.sec-run-btn {
+    background: none;
+    border: 1px solid #22c55e;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 9px;
+    padding: 1px 5px;
+    color: #22c55e;
+    line-height: 16px;
+    transition: all 0.15s;
+}
+.sec-run-btn:hover { background: #22c55e; color: #fff; }
+.sec-override-badge {
+    font-size: 8px;
+    background: #fef3c7;
+    color: #92400e;
+    padding: 0 4px;
+    border-radius: 3px;
+    margin-left: 4px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
 
 /* Custom pattern modal */
 .modal-overlay {

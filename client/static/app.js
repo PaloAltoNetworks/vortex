@@ -1251,6 +1251,9 @@ const SEC_CATEGORY_META = {
     web_attacks: { label: 'Web Attacks (OWASP)', badge: 'vuln', icon: '\u26A0\uFE0F' },
     malware_threats: { label: 'Malware / Threat Prevention', badge: 'malware', icon: '\uD83D\uDEE1\uFE0F' },
     url_filtering: { label: 'URL Filtering', badge: 'url', icon: '\uD83C\uDF10' },
+    dns_attacks: { label: 'DNS-Based Attacks', badge: 'dns', icon: '\uD83D\uDD0D' },
+    protocol_abuse: { label: 'Protocol Abuse', badge: 'proto', icon: '\u26A1' },
+    file_threats: { label: 'File-Based Threats', badge: 'file', icon: '\uD83D\uDCC4' },
 };
 
 let _securityCatalog = null;
@@ -1296,14 +1299,17 @@ function renderSecurityPanel() {
                     <span>Result</span>
                 </div>`;
         for (const t of tests) {
-            const customBtns = t.custom ? `<span class="sec-custom-actions" onclick="event.stopPropagation()">
-                <button class="sec-edit-btn" onclick="editCustomPattern('${t.id}')" title="Edit">&#9998;</button>
-                <button class="sec-del-btn" onclick="deleteCustomPattern('${t.id}')" title="Delete">&#10005;</button>
-            </span>` : '';
+            const overrideBadge = t.overridden ? '<span class="sec-override-badge" title="Modified from default">modified</span>' : '';
+            const editBtn = `<button class="sec-edit-btn" onclick="event.stopPropagation();editTestCase('${t.id}',${!!t.custom && !t.overridden})" title="Edit">&#9998;</button>`;
+            const deleteBtn = (t.custom && !t.overridden) ? `<button class="sec-del-btn" onclick="event.stopPropagation();deleteCustomPattern('${t.id}')" title="Delete">&#10005;</button>` : '';
+            const resetBtn = t.overridden ? `<button class="sec-reset-btn" onclick="event.stopPropagation();resetBuiltinTest('${t.id}')" title="Reset to default">&#8634;</button>` : '';
             html += `<div class="security-test-row clickable" id="sec-row-${t.id}" onclick="toggleSecDetail('${t.id}')">
-                <input type="checkbox" class="sec-checkbox" data-cat="${cat}" data-id="${t.id}" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">
+                <div style="display:flex;align-items:center;gap:4px">
+                    <input type="checkbox" class="sec-checkbox" data-cat="${cat}" data-id="${t.id}" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">
+                    <button class="sec-run-btn" onclick="event.stopPropagation();runSingleTest('${t.id}')" title="Run this test">&#9654;</button>
+                </div>
                 <div>
-                    <div class="security-test-name">${t.name}${customBtns}</div>
+                    <div class="security-test-name">${t.name}${overrideBadge}<span class="sec-custom-actions" onclick="event.stopPropagation()">${editBtn}${resetBtn}${deleteBtn}</span></div>
                     <div class="security-test-desc">${t.description || ''}</div>
                 </div>
                 <span class="security-test-feature">${t.panos_feature}</span>
@@ -1415,6 +1421,17 @@ function toggleSecCategorySelect(cat) {
 
 function getSelectedSecurityTests() {
     return Array.from(document.querySelectorAll('.sec-checkbox:checked')).map(b => b.dataset.id);
+}
+
+async function runSingleTest(testId) {
+    const config = {
+        http_port: parseInt(document.getElementById('sec-http-port').value) || 9999,
+        https_port: parseInt(document.getElementById('sec-https-port').value) || 443,
+        interval: 0,
+    };
+    const res = await apiPost('/api/security/start', { tests: [testId], config });
+    addLog('[SECURITY] Running: ' + testId);
+    if (res.ok) startSecurityPolling();
 }
 
 async function startSecurityTests() {
@@ -1569,7 +1586,15 @@ async function saveCustomPattern() {
         expected_action: 'block',
     };
 
-    if (editId) {
+    const modal = document.getElementById('custom-pattern-modal');
+    const builtinEdit = modal ? modal.dataset.builtinEdit : '';
+
+    if (builtinEdit && !editId.startsWith('custom_')) {
+        // Saving override for a built-in test
+        await fetch('/api/security/builtin/' + builtinEdit, {
+            method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+        });
+    } else if (editId) {
         await fetch('/api/security/patterns/' + editId, {
             method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
         });
@@ -1578,13 +1603,56 @@ async function saveCustomPattern() {
             method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
         });
     }
+    if (modal) modal.dataset.builtinEdit = '';
     hideCustomPatternForm();
     await loadSecurityCatalog();
-    addLog('[SECURITY] Custom pattern saved: ' + name);
+    addLog('[SECURITY] Test saved: ' + name);
 }
 
 async function editCustomPattern(patternId) {
     showCustomPatternForm(patternId);
+}
+
+async function editTestCase(testId, isCustom) {
+    if (isCustom) {
+        // Pure custom pattern — use existing flow
+        showCustomPatternForm(testId);
+        return;
+    }
+    // Built-in test (or overridden) — load from catalog and use override API
+    let testInfo = null;
+    if (_securityCatalog) {
+        for (const tests of Object.values(_securityCatalog)) {
+            for (const t of tests) {
+                if (t.id === testId) { testInfo = t; break; }
+            }
+            if (testInfo) break;
+        }
+    }
+    if (!testInfo) { addLog('[SECURITY] Test not found: ' + testId); return; }
+
+    const modal = document.getElementById('custom-pattern-modal');
+    if (!modal) return;
+    document.getElementById('custom-pattern-title').textContent = 'Edit Test: ' + testInfo.name;
+    document.getElementById('custom-pattern-edit-id').value = testId;
+    document.getElementById('cp-name').value = testInfo.name || '';
+    document.getElementById('cp-category').value = testInfo.category || 'web_attacks';
+    document.getElementById('cp-payload').value = testInfo.payload || '';
+    document.getElementById('cp-method').value = testInfo.method || 'GET';
+    document.getElementById('cp-target-path').value = testInfo.target_path || '/echo';
+    document.getElementById('cp-headers').value = testInfo.headers && Object.keys(testInfo.headers).length > 0 ? JSON.stringify(testInfo.headers, null, 2) : '';
+    document.getElementById('cp-description').value = testInfo.description || '';
+    document.getElementById('cp-panos-feature').value = testInfo.panos_feature || 'Vulnerability Protection';
+    // Tag this as a builtin edit
+    modal.dataset.builtinEdit = testId;
+    modal.style.display = 'flex';
+}
+
+async function resetBuiltinTest(testId) {
+    if (!confirm('Reset this test to its default configuration?')) return;
+    await fetch('/api/security/builtin/' + testId, { method: 'DELETE' });
+    await loadSecurityCatalog();
+    addLog('[SECURITY] Test reset to default: ' + testId);
 }
 
 async function deleteCustomPattern(patternId) {
