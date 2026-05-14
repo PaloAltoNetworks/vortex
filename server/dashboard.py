@@ -424,7 +424,7 @@ DASHBOARD_HTML = r"""
             border-radius: 0 0 6px 6px; overflow: hidden;
         }
         .security-test-row {
-            display: grid; grid-template-columns: 24px 1fr 120px 80px 80px;
+            display: grid; grid-template-columns: 24px 1fr 120px 80px 80px auto;
             gap: 8px; align-items: center; padding: 6px 10px;
             font-size: 11px; border-bottom: 1px solid var(--border); background: var(--bg-card);
         }
@@ -493,6 +493,7 @@ DASHBOARD_HTML = r"""
         .sec-del-btn:hover { color: var(--danger); border-color: var(--danger); }
         .sec-reset-btn { background: none; border: 1px solid var(--border); border-radius: 3px; cursor: pointer; font-size: 10px; padding: 0 4px; color: var(--text-secondary); line-height: 16px; }
         .sec-reset-btn:hover { color: #2563eb; border-color: #2563eb; }
+        .sec-actions { display: inline-flex; gap: 3px; align-items: center; }
         .sec-run-btn { background: none; border: 1px solid #22c55e; border-radius: 3px; cursor: pointer; font-size: 9px; padding: 1px 5px; color: #22c55e; line-height: 16px; transition: all 0.15s; }
         .sec-run-btn:hover { background: #22c55e; color: #fff; }
         .sec-override-badge { font-size: 8px; background: #fef3c7; color: #92400e; padding: 0 4px; border-radius: 3px; margin-left: 4px; font-weight: 500; text-transform: uppercase; }
@@ -2007,8 +2008,10 @@ async function addClient() {
         hideAddClient();
         document.getElementById('client-name').value = '';
         document.getElementById('client-url').value = '';
-        clientLoadRouters(name); clientLoadSourceIps(name); clientLoadProxy(name); clientRefreshTopology(name);
         switchTab(name);
+        // Trigger immediate data load for the new client tab
+        pollClientStatus(name);
+        clientLoadRouters(name); clientLoadSourceIps(name); clientLoadProxy(name); clientRefreshTopology(name);
     }
 }
 
@@ -2077,7 +2080,7 @@ function clientRenderSecurityPanel(name, catalog) {
             '<span class="security-select-all" onclick="event.stopPropagation();clientToggleSecCategorySelect(\'' + name + '\',\'' + cat + '\')">[Select All]</span>' +
             '<span class="chevron" id="chevron-c-' + name + '-sec-' + cat + '" style="font-size:10px;color:var(--text-secondary)">&#9660;</span></div></div>' +
             '<div class="security-test-list" id="section-c-' + name + '-sec-' + cat + '">' +
-            '<div class="security-test-row header"><span></span><span>Test</span><span>PAN-OS Feature</span><span>Expected</span><span>Result</span></div>';
+            '<div class="security-test-row header"><span></span><span>Test</span><span>PAN-OS Feature</span><span>Expected</span><span>Result</span><span>Actions</span></div>';
         for (var i = 0; i < tests.length; i++) {
             var t = tests[i];
             var overrideBadge = t.overridden ? '<span class="sec-override-badge" title="Modified from default">modified</span>' : '';
@@ -2085,13 +2088,12 @@ function clientRenderSecurityPanel(name, catalog) {
             var deleteBtn = (t.custom && !t.overridden) ? '<button class="sec-del-btn" onclick="event.stopPropagation();clientDeleteCustomPattern(\'' + name + '\',\'' + t.id + '\')" title="Delete">&#10005;</button>' : '';
             var resetBtn = t.overridden ? '<button class="sec-reset-btn" onclick="event.stopPropagation();clientResetBuiltinTest(\'' + name + '\',\'' + t.id + '\')" title="Reset to default">&#8634;</button>' : '';
             html += '<div class="security-test-row clickable" id="c-' + name + '-sec-row-' + t.id + '" onclick="clientToggleSecDetail(\'' + name + '\',\'' + t.id + '\')">' +
-                '<div style="display:flex;align-items:center;gap:4px">' +
                 '<input type="checkbox" class="sec-checkbox-' + name + '" data-cat="' + cat + '" data-id="' + t.id + '" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">' +
-                '<button class="sec-run-btn" onclick="event.stopPropagation();clientRunSingleTest(\'' + name + '\',\'' + t.id + '\')" title="Run this test">&#9654;</button></div>' +
-                '<div><div class="security-test-name">' + t.name + overrideBadge + '<span class="sec-custom-actions" onclick="event.stopPropagation()">' + editBtn + resetBtn + deleteBtn + '</span></div><div class="security-test-desc">' + (t.description || '') + '</div></div>' +
+                '<div><div class="security-test-name">' + t.name + overrideBadge + '</div><div class="security-test-desc">' + (t.description || '') + '</div></div>' +
                 '<span class="security-test-feature">' + t.panos_feature + '</span>' +
                 '<span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">' + t.expected_action + '</span>' +
-                '<span id="c-' + name + '-sec-verdict-' + t.id + '"><span class="sec-verdict pending">--</span></span></div>' +
+                '<span id="c-' + name + '-sec-verdict-' + t.id + '"><span class="sec-verdict pending">--</span></span>' +
+                '<span class="sec-actions" onclick="event.stopPropagation()"><button class="sec-run-btn" onclick="clientRunSingleTest(\'' + name + '\',\'' + t.id + '\')" title="Run this test">&#9654;</button>' + editBtn + resetBtn + deleteBtn + '</span></div>' +
                 '<div class="security-test-detail" id="c-' + name + '-sec-detail-' + t.id + '" style="display:none"></div>';
         }
         html += '</div></div>';
@@ -2380,8 +2382,9 @@ async function clientEditTestCase(name, testId, isCustom) {
         }
     }
     if (!testInfo) return;
+    // Ensure modal exists by calling clientShowCustomPattern with no editId, then override fields
+    clientShowCustomPattern(name, null);
     var modal = document.getElementById('srv-custom-pattern-modal');
-    if (!modal) return;
     document.getElementById('srv-cp-title').textContent = 'Edit Test: ' + testInfo.name;
     document.getElementById('srv-cp-edit-id').value = testId;
     document.getElementById('srv-cp-client').value = name;
@@ -2394,7 +2397,6 @@ async function clientEditTestCase(name, testId, isCustom) {
     document.getElementById('srv-cp-description').value = testInfo.description || '';
     document.getElementById('srv-cp-panos-feature').value = testInfo.panos_feature || 'Vulnerability Protection';
     modal.dataset.builtinEdit = testId;
-    modal.style.display = 'flex';
 }
 
 async function clientResetBuiltinTest(name, testId) {

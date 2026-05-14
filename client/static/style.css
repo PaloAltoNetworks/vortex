@@ -441,7 +441,7 @@ div.vis-tooltip {
 }
 .security-test-row {
     display: grid;
-    grid-template-columns: 24px 1fr 120px 80px 80px;
+    grid-template-columns: 24px 1fr 120px 80px 80px auto;
     gap: 8px;
     align-items: center;
     padding: 6px 10px;
@@ -610,6 +610,11 @@ div.vis-tooltip {
     transition: all 0.15s;
 }
 .sec-run-btn:hover { background: #22c55e; color: #fff; }
+.sec-actions {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+}
 .sec-override-badge {
     font-size: 8px;
     background: #fef3c7;
@@ -642,7 +647,7 @@ div.vis-tooltip {
 
 @media (max-width: 900px) {
     .security-test-row {
-        grid-template-columns: 24px 1fr 80px 60px;
+        grid-template-columns: 24px 1fr 80px 60px auto;
     }
     .security-test-row .security-test-feature { display: none; }
     .security-detail-grid {

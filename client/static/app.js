@@ -1297,6 +1297,7 @@ function renderSecurityPanel() {
                     <span>PAN-OS Feature</span>
                     <span>Expected</span>
                     <span>Result</span>
+                    <span>Actions</span>
                 </div>`;
         for (const t of tests) {
             const overrideBadge = t.overridden ? '<span class="sec-override-badge" title="Modified from default">modified</span>' : '';
@@ -1304,17 +1305,18 @@ function renderSecurityPanel() {
             const deleteBtn = (t.custom && !t.overridden) ? `<button class="sec-del-btn" onclick="event.stopPropagation();deleteCustomPattern('${t.id}')" title="Delete">&#10005;</button>` : '';
             const resetBtn = t.overridden ? `<button class="sec-reset-btn" onclick="event.stopPropagation();resetBuiltinTest('${t.id}')" title="Reset to default">&#8634;</button>` : '';
             html += `<div class="security-test-row clickable" id="sec-row-${t.id}" onclick="toggleSecDetail('${t.id}')">
-                <div style="display:flex;align-items:center;gap:4px">
-                    <input type="checkbox" class="sec-checkbox" data-cat="${cat}" data-id="${t.id}" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">
-                    <button class="sec-run-btn" onclick="event.stopPropagation();runSingleTest('${t.id}')" title="Run this test">&#9654;</button>
-                </div>
+                <input type="checkbox" class="sec-checkbox" data-cat="${cat}" data-id="${t.id}" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">
                 <div>
-                    <div class="security-test-name">${t.name}${overrideBadge}<span class="sec-custom-actions" onclick="event.stopPropagation()">${editBtn}${resetBtn}${deleteBtn}</span></div>
+                    <div class="security-test-name">${t.name}${overrideBadge}</div>
                     <div class="security-test-desc">${t.description || ''}</div>
                 </div>
                 <span class="security-test-feature">${t.panos_feature}</span>
                 <span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">${t.expected_action}</span>
                 <span id="sec-verdict-${t.id}"><span class="sec-verdict pending">--</span></span>
+                <span class="sec-actions" onclick="event.stopPropagation()">
+                    <button class="sec-run-btn" onclick="runSingleTest('${t.id}')" title="Run this test">&#9654;</button>
+                    ${editBtn}${resetBtn}${deleteBtn}
+                </span>
             </div>
             <div class="security-test-detail" id="sec-detail-${t.id}" style="display:none"></div>`;
         }
