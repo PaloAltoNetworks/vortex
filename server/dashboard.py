@@ -2092,7 +2092,7 @@ function clientRenderSecurityPanel(name, catalog) {
             var resetBtn = t.overridden ? '<button class="sec-reset-btn" onclick="event.stopPropagation();clientResetBuiltinTest(\'' + name + '\',\'' + t.id + '\')" title="Reset to default">&#8634;</button>' : '';
             html += '<div class="security-test-row clickable" id="c-' + name + '-sec-row-' + t.id + '" onclick="clientToggleSecDetail(\'' + name + '\',\'' + t.id + '\')">' +
                 '<input type="checkbox" class="sec-checkbox-' + name + '" data-cat="' + cat + '" data-id="' + t.id + '" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">' +
-                '<div><div class="security-test-name">' + t.name + overrideBadge + '</div><div class="security-test-desc">' + (t.description || '') + '</div></div>' +
+                '<div><div class="security-test-name">' + escapeHtml(t.name) + overrideBadge + '</div><div class="security-test-desc">' + escapeHtml(t.description || '') + '</div></div>' +
                 '<span class="security-test-feature">' + t.panos_feature + '</span>' +
                 '<span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">' + t.expected_action + '</span>' +
                 '<span id="c-' + name + '-sec-verdict-' + t.id + '"><span class="sec-verdict pending">--</span></span>' +

@@ -1307,8 +1307,8 @@ function renderSecurityPanel() {
             html += `<div class="security-test-row clickable" id="sec-row-${t.id}" onclick="toggleSecDetail('${t.id}')">
                 <input type="checkbox" class="sec-checkbox" data-cat="${cat}" data-id="${t.id}" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">
                 <div>
-                    <div class="security-test-name">${t.name}${overrideBadge}</div>
-                    <div class="security-test-desc">${t.description || ''}</div>
+                    <div class="security-test-name">${escapeHtml(t.name)}${overrideBadge}</div>
+                    <div class="security-test-desc">${escapeHtml(t.description || '')}</div>
                 </div>
                 <span class="security-test-feature">${t.panos_feature}</span>
                 <span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">${t.expected_action}</span>
