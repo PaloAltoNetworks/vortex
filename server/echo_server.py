@@ -38,28 +38,139 @@ PE_TEST_BYTES = (
     b'This is a test PE file for anti-malware detection testing.\x00'
 )
 
-# Minimal PDF with embedded JavaScript annotation
-PDF_JS_TEST_BYTES = (
-    b'%PDF-1.4\n'
-    b'1 0 obj\n<< /Type /Catalog /Pages 2 0 R /OpenAction 4 0 R >>\nendobj\n'
-    b'2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n'
-    b'3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n'
-    b'4 0 obj\n<< /Type /Action /S /JavaScript /JS (app.alert\\("Security Test"\\);) >>\nendobj\n'
-    b'xref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000074 00000 n \n'
-    b'0000000127 00000 n \n0000000206 00000 n \n'
-    b'trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n296\n%%EOF\n'
-)
+# PDF with embedded JavaScript — proper structure with correct xref offsets
+def _build_pdf_js():
+    objs = []
+    # Object 1: Catalog with OpenAction pointing to JS action
+    objs.append(b'1 0 obj\n<< /Type /Catalog /Pages 2 0 R /OpenAction 4 0 R /AcroForm << /Fields [] /DR << >> /DA (/Helv 0 Tf 0 g) >> >>\nendobj\n')
+    # Object 2: Pages
+    objs.append(b'2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n')
+    # Object 3: Page with minimal content
+    objs.append(b'3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 6 0 R >> >> >>\nendobj\n')
+    # Object 4: JavaScript action (this is what the firewall should detect)
+    objs.append(b'4 0 obj\n<< /Type /Action /S /JavaScript /JS (app.alert\\({cMsg: "Security Test", cTitle: "Alert"}\\); var x = this.getField\\("test"\\); app.execMenuItem\\("Print"\\);) >>\nendobj\n')
+    # Object 5: Page content stream
+    stream_data = b'BT /F1 24 Tf 100 700 Td (Security Test Document) Tj ET'
+    objs.append(b'5 0 obj\n<< /Length ' + str(len(stream_data)).encode() + b' >>\nstream\n' + stream_data + b'\nendstream\nendobj\n')
+    # Object 6: Font
+    objs.append(b'6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n')
 
-# Bytes mimicking a file with OLE/VBA macro signatures
-OFFICE_MACRO_TEST_BYTES = (
-    b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'  # OLE2 compound file magic
-    + b'\x00' * 20
-    + b'Attribute VB_Name = "ThisDocument"\r\n'
-    + b'Sub AutoOpen()\r\n'
-    + b'    MsgBox "Security Test Macro"\r\n'
-    + b'End Sub\r\n'
-    + b'\x00' * 100
-)
+    body = b'%PDF-1.4\n%\xe2\xe3\xcf\xd3\n'
+    offsets = []
+    for obj in objs:
+        offsets.append(len(body))
+        body += obj
+    xref_offset = len(body)
+    xref = b'xref\n0 7\n0000000000 65535 f \n'
+    for off in offsets:
+        xref += f'{off:010d} 00000 n \n'.encode()
+    xref += b'trailer\n<< /Size 7 /Root 1 0 R >>\n'
+    xref += b'startxref\n' + str(xref_offset).encode() + b'\n%%EOF\n'
+    return body + xref
+
+PDF_JS_TEST_BYTES = _build_pdf_js()
+
+# OLE2 Compound Document with VBA macro — proper 512-byte sector structure
+def _build_ole2_macro():
+    # OLE2 header (512 bytes)
+    header = bytearray(512)
+    # Magic number
+    header[0:8] = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'
+    # Minor version: 0x003E, Major version: 0x0003
+    struct.pack_into('<HH', header, 24, 0x003E, 0x0003)
+    # Byte order: little-endian
+    struct.pack_into('<H', header, 28, 0xFFFE)
+    # Sector size power: 9 (512 bytes)
+    struct.pack_into('<H', header, 30, 0x0009)
+    # Mini sector size power: 6 (64 bytes)
+    struct.pack_into('<H', header, 32, 0x0006)
+    # Total sectors in FAT: 1
+    struct.pack_into('<I', header, 44, 1)
+    # First directory sector SECID: 0
+    struct.pack_into('<I', header, 48, 0)
+    # First mini FAT sector: none
+    struct.pack_into('<i', header, 60, -2)
+    # Total mini FAT sectors: 0
+    struct.pack_into('<I', header, 64, 0)
+    # First DIFAT sector: none
+    struct.pack_into('<i', header, 68, -2)
+    # Total DIFAT sectors: 0
+    struct.pack_into('<I', header, 72, 0)
+    # DIFAT array: sector 0 is FAT, rest are free
+    struct.pack_into('<i', header, 76, 1)
+    for i in range(1, 109):
+        struct.pack_into('<i', header, 76 + i * 4, -1)
+
+    # Sector 0: Directory entries (512 bytes, 4 entries of 128 bytes each)
+    directory = bytearray(512)
+
+    # Entry 0: Root Entry
+    name = 'Root Entry'.encode('utf-16-le')
+    directory[0:len(name)] = name
+    struct.pack_into('<H', directory, 64, len(name) + 2)  # name size
+    directory[66] = 5  # type: root
+    directory[67] = 1  # color: black
+    struct.pack_into('<i', directory, 68, -1)  # left sibling
+    struct.pack_into('<i', directory, 72, -1)  # right sibling
+    struct.pack_into('<i', directory, 76, 1)   # child: entry 1
+
+    # Entry 1: VBA directory (Macros)
+    off1 = 128
+    name1 = 'VBA'.encode('utf-16-le')
+    directory[off1:off1+len(name1)] = name1
+    struct.pack_into('<H', directory, off1+64, len(name1) + 2)
+    directory[off1+66] = 1  # type: storage
+    directory[off1+67] = 1
+    struct.pack_into('<i', directory, off1+68, -1)
+    struct.pack_into('<i', directory, off1+72, 2)  # right sibling: entry 2
+    struct.pack_into('<i', directory, off1+76, -1)
+
+    # Entry 2: ThisDocument stream with VBA macro content
+    off2 = 256
+    name2 = 'ThisDocument'.encode('utf-16-le')
+    directory[off2:off2+len(name2)] = name2
+    struct.pack_into('<H', directory, off2+64, len(name2) + 2)
+    directory[off2+66] = 2  # type: stream
+    directory[off2+67] = 0
+    struct.pack_into('<i', directory, off2+68, -1)
+    struct.pack_into('<i', directory, off2+72, -1)
+    struct.pack_into('<i', directory, off2+76, -1)
+    struct.pack_into('<i', directory, off2+116, 2)  # start sector
+    struct.pack_into('<I', directory, off2+120, 512)  # size
+
+    # Sector 1: FAT (sector allocation table)
+    fat = bytearray(512)
+    # Sector 0: directory (end of chain)
+    struct.pack_into('<i', fat, 0, -2)
+    # Sector 1: FAT sector itself
+    struct.pack_into('<i', fat, 4, -3)
+    # Sector 2: VBA content (end of chain)
+    struct.pack_into('<i', fat, 8, -2)
+    # Rest: free
+    for i in range(3, 128):
+        struct.pack_into('<i', fat, i * 4, -1)
+
+    # Sector 2: VBA macro content
+    vba_content = bytearray(512)
+    macro_code = (
+        b'Attribute VB_Name = "ThisDocument"\r\n'
+        b'Attribute VB_Base = "1Normal.ThisDocument"\r\n'
+        b'Attribute VB_GlobalNameSpace = False\r\n'
+        b'Attribute VB_Creatable = False\r\n'
+        b'Sub AutoOpen()\r\n'
+        b'    Dim objShell As Object\r\n'
+        b'    Set objShell = CreateObject("WScript.Shell")\r\n'
+        b'    objShell.Run "cmd.exe /c echo Security Test"\r\n'
+        b'End Sub\r\n'
+        b'Sub Document_Open()\r\n'
+        b'    AutoOpen\r\n'
+        b'End Sub\r\n'
+    )
+    vba_content[0:len(macro_code)] = macro_code
+
+    return bytes(header) + bytes(directory) + bytes(fat) + bytes(vba_content)
+
+OFFICE_MACRO_TEST_BYTES = _build_ole2_macro()
 
 STATS_FILE = '/tmp/echo_stats.json'
 stats_lock = threading.Lock()

