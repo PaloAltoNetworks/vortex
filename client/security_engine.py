@@ -630,6 +630,16 @@ class SecurityTestEngine:
                 elif result.verdict == 'FAIL':
                     verdict_msg += ' (passed through — not blocked)'
                 self._add_log(verdict_msg)
+                # Log full test case details
+                self._add_log(f'  Method: {result.method} | URL: {result.url}')
+                if result.payload:
+                    payload_display = result.payload[:200] + ('...' if len(result.payload) > 200 else '')
+                    self._add_log(f'  Payload: {payload_display}')
+                self._add_log(f'  HTTP {result.response_code} | {result.detail}')
+                if result.response_body_snippet:
+                    snippet = result.response_body_snippet[:150].replace('\n', ' ')
+                    self._add_log(f'  Response: {snippet}')
+                self._add_log(f'  PAN-OS: {result.panos_feature} | {result.expected_behavior[:120] if result.expected_behavior else ""}')
             except Exception as e:
                 with self._lock:
                     self._results[test.id] = self._error_result(test, str(e))
@@ -678,7 +688,7 @@ class SecurityTestEngine:
                     headers=test.headers or {}, timeout=10)
             return self._analyze_response(test, resp, payload,
                 url=url, method=method, sent_payload=payload)
-        except (requests.ConnectionError, requests.Timeout) as e:
+        except (requests.ConnectionError, requests.Timeout, OSError) as e:
             return self._blocked_result(test, str(e),
                 url=url, method=method, sent_payload=payload)
 
@@ -696,7 +706,7 @@ class SecurityTestEngine:
                     timeout=10)
                 return self._analyze_response(test, resp, payload,
                     url=url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method=method, sent_payload=payload)
 
@@ -708,7 +718,7 @@ class SecurityTestEngine:
                     timeout=10)
                 return self._analyze_response(test, resp, payload,
                     url=url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method=method, sent_payload=payload)
 
@@ -719,7 +729,7 @@ class SecurityTestEngine:
                     headers={'Content-Type': 'application/xml'}, timeout=10)
                 return self._analyze_response(test, resp, 'xxe',
                     url=url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method=method, sent_payload=payload)
 
@@ -730,7 +740,7 @@ class SecurityTestEngine:
                     headers={'Content-Type': 'application/x-java-serialized-object'}, timeout=10)
                 return self._analyze_response(test, resp, 'rO0AB',
                     url=url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method=method, sent_payload=payload)
 
@@ -741,7 +751,7 @@ class SecurityTestEngine:
                 resp = requests.get(crlf_url, timeout=10)
                 return self._analyze_response(test, resp, 'malicious',
                     url=crlf_url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=crlf_url, method=method, sent_payload=payload)
 
@@ -751,7 +761,7 @@ class SecurityTestEngine:
                 resp = requests.get(url, params={'url': payload, 'payload': payload}, timeout=10)
                 return self._analyze_response(test, resp, '169.254',
                     url=url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method=method, sent_payload=payload)
 
@@ -763,7 +773,7 @@ class SecurityTestEngine:
                     timeout=10, allow_redirects=False)
                 return self._analyze_response(test, resp, 'evil.example.com',
                     url=url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method=method, sent_payload=payload)
 
@@ -779,7 +789,7 @@ class SecurityTestEngine:
                         return self._passthrough_result(test, resp.status_code,
                             f'Info disclosure path /{p.strip()} accessible — not blocked',
                             resp=resp, url=info_url, method=method, sent_payload=payload)
-                except (requests.ConnectionError, requests.Timeout) as e:
+                except (requests.ConnectionError, requests.Timeout, OSError) as e:
                     return self._blocked_result(test, str(e),
                         url=info_url, method=method, sent_payload=payload)
             return self._blocked_result(test,
@@ -793,7 +803,7 @@ class SecurityTestEngine:
                     timeout=10)
                 return self._analyze_response(test, resp, 'evil.example.com',
                     url=url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method=method, sent_payload=payload)
 
@@ -804,7 +814,7 @@ class SecurityTestEngine:
                 resp = requests.get(trav_url, timeout=10)
                 return self._analyze_response(test, resp, payload,
                     url=trav_url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=trav_url, method=method, sent_payload=payload)
 
@@ -815,7 +825,7 @@ class SecurityTestEngine:
                 resp = requests.get(url, params={'payload': payload}, timeout=10)
                 return self._analyze_response(test, resp, payload,
                     url=url + '?payload=' + payload, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method=method, sent_payload=payload)
 
@@ -833,7 +843,7 @@ class SecurityTestEngine:
                         resp=resp, url=url, method='GET', sent_payload=payload)
                 return self._analyze_response(test, resp, 'EICAR',
                     url=url, method='GET', sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method='GET', sent_payload=payload)
 
@@ -848,7 +858,7 @@ class SecurityTestEngine:
                         resp=resp, url=url, method='GET', sent_payload=payload)
                 return self._analyze_response(test, resp, 'EICAR',
                     url=url, method='GET', sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method='GET', sent_payload=payload)
 
@@ -868,7 +878,7 @@ class SecurityTestEngine:
                         pass
                 return self._analyze_response(test, resp, 'EICAR',
                     url=url, method='GET', sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method='GET', sent_payload=payload)
 
@@ -885,7 +895,7 @@ class SecurityTestEngine:
                     }, timeout=10)
                 return self._analyze_response(test, resp, c2_data,
                     url=url, method='POST', sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method='POST', sent_payload=payload)
 
@@ -898,7 +908,7 @@ class SecurityTestEngine:
                     timeout=10)
                 return self._analyze_response(test, resp, 'CobaltStrike',
                     url=url, method='GET', sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout) as e:
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method='GET', sent_payload=payload)
 
@@ -929,7 +939,7 @@ class SecurityTestEngine:
             return self._passthrough_result(test, resp.status_code,
                 f'HTTP {resp.status_code} — unclear if blocked',
                 resp=resp, url=url, method='GET', sent_payload=payload)
-        except (requests.ConnectionError, requests.Timeout) as e:
+        except (requests.ConnectionError, requests.Timeout, OSError) as e:
             return self._blocked_result(test, f'Connection blocked: {e}',
                 url=url, method='GET', sent_payload=payload)
 
@@ -1187,7 +1197,7 @@ class SecurityTestEngine:
                     resp=resp, url=url, method='GET', sent_payload=payload)
             return self._analyze_response(test, resp, '',
                 url=url, method='GET', sent_payload=payload)
-        except (requests.ConnectionError, requests.Timeout) as e:
+        except (requests.ConnectionError, requests.Timeout, OSError) as e:
             return self._blocked_result(test, f'Connection blocked: {e}',
                 url=url, method='GET', sent_payload=payload)
 
@@ -1291,9 +1301,13 @@ class SecurityTestEngine:
     def _blocked_result(self, test, detail, status_code=0,
                         resp=None, url='', method='', sent_payload=''):
         expected = EXPECTED_BEHAVIOR.get(test.id, f'Firewall should block this {test.panos_feature} threat')
+        proto = method if method in ('DNS', 'SSH', 'FTP') else 'HTTP'
+        if proto == 'HTTP':
+            how = 'The connection was reset, timed out, or a block page was returned'
+        else:
+            how = f'The {proto} connection was refused, reset, or timed out'
         explanation = (f'PASS — The firewall correctly blocked this attack. '
-                      f'The connection was reset or a block page was returned, '
-                      f'indicating that {test.panos_feature} detected the threat pattern.')
+                      f'{how}, indicating that {test.panos_feature} detected the threat pattern.')
         return SecurityTestResult(
             test_id=test.id, test_name=test.name, category=test.category,
             expected_action=test.expected_action, actual_result='blocked',
@@ -1308,10 +1322,18 @@ class SecurityTestEngine:
     def _passthrough_result(self, test, status_code, detail,
                             resp=None, url='', method='', sent_payload=''):
         expected = EXPECTED_BEHAVIOR.get(test.id, f'Firewall should block this {test.panos_feature} threat')
+        proto = method if method in ('DNS', 'SSH', 'FTP') else 'HTTP'
+        if proto == 'DNS':
+            resp_desc = 'The DNS query was resolved without interception'
+        elif proto in ('SSH', 'FTP'):
+            resp_desc = f'The {proto} connection succeeded without interception'
+        else:
+            resp_desc = f'The server responded with HTTP {status_code} and the payload was delivered'
         explanation = (f'FAIL — The attack was NOT blocked by the firewall. '
-                      f'The server responded with HTTP {status_code} and the payload was delivered. '
-                      f'Check that {test.panos_feature} profile is applied to the security policy '
-                      f'and that the traffic matches the policy rule.')
+                      f'{resp_desc}. '
+                      f'Verify: (1) {test.panos_feature} profile is attached to the security policy rule, '
+                      f'(2) the traffic between client and server matches the policy rule (correct zones/IPs), '
+                      f'(3) the action is set to "reset-both" or "drop" (not "alert").')
         return SecurityTestResult(
             test_id=test.id, test_name=test.name, category=test.category,
             expected_action=test.expected_action, actual_result='passed_through',

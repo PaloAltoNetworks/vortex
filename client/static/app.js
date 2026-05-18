@@ -1444,6 +1444,8 @@ async function startSecurityTests() {
         https_port: parseInt(document.getElementById('sec-https-port').value) || 443,
         interval: parseFloat(document.getElementById('sec-interval').value) || 2,
     };
+    const logPanel = document.getElementById('log-panel');
+    if (logPanel) logPanel.dataset.secLogCount = '0';
     const res = await apiPost('/api/security/start', { tests, config });
     addLog('[SECURITY] ' + res.message);
     if (res.ok) startSecurityPolling();
@@ -1465,6 +1467,8 @@ async function clearSecurityResults() {
         el.innerHTML = '';
     });
     document.getElementById('security-summary').style.display = 'none';
+    const logPanel = document.getElementById('log-panel');
+    if (logPanel) logPanel.dataset.secLogCount = '0';
     addLog('[SECURITY] Results cleared');
 }
 
@@ -1502,6 +1506,26 @@ function updateSecurityUI(data) {
         // Update expanded detail if visible
         const detail = document.getElementById('sec-detail-' + r.test_id);
         if (detail && detail.style.display !== 'none') renderSecDetail(r.test_id);
+    }
+
+    // Render security logs into main activity log panel
+    if (data.logs && data.logs.length > 0) {
+        const logPanel = document.getElementById('log-panel');
+        if (logPanel) {
+            const lastCount = parseInt(logPanel.dataset.secLogCount || '0');
+            if (data.logs.length > lastCount) {
+                const newLogs = data.logs.slice(lastCount);
+                for (const l of newLogs) {
+                    const cls = l.includes('ERROR') ? ' error' : '';
+                    const div = document.createElement('div');
+                    div.className = 'log-entry' + cls;
+                    div.textContent = '[SECURITY] ' + l;
+                    logPanel.appendChild(div);
+                }
+                logPanel.scrollTop = logPanel.scrollHeight;
+                logPanel.dataset.secLogCount = data.logs.length;
+            }
+        }
     }
 
     const s = data.summary;
