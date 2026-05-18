@@ -630,6 +630,16 @@ class SecurityTestEngine:
                 elif result.verdict == 'FAIL':
                     verdict_msg += ' (passed through — not blocked)'
                 self._add_log(verdict_msg)
+                # Log full test case details
+                self._add_log(f'  Method: {result.method} | URL: {result.url}')
+                if result.payload:
+                    payload_display = result.payload[:200] + ('...' if len(result.payload) > 200 else '')
+                    self._add_log(f'  Payload: {payload_display}')
+                self._add_log(f'  HTTP {result.response_code} | {result.detail}')
+                if result.response_body_snippet:
+                    snippet = result.response_body_snippet[:150].replace('\n', ' ')
+                    self._add_log(f'  Response: {snippet}')
+                self._add_log(f'  PAN-OS: {result.panos_feature} | {result.expected_behavior[:120] if result.expected_behavior else ""}')
             except Exception as e:
                 with self._lock:
                     self._results[test.id] = self._error_result(test, str(e))
@@ -1291,9 +1301,13 @@ class SecurityTestEngine:
     def _blocked_result(self, test, detail, status_code=0,
                         resp=None, url='', method='', sent_payload=''):
         expected = EXPECTED_BEHAVIOR.get(test.id, f'Firewall should block this {test.panos_feature} threat')
+        proto = method if method in ('DNS', 'SSH', 'FTP') else 'HTTP'
+        if proto == 'HTTP':
+            how = 'The connection was reset, timed out, or a block page was returned'
+        else:
+            how = f'The {proto} connection was refused, reset, or timed out'
         explanation = (f'PASS — The firewall correctly blocked this attack. '
-                      f'The connection was reset or a block page was returned, '
-                      f'indicating that {test.panos_feature} detected the threat pattern.')
+                      f'{how}, indicating that {test.panos_feature} detected the threat pattern.')
         return SecurityTestResult(
             test_id=test.id, test_name=test.name, category=test.category,
             expected_action=test.expected_action, actual_result='blocked',
@@ -1308,10 +1322,18 @@ class SecurityTestEngine:
     def _passthrough_result(self, test, status_code, detail,
                             resp=None, url='', method='', sent_payload=''):
         expected = EXPECTED_BEHAVIOR.get(test.id, f'Firewall should block this {test.panos_feature} threat')
+        proto = method if method in ('DNS', 'SSH', 'FTP') else 'HTTP'
+        if proto == 'DNS':
+            resp_desc = 'The DNS query was resolved without interception'
+        elif proto in ('SSH', 'FTP'):
+            resp_desc = f'The {proto} connection succeeded without interception'
+        else:
+            resp_desc = f'The server responded with HTTP {status_code} and the payload was delivered'
         explanation = (f'FAIL — The attack was NOT blocked by the firewall. '
-                      f'The server responded with HTTP {status_code} and the payload was delivered. '
-                      f'Check that {test.panos_feature} profile is applied to the security policy '
-                      f'and that the traffic matches the policy rule.')
+                      f'{resp_desc}. '
+                      f'Verify: (1) {test.panos_feature} profile is attached to the security policy rule, '
+                      f'(2) the traffic between client and server matches the policy rule (correct zones/IPs), '
+                      f'(3) the action is set to "reset-both" or "drop" (not "alert").')
         return SecurityTestResult(
             test_id=test.id, test_name=test.name, category=test.category,
             expected_action=test.expected_action, actual_result='passed_through',
