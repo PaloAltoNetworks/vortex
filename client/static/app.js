@@ -1411,7 +1411,7 @@ function escapeHtml(str) {
 function toggleSecurityCategory(cat) {
     const list = document.getElementById('sec-list-' + cat);
     const chevron = document.getElementById('chevron-sec-' + cat);
-    if (list) list.style.display = list.style.display === 'none' ? '' : 'none';
+    if (list) list.classList.toggle('collapsed');
     if (chevron) chevron.classList.toggle('collapsed');
 }
 

@@ -423,6 +423,8 @@ DASHBOARD_HTML = r"""
             border: 1px solid var(--border); border-top: none;
             border-radius: 0 0 6px 6px; overflow: hidden;
         }
+        .security-test-list.collapsed { display: none;
+        }
         .security-test-row {
             display: grid; grid-template-columns: 24px 1fr 120px 80px 80px auto;
             gap: 8px; align-items: center; padding: 6px 10px;
@@ -2003,7 +2005,7 @@ async function addClient() {
     const res = await apiPost('/api/clients', { name, url });
     if (res.ok) {
         clientList[name] = url;
-        renderClientTab(name);
+        await renderClientTab(name);
         rebuildTabs();
         hideAddClient();
         document.getElementById('client-name').value = '';
@@ -2032,10 +2034,11 @@ async function loadClients() {
         const data = await resp.json();
         clientList = data;
         for (const name of Object.keys(data)) {
-            renderClientTab(name);
+            await renderClientTab(name);
             clientLoadRouters(name); clientLoadSourceIps(name); clientLoadProxy(name); clientRefreshTopology(name);
         }
         rebuildTabs();
+        if (Object.keys(data).length === 0) showAddClient();
     } catch(e) {}
 }
 
