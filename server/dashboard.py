@@ -1849,34 +1849,18 @@ async function pollClientStatus(clientName) {
                 if (timer) timer.style.display = 'none';
             }
         }
-        // Collect logs from all protocols with timestamps for sorting
-        let allLogs = [];
+        // Store traffic logs for this client
+        if (!window._clientTrafficLogs) window._clientTrafficLogs = {};
+        let trafficLogs = [];
         for (const [proto, info] of Object.entries(data.jobs || {})) {
             if (info.logs) {
                 for (const line of info.logs) {
-                    allLogs.push('[' + proto.toUpperCase() + '] ' + line);
+                    trafficLogs.push('[' + proto.toUpperCase() + '] ' + line);
                 }
             }
         }
-        // Sort by embedded timestamp [HH:MM:SS]
-        allLogs.sort(function(a, b) {
-            var ta = a.match(/\[(\d{2}:\d{2}:\d{2})\]/);
-            var tb = b.match(/\[(\d{2}:\d{2}:\d{2})\]/);
-            if (ta && tb) return ta[1].localeCompare(tb[1]);
-            return 0;
-        });
-        // Update activity log panel with remote logs
-        const panel = document.getElementById('log-' + clientName);
-        if (panel && allLogs.length > 0) {
-            const lastN = allLogs.slice(-200);
-            panel.innerHTML = lastN.map(l => {
-                const cls = l.toLowerCase().includes('error') ? ' error' : '';
-                const d = document.createElement('div');
-                d.textContent = l;
-                return '<div class="log-entry' + cls + '">' + d.innerHTML + '</div>';
-            }).join('');
-            panel.scrollTop = panel.scrollHeight;
-        }
+        window._clientTrafficLogs[clientName] = trafficLogs;
+        clientRenderLogPanel(clientName);
         const el = id => document.getElementById('c-' + clientName + '-' + id);
         if (el('sent')) el('sent').textContent = fmtBytes(totSent);
         if (el('recv')) el('recv').textContent = fmtBytes(totRecv);
@@ -2052,6 +2036,7 @@ var _clientSecCatalogs = {};
 var _clientSecResults = {};
 var _clientSecPolling = {};
 var _clientSecLogCount = {};
+var _clientSecLogs = {};
 
 var SEC_CATEGORY_META = {
     web_attacks: { label: 'Web Attacks (OWASP)', badge: 'vuln', icon: '\u26A0\uFE0F' },
@@ -2234,6 +2219,7 @@ async function clientClearSecurity(name) {
     await fetch('/api/client/' + name + '/security/clear', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
     if (_clientSecResults[name]) _clientSecResults[name] = {};
     _clientSecLogCount[name] = 0;
+    _clientSecLogs[name] = [];
     document.querySelectorAll('[id^="c-' + name + '-sec-verdict-"]').forEach(function(el) {
         el.innerHTML = '<span class="sec-verdict pending">--</span>';
     });
@@ -2295,26 +2281,36 @@ function clientUpdateSecurityUI(name, data) {
     } else if (summaryEl) {
         summaryEl.style.display = 'none';
     }
-    // Render security logs into client activity log panel
+    // Store security logs for merging with traffic logs
     if (data.logs && data.logs.length > 0) {
-        var lastCount = _clientSecLogCount[name] || 0;
-        if (data.logs.length > lastCount) {
-            var panel = document.getElementById('log-' + name);
-            if (panel) {
-                var newLogs = data.logs.slice(lastCount);
-                for (var li = 0; li < newLogs.length; li++) {
-                    var cls = newLogs[li].toLowerCase().includes('error') ? ' error' : '';
-                    var d = document.createElement('div');
-                    d.textContent = '[SECURITY] ' + newLogs[li];
-                    var entry = document.createElement('div');
-                    entry.className = 'log-entry' + cls;
-                    entry.innerHTML = d.innerHTML;
-                    panel.appendChild(entry);
-                }
-                panel.scrollTop = panel.scrollHeight;
-            }
-            _clientSecLogCount[name] = data.logs.length;
-        }
+        if (!_clientSecLogs[name]) _clientSecLogs[name] = [];
+        _clientSecLogs[name] = data.logs.map(function(l) { return '[SECURITY] ' + l; });
+        // Re-render log panel to include security logs
+        clientRenderLogPanel(name);
+    }
+}
+
+function clientRenderLogPanel(name) {
+    var allLogs = (window._clientTrafficLogs && window._clientTrafficLogs[name]) || [];
+    var secLogs = _clientSecLogs[name] || [];
+    var merged = allLogs.concat(secLogs);
+    // Sort by embedded timestamp [HH:MM:SS]
+    merged.sort(function(a, b) {
+        var ta = a.match(/\[(\d{2}:\d{2}:\d{2})\]/);
+        var tb = b.match(/\[(\d{2}:\d{2}:\d{2})\]/);
+        if (ta && tb) return ta[1].localeCompare(tb[1]);
+        return 0;
+    });
+    var panel = document.getElementById('log-' + name);
+    if (panel && merged.length > 0) {
+        var lastN = merged.slice(-200);
+        panel.innerHTML = lastN.map(function(l) {
+            var cls = l.toLowerCase().includes('error') ? ' error' : '';
+            var d = document.createElement('div');
+            d.textContent = l;
+            return '<div class="log-entry' + cls + '">' + d.innerHTML + '</div>';
+        }).join('');
+        panel.scrollTop = panel.scrollHeight;
     }
 }
 
