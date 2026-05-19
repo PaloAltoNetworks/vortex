@@ -486,6 +486,11 @@ DASHBOARD_HTML = r"""
         }
         @keyframes detailSlide { from { opacity: 0; } to { opacity: 1; } }
         .sec-custom-actions { margin-left: 6px; display: inline-flex; gap: 2px; }
+        .sec-run-cat-btn {
+            background: var(--success); color: #fff; border: none; border-radius: 3px;
+            cursor: pointer; font-size: 10px; padding: 2px 8px; line-height: 1.4;
+        }
+        .sec-run-cat-btn:hover { opacity: 0.85; }
         .sec-edit-btn, .sec-del-btn {
             background: none; border: 1px solid var(--border); border-radius: 3px;
             cursor: pointer; font-size: 10px; padding: 0 4px;
@@ -2046,6 +2051,7 @@ async function loadClients() {
 var _clientSecCatalogs = {};
 var _clientSecResults = {};
 var _clientSecPolling = {};
+var _clientSecLogCount = {};
 
 var SEC_CATEGORY_META = {
     web_attacks: { label: 'Web Attacks (OWASP)', badge: 'vuln', icon: '\u26A0\uFE0F' },
@@ -2080,6 +2086,7 @@ function clientRenderSecurityPanel(name, catalog) {
             '<div class="security-category-title"><span>' + meta.icon + '</span><span>' + meta.label + '</span>' +
             '<span class="security-category-badge ' + meta.badge + '">' + tests.length + ' tests</span></div>' +
             '<div style="display:flex;align-items:center;gap:6px">' +
+            '<button class="sec-run-cat-btn" onclick="event.stopPropagation();clientRunSecurityCategory(\'' + name + '\',\'' + cat + '\')" title="Run all tests in this category">&#9654; Run</button>' +
             '<span class="security-select-all" onclick="event.stopPropagation();clientToggleSecCategorySelect(\'' + name + '\',\'' + cat + '\')">[Select All]</span>' +
             '<span class="chevron" id="chevron-c-' + name + '-sec-' + cat + '" style="font-size:10px;color:var(--text-secondary)">&#9660;</span></div></div>' +
             '<div class="security-test-list" id="section-c-' + name + '-sec-' + cat + '">' +
@@ -2092,7 +2099,7 @@ function clientRenderSecurityPanel(name, catalog) {
             var resetBtn = t.overridden ? '<button class="sec-reset-btn" onclick="event.stopPropagation();clientResetBuiltinTest(\'' + name + '\',\'' + t.id + '\')" title="Reset to default">&#8634;</button>' : '';
             html += '<div class="security-test-row clickable" id="c-' + name + '-sec-row-' + t.id + '" onclick="clientToggleSecDetail(\'' + name + '\',\'' + t.id + '\')">' +
                 '<input type="checkbox" class="sec-checkbox-' + name + '" data-cat="' + cat + '" data-id="' + t.id + '" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">' +
-                '<div><div class="security-test-name">' + t.name + overrideBadge + '</div><div class="security-test-desc">' + (t.description || '') + '</div></div>' +
+                '<div><div class="security-test-name">' + escapeHtml(t.name) + overrideBadge + '</div><div class="security-test-desc">' + escapeHtml(t.description || '') + '</div></div>' +
                 '<span class="security-test-feature">' + t.panos_feature + '</span>' +
                 '<span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">' + t.expected_action + '</span>' +
                 '<span id="c-' + name + '-sec-verdict-' + t.id + '"><span class="sec-verdict pending">--</span></span>' +
@@ -2175,6 +2182,21 @@ function clientToggleSecCategorySelect(name, cat) {
     boxes.forEach(function(b){b.checked = !allChecked});
 }
 
+async function clientRunSecurityCategory(name, cat) {
+    var tests = Array.from(document.querySelectorAll('.sec-checkbox-' + name + '[data-cat="' + cat + '"]')).map(function(b){return b.dataset.id});
+    if (!tests.length) return;
+    var config = {
+        http_port: parseInt(document.getElementById('c-' + name + '-sec-http-port').value) || 9999,
+        https_port: parseInt(document.getElementById('c-' + name + '-sec-https-port').value) || 443,
+        interval: parseFloat(document.getElementById('c-' + name + '-sec-interval').value) || 2,
+    };
+    await fetch('/api/client/' + name + '/security/start', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ tests: tests, config: config })
+    });
+    clientStartSecurityPolling(name);
+}
+
 async function clientRunSingleTest(name, testId) {
     var config = {
         http_port: parseInt(document.getElementById('c-' + name + '-sec-http-port').value) || 9999,
@@ -2211,6 +2233,7 @@ async function clientStopSecurity(name) {
 async function clientClearSecurity(name) {
     await fetch('/api/client/' + name + '/security/clear', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
     if (_clientSecResults[name]) _clientSecResults[name] = {};
+    _clientSecLogCount[name] = 0;
     document.querySelectorAll('[id^="c-' + name + '-sec-verdict-"]').forEach(function(el) {
         el.innerHTML = '<span class="sec-verdict pending">--</span>';
     });
@@ -2271,6 +2294,27 @@ function clientUpdateSecurityUI(name, data) {
             '</div>';
     } else if (summaryEl) {
         summaryEl.style.display = 'none';
+    }
+    // Render security logs into client activity log panel
+    if (data.logs && data.logs.length > 0) {
+        var lastCount = _clientSecLogCount[name] || 0;
+        if (data.logs.length > lastCount) {
+            var panel = document.getElementById('log-' + name);
+            if (panel) {
+                var newLogs = data.logs.slice(lastCount);
+                for (var li = 0; li < newLogs.length; li++) {
+                    var cls = newLogs[li].toLowerCase().includes('error') ? ' error' : '';
+                    var d = document.createElement('div');
+                    d.textContent = '[SECURITY] ' + newLogs[li];
+                    var entry = document.createElement('div');
+                    entry.className = 'log-entry' + cls;
+                    entry.innerHTML = d.innerHTML;
+                    panel.appendChild(entry);
+                }
+                panel.scrollTop = panel.scrollHeight;
+            }
+            _clientSecLogCount[name] = data.logs.length;
+        }
     }
 }
 

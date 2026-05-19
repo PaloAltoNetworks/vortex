@@ -576,6 +576,17 @@ div.vis-tooltip {
     display: inline-flex;
     gap: 2px;
 }
+.sec-run-cat-btn {
+    background: var(--success);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 2px 8px;
+    line-height: 1.4;
+}
+.sec-run-cat-btn:hover { opacity: 0.85; }
 .sec-edit-btn, .sec-del-btn {
     background: none;
     border: 1px solid var(--border);

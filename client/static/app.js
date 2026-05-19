@@ -754,6 +754,7 @@ async function pollStatus() {
 const logBuf = [];
 let autoRefreshInterval = null;
 let _seenEngineLogs = new Set();
+let _secLogLastCount = 0;
 
 function renderLogPanel() {
     if (logBuf.length > 1000) logBuf.splice(0, logBuf.length - 500);
@@ -1286,6 +1287,7 @@ function renderSecurityPanel() {
                     <span class="security-category-badge ${meta.badge}">${tests.length} tests</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px">
+                    <button class="sec-run-cat-btn" onclick="event.stopPropagation();runSecurityCategory('${cat}')" title="Run all tests in this category">&#9654; Run</button>
                     <span class="security-select-all" onclick="event.stopPropagation();toggleSecCategorySelect('${cat}')">[Select All]</span>
                     <span class="chevron" id="chevron-sec-${cat}" style="font-size:10px;color:var(--text-secondary)">&#9660;</span>
                 </div>
@@ -1307,8 +1309,8 @@ function renderSecurityPanel() {
             html += `<div class="security-test-row clickable" id="sec-row-${t.id}" onclick="toggleSecDetail('${t.id}')">
                 <input type="checkbox" class="sec-checkbox" data-cat="${cat}" data-id="${t.id}" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">
                 <div>
-                    <div class="security-test-name">${t.name}${overrideBadge}</div>
-                    <div class="security-test-desc">${t.description || ''}</div>
+                    <div class="security-test-name">${escapeHtml(t.name)}${overrideBadge}</div>
+                    <div class="security-test-desc">${escapeHtml(t.description || '')}</div>
                 </div>
                 <span class="security-test-feature">${t.panos_feature}</span>
                 <span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">${t.expected_action}</span>
@@ -1421,6 +1423,20 @@ function toggleSecCategorySelect(cat) {
     boxes.forEach(b => b.checked = !allChecked);
 }
 
+async function runSecurityCategory(cat) {
+    const tests = Array.from(document.querySelectorAll(`.sec-checkbox[data-cat="${cat}"]`)).map(b => b.dataset.id);
+    if (!tests.length) { addLog('[SECURITY] No tests in category'); return; }
+    const config = {
+        http_port: parseInt(document.getElementById('sec-http-port').value) || 9999,
+        https_port: parseInt(document.getElementById('sec-https-port').value) || 443,
+        interval: parseFloat(document.getElementById('sec-interval').value) || 2,
+    };
+    _secLogLastCount = 0;
+    const res = await apiPost('/api/security/start', { tests, config });
+    addLog('[SECURITY] Running category: ' + cat + ' (' + tests.length + ' tests)');
+    if (res.ok) startSecurityPolling();
+}
+
 function getSelectedSecurityTests() {
     return Array.from(document.querySelectorAll('.sec-checkbox:checked')).map(b => b.dataset.id);
 }
@@ -1444,8 +1460,7 @@ async function startSecurityTests() {
         https_port: parseInt(document.getElementById('sec-https-port').value) || 443,
         interval: parseFloat(document.getElementById('sec-interval').value) || 2,
     };
-    const logPanel = document.getElementById('log-panel');
-    if (logPanel) logPanel.dataset.secLogCount = '0';
+    _secLogLastCount = 0;
     const res = await apiPost('/api/security/start', { tests, config });
     addLog('[SECURITY] ' + res.message);
     if (res.ok) startSecurityPolling();
@@ -1467,8 +1482,7 @@ async function clearSecurityResults() {
         el.innerHTML = '';
     });
     document.getElementById('security-summary').style.display = 'none';
-    const logPanel = document.getElementById('log-panel');
-    if (logPanel) logPanel.dataset.secLogCount = '0';
+    _secLogLastCount = 0;
     addLog('[SECURITY] Results cleared');
 }
 
@@ -1508,23 +1522,16 @@ function updateSecurityUI(data) {
         if (detail && detail.style.display !== 'none') renderSecDetail(r.test_id);
     }
 
-    // Render security logs into main activity log panel
+    // Render security logs into main activity log panel via logBuf
     if (data.logs && data.logs.length > 0) {
-        const logPanel = document.getElementById('log-panel');
-        if (logPanel) {
-            const lastCount = parseInt(logPanel.dataset.secLogCount || '0');
-            if (data.logs.length > lastCount) {
-                const newLogs = data.logs.slice(lastCount);
-                for (const l of newLogs) {
-                    const cls = l.includes('ERROR') ? ' error' : '';
-                    const div = document.createElement('div');
-                    div.className = 'log-entry' + cls;
-                    div.textContent = '[SECURITY] ' + l;
-                    logPanel.appendChild(div);
-                }
-                logPanel.scrollTop = logPanel.scrollHeight;
-                logPanel.dataset.secLogCount = data.logs.length;
+        const lastCount = _secLogLastCount || 0;
+        if (data.logs.length > lastCount) {
+            const newLogs = data.logs.slice(lastCount);
+            for (const l of newLogs) {
+                logBuf.push('[SECURITY] ' + l);
             }
+            _secLogLastCount = data.logs.length;
+            renderLogPanel();
         }
     }
 
