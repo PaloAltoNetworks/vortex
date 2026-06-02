@@ -1106,15 +1106,8 @@ async function renderClientTab(name) {
         '<div id="c-' + name + '-security-summary" style="display:none"></div>' +
         '<div id="c-' + name + '-security-panel"></div>' +
         '</div></div>' +
-        // ISP Scenario Simulator
-        '<div class="card"><div class="card-header" onclick="toggleSection(\'c-' + name + '-isp\')">' +
-        '<span>ISP Scenario Simulator</span>' +
-        '<div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">' +
-        '<button class="btn btn-start" onclick="clientStartIspScenario(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Start</button>' +
-        '<button class="btn btn-stop" onclick="clientStopIspScenario(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Stop</button>' +
-        '<span class="chevron collapsed" id="chevron-c-' + name + '-isp">&#9660;</span></div></div>' +
-        '<div class="card-body collapsed" id="section-c-' + name + '-isp">' +
-        '<div id="c-' + name + '-isp-container"></div></div></div>' +
+        // ISP Scenario Simulator is now inside each router card
+
         // Log
         '<div class="card"><div class="card-header" onclick="toggleSection(\'c-' + name + '-logs\')"><span>Activity Log</span>' +
         '<div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">' +
@@ -1373,7 +1366,20 @@ function clientRenderRouterCard(clientName, r) {
         '<div style="display:flex;gap:6px">' +
         '<button class="btn btn-start" onclick="clientApplyRouterMode(\'' + clientName + '\',\'' + id + '\',\'healthy\')" style="padding:4px 12px;font-size:11px">Healthy</button>' +
         '<button class="btn btn-primary" onclick="clientApplyRouterMode(\'' + clientName + '\',\'' + id + '\',\'impaired\')" style="padding:4px 12px;font-size:11px">Apply Impaired</button>' +
-        '<button class="btn btn-danger" onclick="clientApplyRouterMode(\'' + clientName + '\',\'' + id + '\',\'link_down\')" style="padding:4px 12px;font-size:11px">Link Down</button></div>'
+        '<button class="btn btn-danger" onclick="clientApplyRouterMode(\'' + clientName + '\',\'' + id + '\',\'link_down\')" style="padding:4px 12px;font-size:11px">Link Down</button></div>' +
+        // ISP Scenario Simulator inside router card
+        '<div class="isp-scenario-section" style="margin-top:10px">' +
+        '<h4>ISP Scenario Simulator</h4>' +
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' +
+        '<select id="c-' + clientName + '-rtr-' + id + '-isp-scenario" onchange="clientRenderRouterIspTimeline(\'' + clientName + '\',\'' + id + '\')" style="flex:1;min-width:180px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
+        (function() { var s = _clientIspScenarios[clientName] || {}; return Object.keys(s).map(function(k) { var sc = s[k]; var mins = Math.round(sc.total_duration_sec / 60); return '<option value="' + k + '">' + sc.name + ' (' + mins + ' min)</option>'; }).join(''); })() +
+        '</select>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" id="c-' + clientName + '-rtr-' + id + '-isp-loop" style="width:14px;height:14px"> Loop</label>' +
+        '<button class="btn btn-start" onclick="clientStartRouterIspScenario(\'' + clientName + '\',\'' + id + '\')" style="padding:3px 10px;font-size:10px">Start</button>' +
+        '<button class="btn btn-stop" onclick="clientStopRouterIspScenario(\'' + clientName + '\',\'' + id + '\')" style="padding:3px 10px;font-size:10px">Stop</button></div>' +
+        '<div id="c-' + clientName + '-rtr-' + id + '-isp-desc" class="isp-scenario-desc"></div>' +
+        '<div id="c-' + clientName + '-rtr-' + id + '-isp-timeline" class="isp-scenario-timeline"></div>' +
+        '<div id="c-' + clientName + '-rtr-' + id + '-isp-status" class="isp-scenario-status"></div></div>'
         : '<div style="color:var(--text-secondary);font-size:11px;padding:6px 0">Router disconnected. Click Reconnect to restore.</div>';
     return '<div style="background:var(--bg-sub);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
@@ -1399,6 +1405,21 @@ async function clientLoadRouters(clientName) {
             return;
         }
         container.innerHTML = routers.map(function(r) { return clientRenderRouterCard(clientName, r); }).join('');
+        // Render ISP timelines and check for running scenarios
+        for (var i = 0; i < routers.length; i++) {
+            var r = routers[i];
+            if (r.connected && r.selected_interface) {
+                clientRenderRouterIspTimeline(clientName, r.router_id);
+                (function(rid) {
+                    var key = clientName + ':' + rid;
+                    if (!_clientIspPollingRouters[key]) {
+                        fetch('/api/client/' + clientName + '/routers/' + rid + '/scenario/status').then(function(resp) { return resp.json(); }).then(function(st) {
+                            if (st.running) clientStartRouterIspPolling(clientName, rid);
+                        }).catch(function() {});
+                    }
+                })(r.router_id);
+            }
+        }
     } catch(e) {}
 }
 
@@ -1435,6 +1456,12 @@ async function clientPollRouterStatus(clientName) {
             var toggleBtn = document.getElementById('c-' + clientName + '-rtr-ifaces-toggle-' + rid);
             if (ifaceEl) ifaceEl.style.display = 'block';
             if (toggleBtn) toggleBtn.textContent = 'Hide Interfaces';
+        }
+        // Re-render ISP timelines after router card re-render
+        for (var i = 0; i < routers.length; i++) {
+            if (routers[i].connected && routers[i].selected_interface) {
+                clientRenderRouterIspTimeline(clientName, routers[i].router_id);
+            }
         }
     } catch(e) {}
 }
@@ -2353,9 +2380,9 @@ async function clientStopPcapReplay(name) {
     if (statusEl) statusEl.textContent = 'Stopped';
 }
 
-// ISP Scenario helpers
+// ISP Scenario helpers (router-based)
 var _clientIspScenarios = {};
-var _clientIspPolling = {};
+var _clientIspPollingRouters = {};
 
 function _ispPhaseSeverity(phase) {
     var score = (phase.latency_ms / 50) + (phase.packet_loss_pct * 2) +
@@ -2369,98 +2396,76 @@ function _ispPhaseSeverity(phase) {
 
 async function clientLoadIspScenarios(name) {
     try {
-        var resp = await fetch('/api/client/' + name + '/shaping/scenarios');
+        var resp = await fetch('/api/client/' + name + '/routers/scenarios');
         var data = await resp.json();
         _clientIspScenarios[name] = data;
-        clientRenderIspUI(name);
     } catch(e) {}
 }
 
-function clientRenderIspUI(name) {
-    var container = document.getElementById('c-' + name + '-isp-container');
-    if (!container) return;
-    var scenarios = _clientIspScenarios[name] || {};
-    var keys = Object.keys(scenarios);
-    if (!keys.length) { container.innerHTML = '<div style="font-size:12px;color:var(--text-secondary)">No scenarios available</div>'; return; }
-    var options = keys.map(function(k) {
-        var s = scenarios[k];
-        var mins = Math.round(s.total_duration_sec / 60);
-        return '<option value="' + k + '">' + s.name + ' (' + mins + ' min)</option>';
-    }).join('');
-    container.innerHTML = '<div class="isp-scenario-section">' +
-        '<h4>Simulate Real-World ISP Behavior</h4>' +
-        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' +
-        '<select id="c-' + name + '-isp-select" onchange="clientRenderIspTimeline(\'' + name + '\')" style="flex:1;min-width:200px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' + options + '</select>' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" id="c-' + name + '-isp-loop" style="width:14px;height:14px"> Loop</label></div>' +
-        '<div id="c-' + name + '-isp-desc" class="isp-scenario-desc"></div>' +
-        '<div id="c-' + name + '-isp-timeline" class="isp-scenario-timeline"></div>' +
-        '<div id="c-' + name + '-isp-status" class="isp-scenario-status"></div></div>';
-    clientRenderIspTimeline(name);
-}
-
-function clientRenderIspTimeline(name) {
-    var sel = document.getElementById('c-' + name + '-isp-select');
+function clientRenderRouterIspTimeline(name, routerId) {
+    var sel = document.getElementById('c-' + name + '-rtr-' + routerId + '-isp-scenario');
     if (!sel) return;
     var scenarios = _clientIspScenarios[name] || {};
     var scenario = scenarios[sel.value];
     if (!scenario) return;
-    var descEl = document.getElementById('c-' + name + '-isp-desc');
+    var descEl = document.getElementById('c-' + name + '-rtr-' + routerId + '-isp-desc');
     if (descEl) descEl.textContent = scenario.description;
-    var timeline = document.getElementById('c-' + name + '-isp-timeline');
+    var timeline = document.getElementById('c-' + name + '-rtr-' + routerId + '-isp-timeline');
     if (!timeline) return;
     var total = scenario.total_duration_sec;
     timeline.innerHTML = scenario.phases.map(function(p, i) {
         var widthPct = (p.duration_sec / total * 100).toFixed(1);
         var sev = _ispPhaseSeverity(p);
-        return '<div class="isp-phase severity-' + sev + '" data-phase="' + i + '" style="width:' + widthPct + '%" title="' + p.name + ': ' + p.duration_sec + 's">' + p.name + '</div>';
+        return '<div class="isp-phase severity-' + sev + '" data-phase="' + i + '" style="width:' + widthPct + '%" title="' + p.name + ': ' + p.duration_sec + 's\\nLatency: ' + p.latency_ms + 'ms | Jitter: ' + p.jitter_ms + 'ms\\nLoss: ' + p.packet_loss_pct + '% | BW: ' + (p.bandwidth_mbps || '∞') + ' Mbps">' + p.name + '</div>';
     }).join('');
 }
 
-async function clientStartIspScenario(name) {
-    var sel = document.getElementById('c-' + name + '-isp-select');
+async function clientStartRouterIspScenario(name, routerId) {
+    var sel = document.getElementById('c-' + name + '-rtr-' + routerId + '-isp-scenario');
     if (!sel) return;
-    var loop = (document.getElementById('c-' + name + '-isp-loop') || {}).checked || false;
-    await fetch('/api/client/' + name + '/shaping/scenario/start', {
+    var loop = (document.getElementById('c-' + name + '-rtr-' + routerId + '-isp-loop') || {}).checked || false;
+    await fetch('/api/client/' + name + '/routers/' + routerId + '/scenario/start', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ scenario_id: sel.value, loop: loop })
     });
-    clientStartIspPolling(name);
+    clientStartRouterIspPolling(name, routerId);
 }
 
-async function clientStopIspScenario(name) {
-    await fetch('/api/client/' + name + '/shaping/scenario/stop', {
+async function clientStopRouterIspScenario(name, routerId) {
+    await fetch('/api/client/' + name + '/routers/' + routerId + '/scenario/stop', {
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
     });
-    _clientIspPolling[name] = false;
-    var container = document.getElementById('c-' + name + '-isp-container');
-    if (container) {
-        container.querySelectorAll('.isp-phase').forEach(function(el) { el.classList.remove('active', 'dimmed'); });
-    }
-    var statusEl = document.getElementById('c-' + name + '-isp-status');
+    var key = name + ':' + routerId;
+    delete _clientIspPollingRouters[key];
+    var timeline = document.getElementById('c-' + name + '-rtr-' + routerId + '-isp-timeline');
+    if (timeline) timeline.querySelectorAll('.isp-phase').forEach(function(el) { el.classList.remove('active', 'dimmed'); });
+    var statusEl = document.getElementById('c-' + name + '-rtr-' + routerId + '-isp-status');
     if (statusEl) statusEl.innerHTML = '';
 }
 
-function clientStartIspPolling(name) {
-    if (_clientIspPolling[name]) return;
-    _clientIspPolling[name] = true;
-    clientPollIspStatus(name);
+function clientStartRouterIspPolling(name, routerId) {
+    var key = name + ':' + routerId;
+    if (_clientIspPollingRouters[key]) return;
+    _clientIspPollingRouters[key] = true;
+    clientPollRouterIspStatus(name, routerId);
 }
 
-async function clientPollIspStatus(name) {
-    if (!_clientIspPolling[name]) return;
+async function clientPollRouterIspStatus(name, routerId) {
+    var key = name + ':' + routerId;
+    if (!_clientIspPollingRouters[key]) return;
     try {
-        var resp = await fetch('/api/client/' + name + '/shaping/scenario/status');
+        var resp = await fetch('/api/client/' + name + '/routers/' + routerId + '/scenario/status');
         var st = await resp.json();
-        clientUpdateIspUI(name, st);
-        if (!st.running) { _clientIspPolling[name] = false; return; }
+        clientUpdateRouterIspUI(name, routerId, st);
+        if (!st.running) { delete _clientIspPollingRouters[key]; return; }
     } catch(e) {}
-    setTimeout(function() { clientPollIspStatus(name); }, 2000);
+    setTimeout(function() { clientPollRouterIspStatus(name, routerId); }, 2000);
 }
 
-function clientUpdateIspUI(name, st) {
-    var container = document.getElementById('c-' + name + '-isp-container');
-    if (container) {
-        container.querySelectorAll('.isp-phase').forEach(function(el) {
+function clientUpdateRouterIspUI(name, routerId, st) {
+    var timeline = document.getElementById('c-' + name + '-rtr-' + routerId + '-isp-timeline');
+    if (timeline) {
+        timeline.querySelectorAll('.isp-phase').forEach(function(el) {
             var idx = parseInt(el.dataset.phase);
             el.classList.remove('active', 'dimmed');
             if (st.running) {
@@ -2469,7 +2474,7 @@ function clientUpdateIspUI(name, st) {
             }
         });
     }
-    var statusEl = document.getElementById('c-' + name + '-isp-status');
+    var statusEl = document.getElementById('c-' + name + '-rtr-' + routerId + '-isp-status');
     if (!statusEl) return;
     if (!st.running) { statusEl.innerHTML = ''; return; }
     var imp = st.impairment || {};
@@ -3240,26 +3245,26 @@ def client_pcap_delete(name, fname):
     return jsonify(result), code
 
 
-# ─── ISP Scenario proxy routes ───────────────────────────────
+# ─── ISP Scenario proxy routes (router-based) ────────────────
 
-@app.route('/api/client/<name>/shaping/scenarios')
+@app.route('/api/client/<name>/routers/scenarios')
 def client_isp_scenarios(name):
-    result, code = proxy_to_client(name, '/api/shaping/scenarios')
+    result, code = proxy_to_client(name, '/api/routers/scenarios')
     return jsonify(result), code
 
-@app.route('/api/client/<name>/shaping/scenario/start', methods=['POST'])
-def client_isp_start(name):
-    result, code = proxy_to_client(name, '/api/shaping/scenario/start', 'POST', request.json or {})
+@app.route('/api/client/<name>/routers/<router_id>/scenario/start', methods=['POST'])
+def client_isp_start(name, router_id):
+    result, code = proxy_to_client(name, f'/api/routers/{router_id}/scenario/start', 'POST', request.json or {})
     return jsonify(result), code
 
-@app.route('/api/client/<name>/shaping/scenario/stop', methods=['POST'])
-def client_isp_stop(name):
-    result, code = proxy_to_client(name, '/api/shaping/scenario/stop', 'POST', {})
+@app.route('/api/client/<name>/routers/<router_id>/scenario/stop', methods=['POST'])
+def client_isp_stop(name, router_id):
+    result, code = proxy_to_client(name, f'/api/routers/{router_id}/scenario/stop', 'POST', {})
     return jsonify(result), code
 
-@app.route('/api/client/<name>/shaping/scenario/status')
-def client_isp_status(name):
-    result, code = proxy_to_client(name, '/api/shaping/scenario/status')
+@app.route('/api/client/<name>/routers/<router_id>/scenario/status')
+def client_isp_status(name, router_id):
+    result, code = proxy_to_client(name, f'/api/routers/{router_id}/scenario/status')
     return jsonify(result), code
 
 

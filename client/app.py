@@ -412,29 +412,29 @@ def toggle_random_bandwidth():
         return jsonify({"ok": True, "message": "Random bandwidth stopped"})
 
 
-@app.route('/api/shaping/scenarios')
+@app.route('/api/routers/scenarios')
 def list_isp_scenarios():
-    return jsonify(network_shaper.get_isp_scenarios())
+    return jsonify(router_manager.get_isp_scenarios())
 
 
-@app.route('/api/shaping/scenario/start', methods=['POST'])
-def start_isp_scenario():
+@app.route('/api/routers/<router_id>/scenario/start', methods=['POST'])
+def start_isp_scenario(router_id):
     d = _get_json()
     scenario_id = d.get('scenario_id', '')
     loop = bool(d.get('loop', False))
-    ok, msg = network_shaper.start_isp_scenario(scenario_id, loop=loop)
+    ok, msg = router_manager.start_isp_scenario(router_id, scenario_id, loop=loop)
     return jsonify({"ok": ok, "message": msg}), 200 if ok else 400
 
 
-@app.route('/api/shaping/scenario/stop', methods=['POST'])
-def stop_isp_scenario():
-    ok, msg = network_shaper.stop_isp_scenario()
+@app.route('/api/routers/<router_id>/scenario/stop', methods=['POST'])
+def stop_isp_scenario(router_id):
+    ok, msg = router_manager.stop_isp_scenario(router_id)
     return jsonify({"ok": ok, "message": msg})
 
 
-@app.route('/api/shaping/scenario/status')
-def isp_scenario_status():
-    return jsonify(network_shaper.get_isp_scenario_status())
+@app.route('/api/routers/<router_id>/scenario/status')
+def isp_scenario_status(router_id):
+    return jsonify(router_manager.get_isp_scenario_status(router_id))
 
 
 @app.route('/api/interface', methods=['GET', 'POST'])
