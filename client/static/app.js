@@ -391,7 +391,6 @@ async function stopPcapReplay() {
 
 // ─── ISP Scenario Simulator ──────────────────────────────
 let _ispScenarios = {};
-let _ispPolling = false;
 
 function _phaseSeverity(phase) {
     const score = (phase.latency_ms / 50) + (phase.packet_loss_pct * 2) +
@@ -405,52 +404,21 @@ function _phaseSeverity(phase) {
 
 async function loadIspScenarios() {
     try {
-        const resp = await fetch('/api/shaping/scenarios');
+        const resp = await fetch('/api/routers/scenarios');
         _ispScenarios = await resp.json();
-        renderIspScenarioUI();
     } catch(e) {}
 }
 
-function renderIspScenarioUI() {
-    const container = document.getElementById('isp-scenario-container');
-    if (!container) return;
-    const keys = Object.keys(_ispScenarios);
-    if (!keys.length) { container.innerHTML = '<div style="font-size:12px;color:var(--text-secondary)">No scenarios available</div>'; return; }
-
-    let options = keys.map(k => {
-        const s = _ispScenarios[k];
-        const mins = Math.round(s.total_duration_sec / 60);
-        return `<option value="${k}">${s.name} (${mins} min)</option>`;
-    }).join('');
-
-    container.innerHTML = `
-        <div class="isp-scenario-section">
-            <h4>Simulate Real-World ISP Behavior</h4>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
-                <select id="isp-scenario-select" onchange="renderIspTimeline()" style="flex:1;min-width:200px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
-                    ${options}
-                </select>
-                <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer">
-                    <input type="checkbox" id="isp-loop-toggle" style="width:14px;height:14px"> Loop
-                </label>
-            </div>
-            <div id="isp-scenario-desc" class="isp-scenario-desc"></div>
-            <div id="isp-timeline" class="isp-scenario-timeline"></div>
-            <div id="isp-status" class="isp-scenario-status"></div>
-        </div>`;
-    renderIspTimeline();
-}
-
-function renderIspTimeline() {
-    const sel = document.getElementById('isp-scenario-select');
+function renderRouterIspTimeline(routerId) {
+    const sel = document.getElementById(`rtr-${routerId}-isp-scenario`);
     if (!sel) return;
     const scenario = _ispScenarios[sel.value];
     if (!scenario) return;
 
-    const descEl = document.getElementById('isp-scenario-desc');
+    const descEl = document.getElementById(`rtr-${routerId}-isp-desc`);
     if (descEl) descEl.textContent = scenario.description;
 
-    const timeline = document.getElementById('isp-timeline');
+    const timeline = document.getElementById(`rtr-${routerId}-isp-timeline`);
     if (!timeline) return;
     const total = scenario.total_duration_sec;
     timeline.innerHTML = scenario.phases.map((p, i) => {
@@ -460,54 +428,59 @@ function renderIspTimeline() {
     }).join('');
 }
 
-async function startIspScenario() {
-    const sel = document.getElementById('isp-scenario-select');
+async function startRouterIspScenario(routerId) {
+    const sel = document.getElementById(`rtr-${routerId}-isp-scenario`);
     if (!sel) return;
-    const loop = document.getElementById('isp-loop-toggle')?.checked || false;
-    const res = await apiPost('/api/shaping/scenario/start', { scenario_id: sel.value, loop });
-    addLog('[ISP] ' + res.message);
-    if (res.ok) startIspPolling();
+    const loop = document.getElementById(`rtr-${routerId}-isp-loop`)?.checked || false;
+    const res = await apiPost(`/api/routers/${routerId}/scenario/start`, { scenario_id: sel.value, loop });
+    addLog(`[ISP:${routerId}] ${res.message}`);
+    if (res.ok) startRouterIspPolling(routerId);
 }
 
-async function stopIspScenario() {
-    const res = await apiPost('/api/shaping/scenario/stop', {});
-    addLog('[ISP] ' + res.message);
-    _ispPolling = false;
+async function stopRouterIspScenario(routerId) {
+    const res = await apiPost(`/api/routers/${routerId}/scenario/stop`, {});
+    addLog(`[ISP:${routerId}] ${res.message}`);
+    _ispPollingRouters.delete(routerId);
     // Reset timeline
-    document.querySelectorAll('.isp-phase').forEach(el => { el.classList.remove('active', 'dimmed'); });
-    const statusEl = document.getElementById('isp-status');
+    const timeline = document.getElementById(`rtr-${routerId}-isp-timeline`);
+    if (timeline) timeline.querySelectorAll('.isp-phase').forEach(el => { el.classList.remove('active', 'dimmed'); });
+    const statusEl = document.getElementById(`rtr-${routerId}-isp-status`);
     if (statusEl) statusEl.innerHTML = '';
 }
 
-function startIspPolling() {
-    if (_ispPolling) return;
-    _ispPolling = true;
-    pollIspStatus();
+const _ispPollingRouters = new Set();
+
+function startRouterIspPolling(routerId) {
+    if (_ispPollingRouters.has(routerId)) return;
+    _ispPollingRouters.add(routerId);
+    pollRouterIspStatus(routerId);
 }
 
-async function pollIspStatus() {
-    if (!_ispPolling) return;
+async function pollRouterIspStatus(routerId) {
+    if (!_ispPollingRouters.has(routerId)) return;
     try {
-        const resp = await fetch('/api/shaping/scenario/status');
+        const resp = await fetch(`/api/routers/${routerId}/scenario/status`);
         const st = await resp.json();
-        updateIspUI(st);
-        if (!st.running) { _ispPolling = false; return; }
+        updateRouterIspUI(routerId, st);
+        if (!st.running) { _ispPollingRouters.delete(routerId); return; }
     } catch(e) {}
-    setTimeout(pollIspStatus, 2000);
+    setTimeout(() => pollRouterIspStatus(routerId), 2000);
 }
 
-function updateIspUI(st) {
-    // Update timeline phases
-    document.querySelectorAll('.isp-phase').forEach(el => {
-        const idx = parseInt(el.dataset.phase);
-        el.classList.remove('active', 'dimmed');
-        if (st.running) {
-            if (idx === st.current_phase) el.classList.add('active');
-            else if (idx > st.current_phase) el.classList.add('dimmed');
-        }
-    });
+function updateRouterIspUI(routerId, st) {
+    const timeline = document.getElementById(`rtr-${routerId}-isp-timeline`);
+    if (timeline) {
+        timeline.querySelectorAll('.isp-phase').forEach(el => {
+            const idx = parseInt(el.dataset.phase);
+            el.classList.remove('active', 'dimmed');
+            if (st.running) {
+                if (idx === st.current_phase) el.classList.add('active');
+                else if (idx > st.current_phase) el.classList.add('dimmed');
+            }
+        });
+    }
 
-    const statusEl = document.getElementById('isp-status');
+    const statusEl = document.getElementById(`rtr-${routerId}-isp-status`);
     if (!statusEl) return;
     if (!st.running) {
         statusEl.innerHTML = '';
@@ -787,10 +760,31 @@ function renderRouterCard(r) {
             <input type="number" id="rtr-${id}-bw" value="${(r.impairment_config||{}).bandwidth_mbps||0}" min="0" max="10000" step="10" style="width:70px;padding:3px 6px;font-size:11px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:3px"><span style="font-size:10px;color:var(--text-secondary)">Mbps</span>
         </div>
         <!-- Mode Buttons -->
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px;margin-bottom:10px">
             <button class="btn btn-start" onclick="applyRouterMode('${id}','healthy')" style="padding:4px 12px;font-size:11px">Healthy</button>
             <button class="btn btn-primary" onclick="applyRouterMode('${id}','impaired')" style="padding:4px 12px;font-size:11px">Apply Impaired</button>
             <button class="btn btn-danger" onclick="applyRouterMode('${id}','link_down')" style="padding:4px 12px;font-size:11px">Link Down</button>
+        </div>
+        <!-- ISP Scenario Simulator -->
+        <div class="isp-scenario-section">
+            <h4>ISP Scenario Simulator</h4>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+                <select id="rtr-${id}-isp-scenario" onchange="renderRouterIspTimeline('${id}')" style="flex:1;min-width:180px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
+                    ${Object.keys(_ispScenarios).map(k => {
+                        const s = _ispScenarios[k];
+                        const mins = Math.round(s.total_duration_sec / 60);
+                        return '<option value="' + k + '">' + s.name + ' (' + mins + ' min)</option>';
+                    }).join('')}
+                </select>
+                <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer">
+                    <input type="checkbox" id="rtr-${id}-isp-loop" style="width:14px;height:14px"> Loop
+                </label>
+                <button class="btn btn-start" onclick="startRouterIspScenario('${id}')" style="padding:3px 10px;font-size:10px">Start</button>
+                <button class="btn btn-stop" onclick="stopRouterIspScenario('${id}')" style="padding:3px 10px;font-size:10px">Stop</button>
+            </div>
+            <div id="rtr-${id}-isp-desc" class="isp-scenario-desc"></div>
+            <div id="rtr-${id}-isp-timeline" class="isp-scenario-timeline"></div>
+            <div id="rtr-${id}-isp-status" class="isp-scenario-status"></div>
         </div>
         ` : '<div style="color:var(--text-secondary);font-size:11px;padding:6px 0">Router disconnected. Click Reconnect to restore.</div>'}
     </div>`;
@@ -854,6 +848,18 @@ async function pollRouterStatus() {
             }
         }
         renderLogPanel();
+        // Render ISP timelines and poll status for connected routers
+        for (const r of routers) {
+            if (r.connected && r.selected_interface) {
+                renderRouterIspTimeline(r.router_id);
+                // Start polling if a scenario is running
+                if (!_ispPollingRouters.has(r.router_id)) {
+                    fetch(`/api/routers/${r.router_id}/scenario/status`).then(resp => resp.json()).then(st => {
+                        if (st.running) startRouterIspPolling(r.router_id);
+                    }).catch(() => {});
+                }
+            }
+        }
     } catch(e) {}
 }
 
