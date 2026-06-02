@@ -816,6 +816,7 @@ async function pollRouterStatus() {
         }
         const savedValues = {};
         const expandedIfaces = {};
+        const savedIsp = {};
         for (const r of routers) {
             const rid = r.router_id;
             for (const f of ['latency','jitter','loss','bw']) {
@@ -824,6 +825,10 @@ async function pollRouterStatus() {
             }
             const ifaceEl = document.getElementById('rtr-ifaces-' + rid);
             if (ifaceEl && ifaceEl.style.display !== 'none') expandedIfaces[rid] = true;
+            // Save ISP scenario state
+            const ispSel = document.getElementById('rtr-' + rid + '-isp-scenario');
+            const ispLoop = document.getElementById('rtr-' + rid + '-isp-loop');
+            if (ispSel) savedIsp[rid] = { scenario: ispSel.value, loop: ispLoop ? ispLoop.checked : false };
         }
         container.innerHTML = routers.map(r => renderRouterCard(r)).join('');
         for (const [key, val] of Object.entries(savedValues)) {
@@ -835,6 +840,13 @@ async function pollRouterStatus() {
             const toggleBtn = document.getElementById('rtr-ifaces-toggle-' + rid);
             if (ifaceEl) ifaceEl.style.display = 'block';
             if (toggleBtn) toggleBtn.textContent = 'Hide Interfaces';
+        }
+        // Restore ISP scenario state
+        for (const [rid, isp] of Object.entries(savedIsp)) {
+            const ispSel = document.getElementById('rtr-' + rid + '-isp-scenario');
+            const ispLoop = document.getElementById('rtr-' + rid + '-isp-loop');
+            if (ispSel) ispSel.value = isp.scenario;
+            if (ispLoop) ispLoop.checked = isp.loop;
         }
         for (const r of routers) {
             if (r.logs) {

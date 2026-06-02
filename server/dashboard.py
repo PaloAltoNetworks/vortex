@@ -1433,9 +1433,10 @@ async function clientPollRouterStatus(clientName) {
             container.innerHTML = '<div style="color:var(--text-secondary);font-size:12px;text-align:center;padding:12px">No routers added. Add a router above to start link simulation.</div>';
             return;
         }
-        // Preserve impairment input values and interface toggle state during re-render
+        // Preserve impairment input values, interface toggle state, and ISP scenario state during re-render
         var savedValues = {};
         var expandedIfaces = {};
+        var savedIsp = {};
         for (var i = 0; i < routers.length; i++) {
             var rid = routers[i].router_id;
             var fields = ['latency','jitter','loss','bw'];
@@ -1445,6 +1446,10 @@ async function clientPollRouterStatus(clientName) {
             }
             var ifaceEl = document.getElementById('c-' + clientName + '-rtr-ifaces-' + rid);
             if (ifaceEl && ifaceEl.style.display !== 'none') expandedIfaces[rid] = true;
+            // Save ISP scenario state
+            var ispSel = document.getElementById('c-' + clientName + '-rtr-' + rid + '-isp-scenario');
+            var ispLoop = document.getElementById('c-' + clientName + '-rtr-' + rid + '-isp-loop');
+            if (ispSel) savedIsp[rid] = { scenario: ispSel.value, loop: ispLoop ? ispLoop.checked : false };
         }
         container.innerHTML = routers.map(function(r) { return clientRenderRouterCard(clientName, r); }).join('');
         for (var key in savedValues) {
@@ -1457,7 +1462,13 @@ async function clientPollRouterStatus(clientName) {
             if (ifaceEl) ifaceEl.style.display = 'block';
             if (toggleBtn) toggleBtn.textContent = 'Hide Interfaces';
         }
-        // Re-render ISP timelines after router card re-render
+        // Restore ISP scenario state and re-render timelines
+        for (var rid in savedIsp) {
+            var ispSel = document.getElementById('c-' + clientName + '-rtr-' + rid + '-isp-scenario');
+            var ispLoop = document.getElementById('c-' + clientName + '-rtr-' + rid + '-isp-loop');
+            if (ispSel) ispSel.value = savedIsp[rid].scenario;
+            if (ispLoop) ispLoop.checked = savedIsp[rid].loop;
+        }
         for (var i = 0; i < routers.length; i++) {
             if (routers[i].connected && routers[i].selected_interface) {
                 clientRenderRouterIspTimeline(clientName, routers[i].router_id);
