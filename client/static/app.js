@@ -312,6 +312,224 @@ function getConfig(proto) {
     return cfg;
 }
 
+// ─── PCAP File Management ──────────────────────────────────
+
+async function loadPcapFiles() {
+    try {
+        const resp = await fetch('/api/pcap/list');
+        const data = await resp.json();
+        const sel = document.getElementById('pcap-replay-file');
+        if (!sel) return;
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">-- Select PCAP --</option>';
+        for (const f of (data.files || [])) {
+            const sizeStr = f.size > 1048576 ? (f.size/1048576).toFixed(1)+'MB' : (f.size/1024).toFixed(0)+'KB';
+            sel.innerHTML += `<option value="${f.name}">${f.name} (${sizeStr})</option>`;
+        }
+        if (cur) sel.value = cur;
+    } catch(e) {}
+}
+
+async function uploadPcapFile(input) {
+    if (!input.files.length) return;
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+    addLog('[PCAP] Uploading ' + input.files[0].name + '...');
+    try {
+        const resp = await fetch('/api/pcap/upload', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (data.ok) {
+            addLog('[PCAP] ' + data.message);
+            await loadPcapFiles();
+            const sel = document.getElementById('pcap-replay-file');
+            if (sel) sel.value = data.filename;
+        } else {
+            addLog('[PCAP] Upload failed: ' + data.error);
+        }
+    } catch(e) {
+        addLog('[PCAP] Upload error: ' + e.message);
+    }
+    input.value = '';
+}
+
+async function deletePcapFile() {
+    const sel = document.getElementById('pcap-replay-file');
+    if (!sel || !sel.value) { addLog('[PCAP] No file selected'); return; }
+    const name = sel.value;
+    try {
+        const resp = await fetch('/api/pcap/' + encodeURIComponent(name), { method: 'DELETE' });
+        const data = await resp.json();
+        addLog('[PCAP] ' + (data.message || data.error));
+        await loadPcapFiles();
+    } catch(e) {
+        addLog('[PCAP] Delete error: ' + e.message);
+    }
+}
+
+async function startPcapReplay() {
+    const file = document.getElementById('pcap-replay-file')?.value;
+    if (!file) { addLog('[PCAP] No PCAP file selected'); return; }
+    const config = {
+        pcap_file: file,
+        interface: document.getElementById('pcap-replay-iface')?.value || '',
+        replay_rate: parseFloat(document.getElementById('pcap-replay-rate')?.value || 1.0),
+        loop: document.getElementById('pcap-replay-loop')?.checked || false,
+    };
+    const statusEl = document.getElementById('pcap-replay-status');
+    if (statusEl) statusEl.textContent = 'Starting...';
+    const res = await apiPost('/api/start', { protocol: 'pcap_replay', config });
+    addLog('[PCAP] ' + res.message);
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--success)">Running</span>';
+}
+
+async function stopPcapReplay() {
+    const res = await apiPost('/api/stop', { protocol: 'pcap_replay' });
+    addLog('[PCAP] ' + res.message);
+    const statusEl = document.getElementById('pcap-replay-status');
+    if (statusEl) statusEl.textContent = 'Stopped';
+}
+
+// ─── ISP Scenario Simulator ──────────────────────────────
+let _ispScenarios = {};
+let _ispPolling = false;
+
+function _phaseSeverity(phase) {
+    const score = (phase.latency_ms / 50) + (phase.packet_loss_pct * 2) +
+        (phase.bandwidth_mbps > 0 && phase.bandwidth_mbps < 10 ? 3 : phase.bandwidth_mbps > 0 && phase.bandwidth_mbps < 30 ? 1 : 0);
+    if (phase.packet_loss_pct >= 50) return 'outage';
+    if (score >= 6) return 'severe';
+    if (score >= 3) return 'moderate';
+    if (score >= 1) return 'mild';
+    return 'normal';
+}
+
+async function loadIspScenarios() {
+    try {
+        const resp = await fetch('/api/shaping/scenarios');
+        _ispScenarios = await resp.json();
+        renderIspScenarioUI();
+    } catch(e) {}
+}
+
+function renderIspScenarioUI() {
+    const container = document.getElementById('isp-scenario-container');
+    if (!container) return;
+    const keys = Object.keys(_ispScenarios);
+    if (!keys.length) { container.innerHTML = '<div style="font-size:12px;color:var(--text-secondary)">No scenarios available</div>'; return; }
+
+    let options = keys.map(k => {
+        const s = _ispScenarios[k];
+        const mins = Math.round(s.total_duration_sec / 60);
+        return `<option value="${k}">${s.name} (${mins} min)</option>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="isp-scenario-section">
+            <h4>Simulate Real-World ISP Behavior</h4>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+                <select id="isp-scenario-select" onchange="renderIspTimeline()" style="flex:1;min-width:200px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
+                    ${options}
+                </select>
+                <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer">
+                    <input type="checkbox" id="isp-loop-toggle" style="width:14px;height:14px"> Loop
+                </label>
+            </div>
+            <div id="isp-scenario-desc" class="isp-scenario-desc"></div>
+            <div id="isp-timeline" class="isp-scenario-timeline"></div>
+            <div id="isp-status" class="isp-scenario-status"></div>
+        </div>`;
+    renderIspTimeline();
+}
+
+function renderIspTimeline() {
+    const sel = document.getElementById('isp-scenario-select');
+    if (!sel) return;
+    const scenario = _ispScenarios[sel.value];
+    if (!scenario) return;
+
+    const descEl = document.getElementById('isp-scenario-desc');
+    if (descEl) descEl.textContent = scenario.description;
+
+    const timeline = document.getElementById('isp-timeline');
+    if (!timeline) return;
+    const total = scenario.total_duration_sec;
+    timeline.innerHTML = scenario.phases.map((p, i) => {
+        const widthPct = (p.duration_sec / total * 100).toFixed(1);
+        const sev = _phaseSeverity(p);
+        return `<div class="isp-phase severity-${sev}" data-phase="${i}" style="width:${widthPct}%" title="${p.name}: ${p.duration_sec}s\nLatency: ${p.latency_ms}ms | Jitter: ${p.jitter_ms}ms\nLoss: ${p.packet_loss_pct}% | BW: ${p.bandwidth_mbps || '∞'} Mbps">${p.name}</div>`;
+    }).join('');
+}
+
+async function startIspScenario() {
+    const sel = document.getElementById('isp-scenario-select');
+    if (!sel) return;
+    const loop = document.getElementById('isp-loop-toggle')?.checked || false;
+    const res = await apiPost('/api/shaping/scenario/start', { scenario_id: sel.value, loop });
+    addLog('[ISP] ' + res.message);
+    if (res.ok) startIspPolling();
+}
+
+async function stopIspScenario() {
+    const res = await apiPost('/api/shaping/scenario/stop', {});
+    addLog('[ISP] ' + res.message);
+    _ispPolling = false;
+    // Reset timeline
+    document.querySelectorAll('.isp-phase').forEach(el => { el.classList.remove('active', 'dimmed'); });
+    const statusEl = document.getElementById('isp-status');
+    if (statusEl) statusEl.innerHTML = '';
+}
+
+function startIspPolling() {
+    if (_ispPolling) return;
+    _ispPolling = true;
+    pollIspStatus();
+}
+
+async function pollIspStatus() {
+    if (!_ispPolling) return;
+    try {
+        const resp = await fetch('/api/shaping/scenario/status');
+        const st = await resp.json();
+        updateIspUI(st);
+        if (!st.running) { _ispPolling = false; return; }
+    } catch(e) {}
+    setTimeout(pollIspStatus, 2000);
+}
+
+function updateIspUI(st) {
+    // Update timeline phases
+    document.querySelectorAll('.isp-phase').forEach(el => {
+        const idx = parseInt(el.dataset.phase);
+        el.classList.remove('active', 'dimmed');
+        if (st.running) {
+            if (idx === st.current_phase) el.classList.add('active');
+            else if (idx > st.current_phase) el.classList.add('dimmed');
+        }
+    });
+
+    const statusEl = document.getElementById('isp-status');
+    if (!statusEl) return;
+    if (!st.running) {
+        statusEl.innerHTML = '';
+        return;
+    }
+    const imp = st.impairment || {};
+    const phasePct = st.phase_duration_sec > 0 ? Math.round(st.phase_elapsed_sec / st.phase_duration_sec * 100) : 0;
+    const totalPct = st.total_duration_sec > 0 ? Math.round(st.total_elapsed_sec / st.total_duration_sec * 100) : 0;
+    statusEl.innerHTML = `
+        <span class="phase-label">${st.phase_name}</span>
+        <span>${st.phase_elapsed_sec}/${st.phase_duration_sec}s</span>
+        <span style="flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+            <span style="display:block;height:100%;width:${phasePct}%;background:var(--accent-teal);border-radius:2px;transition:width 1s"></span>
+        </span>
+        <span style="font-size:10px">${totalPct}%</span>
+        <span style="font-size:10px;color:var(--text-secondary)">Lat:${imp.latency_ms||0}ms Loss:${imp.packet_loss_pct||0}% BW:${imp.bandwidth_mbps||'∞'}Mbps</span>
+        ${st.loop ? '<span style="font-size:9px;background:#e8f0fe;color:#0066cc;padding:1px 6px;border-radius:8px">LOOP</span>' : ''}`;
+}
+
+// Load scenarios on init
+loadIspScenarios();
+
 function getFlowCount(proto) {
     const el = document.getElementById(`cfg-${proto}-flows`);
     return el ? Math.max(1, Math.min(20, parseInt(el.value) || 1)) : 1;
@@ -1255,6 +1473,7 @@ const SEC_CATEGORY_META = {
     dns_attacks: { label: 'DNS-Based Attacks', badge: 'dns', icon: '\uD83D\uDD0D' },
     protocol_abuse: { label: 'Protocol Abuse', badge: 'proto', icon: '\u26A1' },
     file_threats: { label: 'File-Based Threats', badge: 'file', icon: '\uD83D\uDCC4' },
+    pcap_replay: { label: 'PCAP Replay (Zero-Day)', badge: 'pcap', icon: '\uD83D\uDCBE' },
 };
 
 let _securityCatalog = null;
@@ -1324,7 +1543,49 @@ function renderSecurityPanel() {
         }
         html += '</div></div>';
     }
+    // PCAP Replay section
+    html += `<div class="security-category">
+        <div class="security-category-header" onclick="toggleSecurityCategory('pcap_replay')">
+            <div class="security-category-title">
+                <span>\uD83D\uDCBE</span>
+                <span>PCAP Replay (Zero-Day / Threat Captures)</span>
+                <span class="security-category-badge pcap">replay</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+                <span class="chevron" id="chevron-sec-pcap_replay" style="font-size:10px;color:var(--text-secondary)">&#9660;</span>
+            </div>
+        </div>
+        <div class="security-test-list" id="sec-list-pcap_replay">
+            <div style="padding:10px;font-size:12px">
+                <p style="color:var(--text-secondary);margin:0 0 8px">Upload PCAP files containing zero-day attacks, threat captures, or exploit traffic. The tool replays them through the firewall using tcpreplay to validate detection.</p>
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;margin-bottom:10px">
+                    <label style="color:var(--text-secondary);font-size:11px">PCAP File</label>
+                    <div style="display:flex;gap:4px;align-items:center">
+                        <select id="pcap-replay-file" style="flex:1;padding:4px 6px;font-size:11px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
+                            <option value="">-- Upload a PCAP --</option>
+                        </select>
+                        <label class="btn btn-primary" style="padding:3px 8px;font-size:10px;cursor:pointer;margin:0">
+                            Upload <input type="file" accept=".pcap,.pcapng,.cap" style="display:none" onchange="uploadPcapFile(this)">
+                        </label>
+                        <button class="btn btn-stop" style="padding:3px 6px;font-size:10px" onclick="deletePcapFile()" title="Delete selected">&#10005;</button>
+                    </div>
+                    <label style="color:var(--text-secondary);font-size:11px">Interface</label>
+                    <input type="text" id="pcap-replay-iface" value="" placeholder="auto-detect" style="padding:4px 6px;font-size:11px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
+                    <label style="color:var(--text-secondary);font-size:11px">Speed</label>
+                    <input type="number" id="pcap-replay-rate" value="1.0" step="0.1" min="0" style="width:80px;padding:4px 6px;font-size:11px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px" title="1.0=realtime, 2.0=2x, 0=max speed">
+                    <label style="color:var(--text-secondary);font-size:11px">Loop</label>
+                    <input type="checkbox" id="pcap-replay-loop" style="width:14px;height:14px">
+                </div>
+                <div style="display:flex;gap:6px;align-items:center">
+                    <button class="btn btn-start" onclick="startPcapReplay()" style="padding:4px 12px;font-size:11px">&#9654; Replay</button>
+                    <button class="btn btn-stop" onclick="stopPcapReplay()" style="padding:4px 12px;font-size:11px">Stop</button>
+                    <span id="pcap-replay-status" style="font-size:11px;color:var(--text-secondary)"></span>
+                </div>
+            </div>
+        </div>
+    </div>`;
     panel.innerHTML = html;
+    loadPcapFiles();
 }
 
 function toggleSecDetail(testId) {
@@ -1699,6 +1960,7 @@ async function deleteCustomPattern(patternId) {
 
 document.addEventListener('DOMContentLoaded', () => {
     renderProtocolCards();
+    loadPcapFiles();
     loadRouters();
     loadSourceIps();
     loadProxy();

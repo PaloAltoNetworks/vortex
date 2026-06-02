@@ -72,6 +72,21 @@
         </div>
     </div>
 
+    <!-- ISP Scenario Simulator -->
+    <div class="card">
+        <div class="card-header" onclick="toggleSection('isp-scenario')">
+            <span>ISP Scenario Simulator</span>
+            <div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">
+                <button class="btn btn-start" id="isp-start-btn" onclick="startIspScenario()" style="padding:3px 10px;font-size:10px">Start</button>
+                <button class="btn btn-stop" id="isp-stop-btn" onclick="stopIspScenario()" style="padding:3px 10px;font-size:10px">Stop</button>
+                <span class="chevron collapsed" id="chevron-isp-scenario">&#9660;</span>
+            </div>
+        </div>
+        <div class="card-body collapsed" id="section-isp-scenario">
+            <div id="isp-scenario-container"></div>
+        </div>
+    </div>
+
     <!-- Source IPs -->
     <div class="card">
         <div class="card-header" onclick="toggleSection('sourceip')">

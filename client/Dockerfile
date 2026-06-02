@@ -1,12 +1,12 @@
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    iproute2 iptables iputils-ping iperf3 hping3 curl nginx openssl supervisor sudo openssh-client sshpass traceroute dnsutils \
+    iproute2 iptables iputils-ping iperf3 hping3 curl nginx openssl supervisor sudo openssh-client sshpass traceroute dnsutils tcpreplay \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user with passwordless sudo for network commands
 RUN useradd -m -s /bin/bash appuser && \
-    echo 'appuser ALL=(root) NOPASSWD: /sbin/tc, /usr/sbin/tc, /sbin/iptables, /usr/sbin/iptables, /sbin/ip, /usr/sbin/ip, /usr/sbin/hping3, /usr/sbin/traceroute' > /etc/sudoers.d/appuser && \
+    echo 'appuser ALL=(root) NOPASSWD: /sbin/tc, /usr/sbin/tc, /sbin/iptables, /usr/sbin/iptables, /sbin/ip, /usr/sbin/ip, /usr/sbin/hping3, /usr/sbin/traceroute, /usr/bin/tcpreplay' > /etc/sudoers.d/appuser && \
     chmod 0440 /etc/sudoers.d/appuser
 
 # Generate self-signed SSL cert for dashboard HTTPS

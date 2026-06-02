@@ -314,3 +314,196 @@ def get_random_source_ip():
         if _alias_ips:
             return random.choice(_alias_ips)
     return None
+
+
+# ─── ISP Scenario Simulator ──────────────────────────────────
+
+ISP_SCENARIOS = {
+    'peak_hours': {
+        'name': 'Peak Hours Congestion',
+        'description': 'Simulates ISP congestion during peak evening hours — bandwidth drops, latency climbs',
+        'phases': [
+            {'name': 'Normal',          'duration_sec': 60, 'latency_ms': 15,  'jitter_ms': 3,  'packet_loss_pct': 0,   'bandwidth_mbps': 100},
+            {'name': 'Building',        'duration_sec': 60, 'latency_ms': 45,  'jitter_ms': 15, 'packet_loss_pct': 0.5, 'bandwidth_mbps': 50},
+            {'name': 'Peak Congestion', 'duration_sec': 90, 'latency_ms': 120, 'jitter_ms': 40, 'packet_loss_pct': 3,   'bandwidth_mbps': 15},
+            {'name': 'Recovery',        'duration_sec': 60, 'latency_ms': 35,  'jitter_ms': 10, 'packet_loss_pct': 0.3, 'bandwidth_mbps': 70},
+            {'name': 'Normal',          'duration_sec': 30, 'latency_ms': 15,  'jitter_ms': 3,  'packet_loss_pct': 0,   'bandwidth_mbps': 100},
+        ]
+    },
+    'intermittent_loss': {
+        'name': 'Intermittent Loss Bursts',
+        'description': 'Random packet loss bursts followed by clean periods — common on congested links',
+        'phases': [
+            {'name': 'Clean',       'duration_sec': 40, 'latency_ms': 10, 'jitter_ms': 2,  'packet_loss_pct': 0,  'bandwidth_mbps': 0},
+            {'name': 'Loss Burst',  'duration_sec': 20, 'latency_ms': 25, 'jitter_ms': 10, 'packet_loss_pct': 10, 'bandwidth_mbps': 0},
+            {'name': 'Clean',       'duration_sec': 30, 'latency_ms': 10, 'jitter_ms': 2,  'packet_loss_pct': 0,  'bandwidth_mbps': 0},
+            {'name': 'Heavy Burst', 'duration_sec': 25, 'latency_ms': 40, 'jitter_ms': 20, 'packet_loss_pct': 15, 'bandwidth_mbps': 0},
+            {'name': 'Clean',       'duration_sec': 45, 'latency_ms': 10, 'jitter_ms': 2,  'packet_loss_pct': 0,  'bandwidth_mbps': 0},
+        ]
+    },
+    'isp_throttling': {
+        'name': 'ISP Throttling',
+        'description': 'ISP gradually reduces bandwidth then restores — typical throttling pattern',
+        'phases': [
+            {'name': 'Full Speed',     'duration_sec': 45, 'latency_ms': 12, 'jitter_ms': 2,  'packet_loss_pct': 0,   'bandwidth_mbps': 100},
+            {'name': 'Slight Drop',    'duration_sec': 40, 'latency_ms': 15, 'jitter_ms': 5,  'packet_loss_pct': 0,   'bandwidth_mbps': 50},
+            {'name': 'Heavy Throttle', 'duration_sec': 60, 'latency_ms': 30, 'jitter_ms': 10, 'packet_loss_pct': 0.5, 'bandwidth_mbps': 5},
+            {'name': 'Throttled',      'duration_sec': 50, 'latency_ms': 25, 'jitter_ms': 8,  'packet_loss_pct': 0.2, 'bandwidth_mbps': 2},
+            {'name': 'Restored',       'duration_sec': 45, 'latency_ms': 12, 'jitter_ms': 2,  'packet_loss_pct': 0,   'bandwidth_mbps': 100},
+        ]
+    },
+    'fiber_cut': {
+        'name': 'Fiber Cut Failover',
+        'description': 'Primary fiber cut with failover to backup path — tests path redundancy',
+        'phases': [
+            {'name': 'Primary Path',   'duration_sec': 40, 'latency_ms': 8,   'jitter_ms': 1,  'packet_loss_pct': 0,   'bandwidth_mbps': 200},
+            {'name': 'Fiber Cut',       'duration_sec': 15, 'latency_ms': 500, 'jitter_ms': 200,'packet_loss_pct': 80,  'bandwidth_mbps': 0},
+            {'name': 'Total Outage',    'duration_sec': 20, 'latency_ms': 0,   'jitter_ms': 0,  'packet_loss_pct': 100, 'bandwidth_mbps': 0},
+            {'name': 'Failover Path',   'duration_sec': 60, 'latency_ms': 85,  'jitter_ms': 20, 'packet_loss_pct': 1,   'bandwidth_mbps': 50},
+            {'name': 'Stabilized',      'duration_sec': 45, 'latency_ms': 60,  'jitter_ms': 10, 'packet_loss_pct': 0.2, 'bandwidth_mbps': 80},
+        ]
+    },
+    'cable_degradation': {
+        'name': 'Cable/DSL Degradation',
+        'description': 'Progressive cable quality degradation with jitter spikes — aging infrastructure',
+        'phases': [
+            {'name': 'Good',                'duration_sec': 50, 'latency_ms': 20,  'jitter_ms': 5,  'packet_loss_pct': 0,   'bandwidth_mbps': 50},
+            {'name': 'Jitter Spikes',       'duration_sec': 40, 'latency_ms': 35,  'jitter_ms': 40, 'packet_loss_pct': 0.5, 'bandwidth_mbps': 40},
+            {'name': 'Degraded',            'duration_sec': 60, 'latency_ms': 60,  'jitter_ms': 50, 'packet_loss_pct': 3,   'bandwidth_mbps': 20},
+            {'name': 'Partial Recovery',    'duration_sec': 50, 'latency_ms': 30,  'jitter_ms': 15, 'packet_loss_pct': 0.5, 'bandwidth_mbps': 35},
+        ]
+    },
+    'mobile_lte': {
+        'name': 'Mobile/LTE Variability',
+        'description': 'Mobile network with tower handoffs, congested cells, and edge fallback',
+        'phases': [
+            {'name': 'Good LTE',       'duration_sec': 40, 'latency_ms': 30,  'jitter_ms': 10, 'packet_loss_pct': 0,   'bandwidth_mbps': 50},
+            {'name': 'Tower Handoff',   'duration_sec': 10, 'latency_ms': 200, 'jitter_ms': 100,'packet_loss_pct': 5,   'bandwidth_mbps': 10},
+            {'name': 'Congested Cell',  'duration_sec': 50, 'latency_ms': 80,  'jitter_ms': 30, 'packet_loss_pct': 2,   'bandwidth_mbps': 15},
+            {'name': 'Good LTE',        'duration_sec': 40, 'latency_ms': 30,  'jitter_ms': 10, 'packet_loss_pct': 0,   'bandwidth_mbps': 50},
+            {'name': 'Edge Fallback',   'duration_sec': 60, 'latency_ms': 150, 'jitter_ms': 50, 'packet_loss_pct': 3,   'bandwidth_mbps': 3},
+            {'name': 'LTE Restored',    'duration_sec': 30, 'latency_ms': 35,  'jitter_ms': 10, 'packet_loss_pct': 0,   'bandwidth_mbps': 45},
+        ]
+    },
+}
+
+_isp_running = False
+_isp_thread = None
+_isp_lock = threading.Lock()
+_isp_status = {
+    'running': False,
+    'scenario_id': '',
+    'scenario_name': '',
+    'current_phase': 0,
+    'phase_name': '',
+    'phase_elapsed_sec': 0,
+    'phase_duration_sec': 0,
+    'total_elapsed_sec': 0,
+    'total_duration_sec': 0,
+    'loop': False,
+    'impairment': {},
+}
+
+
+def get_isp_scenarios():
+    """Return scenario catalog for UI."""
+    result = {}
+    for sid, s in ISP_SCENARIOS.items():
+        total_sec = sum(p['duration_sec'] for p in s['phases'])
+        result[sid] = {
+            'name': s['name'],
+            'description': s['description'],
+            'total_duration_sec': total_sec,
+            'phase_count': len(s['phases']),
+            'phases': s['phases'],
+        }
+    return result
+
+
+def start_isp_scenario(scenario_id, loop=False):
+    """Start an ISP scenario. Returns False if already running or invalid ID."""
+    global _isp_running, _isp_thread
+    if scenario_id not in ISP_SCENARIOS:
+        return False, f"Unknown scenario: {scenario_id}"
+    with _isp_lock:
+        if _isp_running:
+            return False, "A scenario is already running"
+        _isp_running = True
+
+    scenario = ISP_SCENARIOS[scenario_id]
+    total_sec = sum(p['duration_sec'] for p in scenario['phases'])
+
+    def _run_scenario():
+        global _isp_running
+        logger.info(f"ISP scenario started: {scenario['name']} (loop={loop})")
+        iteration = 0
+        while _isp_running:
+            elapsed_total = 0
+            for phase_idx, phase in enumerate(scenario['phases']):
+                if not _isp_running:
+                    break
+                with _isp_lock:
+                    _isp_status.update({
+                        'running': True,
+                        'scenario_id': scenario_id,
+                        'scenario_name': scenario['name'],
+                        'current_phase': phase_idx,
+                        'phase_name': phase['name'],
+                        'phase_elapsed_sec': 0,
+                        'phase_duration_sec': phase['duration_sec'],
+                        'total_elapsed_sec': elapsed_total,
+                        'total_duration_sec': total_sec,
+                        'loop': loop,
+                        'impairment': {
+                            'latency_ms': phase['latency_ms'],
+                            'jitter_ms': phase['jitter_ms'],
+                            'packet_loss_pct': phase['packet_loss_pct'],
+                            'bandwidth_mbps': phase['bandwidth_mbps'],
+                        },
+                    })
+                logger.info(f"ISP phase: {phase['name']} — latency={phase['latency_ms']}ms "
+                            f"jitter={phase['jitter_ms']}ms loss={phase['packet_loss_pct']}% "
+                            f"bw={phase['bandwidth_mbps']}Mbps ({phase['duration_sec']}s)")
+                apply_shaping(
+                    latency_ms=phase['latency_ms'],
+                    jitter_ms=phase['jitter_ms'],
+                    packet_loss_pct=phase['packet_loss_pct'],
+                    bandwidth_mbps=phase['bandwidth_mbps'],
+                )
+                # Sleep in 1-second ticks to allow responsive shutdown
+                for sec in range(phase['duration_sec']):
+                    if not _isp_running:
+                        break
+                    time.sleep(1)
+                    with _isp_lock:
+                        _isp_status['phase_elapsed_sec'] = sec + 1
+                        _isp_status['total_elapsed_sec'] = elapsed_total + sec + 1
+                elapsed_total += phase['duration_sec']
+            iteration += 1
+            if not loop:
+                break
+        clear_all()
+        with _isp_lock:
+            _isp_running = False
+            _isp_status.update({'running': False, 'phase_name': '', 'scenario_id': '', 'impairment': {}})
+        logger.info("ISP scenario stopped")
+
+    _isp_thread = threading.Thread(target=_run_scenario, daemon=True)
+    _isp_thread.start()
+    return True, f"Started: {scenario['name']}"
+
+
+def stop_isp_scenario():
+    """Stop the running ISP scenario."""
+    global _isp_running
+    with _isp_lock:
+        if not _isp_running:
+            return False, "No scenario running"
+        _isp_running = False
+    return True, "Stopping scenario"
+
+
+def get_isp_scenario_status():
+    """Return current ISP scenario state."""
+    with _isp_lock:
+        return dict(_isp_status)

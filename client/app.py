@@ -4,7 +4,8 @@ import time
 import socket
 import logging
 import subprocess
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_file
+from werkzeug.utils import secure_filename
 
 from traffic_engine import TrafficEngine
 from security_engine import SecurityTestEngine, CustomPatternStore
@@ -411,6 +412,31 @@ def toggle_random_bandwidth():
         return jsonify({"ok": True, "message": "Random bandwidth stopped"})
 
 
+@app.route('/api/shaping/scenarios')
+def list_isp_scenarios():
+    return jsonify(network_shaper.get_isp_scenarios())
+
+
+@app.route('/api/shaping/scenario/start', methods=['POST'])
+def start_isp_scenario():
+    d = _get_json()
+    scenario_id = d.get('scenario_id', '')
+    loop = bool(d.get('loop', False))
+    ok, msg = network_shaper.start_isp_scenario(scenario_id, loop=loop)
+    return jsonify({"ok": ok, "message": msg}), 200 if ok else 400
+
+
+@app.route('/api/shaping/scenario/stop', methods=['POST'])
+def stop_isp_scenario():
+    ok, msg = network_shaper.stop_isp_scenario()
+    return jsonify({"ok": ok, "message": msg})
+
+
+@app.route('/api/shaping/scenario/status')
+def isp_scenario_status():
+    return jsonify(network_shaper.get_isp_scenario_status())
+
+
 @app.route('/api/interface', methods=['GET', 'POST'])
 def interface():
     if request.method == 'POST':
@@ -566,6 +592,56 @@ def get_builtin(test_id):
     if test is None:
         return jsonify({"error": "Built-in test not found"}), 404
     return jsonify(test)
+
+
+# ─── PCAP Replay ────────────────────────────────────────────
+
+PCAP_UPLOAD_DIR = '/tmp/pcap_uploads'
+PCAP_ALLOWED_EXT = {'pcap', 'pcapng', 'cap'}
+os.makedirs(PCAP_UPLOAD_DIR, exist_ok=True)
+
+@app.route('/api/pcap/upload', methods=['POST'])
+def upload_pcap():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    f = request.files['file']
+    if not f.filename:
+        return jsonify({"error": "No file selected"}), 400
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+    if ext not in PCAP_ALLOWED_EXT:
+        return jsonify({"error": "File must be .pcap, .pcapng, or .cap"}), 400
+    filename = secure_filename(f.filename)
+    filepath = os.path.join(PCAP_UPLOAD_DIR, filename)
+    f.save(filepath)
+    # Validate PCAP magic bytes
+    with open(filepath, 'rb') as fh:
+        magic = fh.read(4)
+    valid_magic = (b'\xd4\xc3\xb2\xa1', b'\xa1\xb2\xc3\xd4',  # pcap LE/BE
+                   b'\x0a\x0d\x0d\x0a',                        # pcapng
+                   b'\x4d\x3c\xb2\xa1', b'\xa1\xb2\x3c\x4d')   # nanosecond pcap
+    if magic not in valid_magic:
+        os.remove(filepath)
+        return jsonify({"error": "Invalid PCAP file format"}), 400
+    size = os.path.getsize(filepath)
+    return jsonify({"ok": True, "message": f"Uploaded {filename} ({size} bytes)",
+                    "filename": filename, "size": size})
+
+@app.route('/api/pcap/list')
+def list_pcap():
+    files = []
+    for name in sorted(os.listdir(PCAP_UPLOAD_DIR)):
+        fp = os.path.join(PCAP_UPLOAD_DIR, name)
+        if os.path.isfile(fp):
+            files.append({"name": name, "size": os.path.getsize(fp)})
+    return jsonify({"files": files})
+
+@app.route('/api/pcap/<name>', methods=['DELETE'])
+def delete_pcap(name):
+    fp = os.path.join(PCAP_UPLOAD_DIR, secure_filename(name))
+    if os.path.exists(fp):
+        os.remove(fp)
+        return jsonify({"ok": True, "message": f"Deleted {name}"})
+    return jsonify({"error": "File not found"}), 404
 
 
 if __name__ == '__main__':

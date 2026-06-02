@@ -1076,3 +1076,117 @@ class TrafficEngine:
             job.log(f"hping3 error: {e}")
 
         job.log("Stopped")
+
+    # ─── PCAP Replay ───────────────────────────────────────────
+
+    def _run_pcap_replay(self, job: TrafficJob):
+        """Replay a PCAP file using tcpreplay for zero-day attack testing."""
+        cfg = job.config
+        pcap_file = cfg.get('pcap_file', '')
+        replay_rate = float(cfg.get('replay_rate', 1.0))
+        loop = cfg.get('loop', False)
+        interface = cfg.get('interface', '').strip()
+
+        if not pcap_file:
+            job.log("No PCAP file specified")
+            return
+
+        pcap_path = os.path.join('/tmp/pcap_uploads', pcap_file)
+        if not os.path.exists(pcap_path):
+            job.log(f"PCAP file not found: {pcap_path}")
+            return
+
+        # Auto-detect interface if not specified
+        if not interface:
+            try:
+                server = os.environ.get('SERVER_HOST', 'server')
+                out = subprocess.check_output(
+                    ['ip', 'route', 'get', server],
+                    text=True, timeout=5)
+                for part in out.split():
+                    if part == 'dev':
+                        idx = out.split().index('dev')
+                        interface = out.split()[idx + 1]
+                        break
+            except Exception:
+                pass
+            if not interface:
+                interface = 'eth0'
+
+        file_size = os.path.getsize(pcap_path)
+        job.log(f"PCAP replay: {pcap_file} ({file_size} bytes) on {interface} "
+                f"rate={replay_rate}x loop={loop}")
+
+        cmd = ['sudo', 'tcpreplay', '-i', interface]
+
+        if replay_rate == 0:
+            cmd.append('--topspeed')
+        elif replay_rate != 1.0:
+            cmd.extend(['--multiplier', str(replay_rate)])
+
+        if loop:
+            cmd.append('--loop=0')
+
+        cmd.append(pcap_path)
+        job.log(f"cmd: {' '.join(cmd)}")
+
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, text=True)
+            import select
+            while not job.should_stop() and proc.poll() is None:
+                readable, _, _ = select.select([proc.stdout], [], [], 0.5)
+                for stream in readable:
+                    line = stream.readline()
+                    if line:
+                        stripped = line.strip()
+                        if stripped:
+                            job.log(f"tcpreplay: {stripped}")
+                            # Parse stats from tcpreplay output
+                            if 'packets' in stripped.lower():
+                                try:
+                                    for word in stripped.split():
+                                        if word.isdigit():
+                                            job.stats['requests'] += int(word)
+                                            break
+                                except Exception:
+                                    pass
+                            if 'bytes' in stripped.lower():
+                                try:
+                                    for word in stripped.split():
+                                        if word.isdigit():
+                                            job.stats['bytes_sent'] += int(word)
+                                            break
+                                except Exception:
+                                    pass
+
+            if proc.poll() is None:
+                proc.terminate()
+                proc.wait(timeout=5)
+
+            # Read remaining output
+            remaining = proc.stdout.read()
+            if remaining:
+                for line in remaining.strip().split('\n'):
+                    if line.strip():
+                        job.log(f"tcpreplay: {line.strip()}")
+                        # Parse final summary stats
+                        if 'Actual' in line and 'packets' in line:
+                            try:
+                                parts = line.split()
+                                for i, p in enumerate(parts):
+                                    if 'packets' in p.lower() and i > 0:
+                                        job.stats['requests'] = int(parts[i - 1].strip('()'))
+                                        break
+                            except Exception:
+                                pass
+
+            rc = proc.returncode
+            if rc and rc not in (-15, -9):
+                job.log(f"tcpreplay exited with code {rc}")
+                job.stats['errors'] += 1
+        except Exception as e:
+            job.stats['errors'] += 1
+            job.log(f"PCAP replay error: {e}")
+
+        job.log("Stopped")

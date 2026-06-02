@@ -432,6 +432,7 @@ div.vis-tooltip {
 .security-category-badge.dns { background: #dbeafe; color: #1e40af; }
 .security-category-badge.proto { background: #fce7f3; color: #7c3aed; }
 .security-category-badge.file { background: #d1fae5; color: #065f46; }
+.security-category-badge.pcap { background: #ede9fe; color: #5b21b6; }
 
 .security-test-list {
     border: 1px solid var(--border);
@@ -655,6 +656,75 @@ div.vis-tooltip {
     box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     max-height: 90vh;
     overflow-y: auto;
+}
+
+/* ─── ISP Scenario Simulator ──────────────────────────────── */
+.isp-scenario-section {
+    padding: 12px;
+    background: var(--bg-sub);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-top: 10px;
+}
+.isp-scenario-section h4 {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.isp-scenario-timeline {
+    display: flex;
+    height: 28px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    margin: 8px 0;
+}
+.isp-phase {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 500;
+    color: #fff;
+    transition: opacity 0.3s;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    padding: 0 4px;
+}
+.isp-phase.severity-normal { background: #059669; }
+.isp-phase.severity-mild { background: #65a30d; }
+.isp-phase.severity-moderate { background: #d97706; }
+.isp-phase.severity-severe { background: #dc2626; }
+.isp-phase.severity-outage { background: #1e1e1e; }
+.isp-phase.dimmed { opacity: 0.35; }
+.isp-phase.active {
+    opacity: 1;
+    animation: ispPulse 1.2s ease-in-out infinite;
+}
+@keyframes ispPulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3); }
+}
+.isp-scenario-status {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 20px;
+}
+.isp-scenario-status .phase-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.isp-scenario-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin: 4px 0 8px;
 }
 
 @media (max-width: 900px) {

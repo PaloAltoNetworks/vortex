@@ -419,6 +419,22 @@ DASHBOARD_HTML = r"""
         .security-category-badge.dns { background: #dbeafe; color: #1e40af; }
         .security-category-badge.proto { background: #fce7f3; color: #7c3aed; }
         .security-category-badge.file { background: #d1fae5; color: #065f46; }
+        .security-category-badge.pcap { background: #ede9fe; color: #5b21b6; }
+        .isp-scenario-section { padding: 12px; background: var(--bg-sub); border: 1px solid var(--border); border-radius: 6px; margin-top: 10px; }
+        .isp-scenario-section h4 { font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .isp-scenario-timeline { display: flex; height: 28px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); margin: 8px 0; }
+        .isp-phase { display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 500; color: #fff; transition: opacity 0.3s; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 4px; }
+        .isp-phase.severity-normal { background: #059669; }
+        .isp-phase.severity-mild { background: #65a30d; }
+        .isp-phase.severity-moderate { background: #d97706; }
+        .isp-phase.severity-severe { background: #dc2626; }
+        .isp-phase.severity-outage { background: #1e1e1e; }
+        .isp-phase.dimmed { opacity: 0.35; }
+        .isp-phase.active { opacity: 1; animation: ispPulse 1.2s ease-in-out infinite; }
+        @keyframes ispPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.3); } }
+        .isp-scenario-status { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; min-height: 20px; }
+        .isp-scenario-status .phase-label { font-weight: 600; color: var(--text-primary); }
+        .isp-scenario-desc { font-size: 11px; color: var(--text-secondary); margin: 4px 0 8px; }
         .security-test-list {
             border: 1px solid var(--border); border-top: none;
             border-radius: 0 0 6px 6px; overflow: hidden;
@@ -1090,6 +1106,15 @@ async function renderClientTab(name) {
         '<div id="c-' + name + '-security-summary" style="display:none"></div>' +
         '<div id="c-' + name + '-security-panel"></div>' +
         '</div></div>' +
+        // ISP Scenario Simulator
+        '<div class="card"><div class="card-header" onclick="toggleSection(\'c-' + name + '-isp\')">' +
+        '<span>ISP Scenario Simulator</span>' +
+        '<div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">' +
+        '<button class="btn btn-start" onclick="clientStartIspScenario(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Start</button>' +
+        '<button class="btn btn-stop" onclick="clientStopIspScenario(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Stop</button>' +
+        '<span class="chevron collapsed" id="chevron-c-' + name + '-isp">&#9660;</span></div></div>' +
+        '<div class="card-body collapsed" id="section-c-' + name + '-isp">' +
+        '<div id="c-' + name + '-isp-container"></div></div></div>' +
         // Log
         '<div class="card"><div class="card-header" onclick="toggleSection(\'c-' + name + '-logs\')"><span>Activity Log</span>' +
         '<div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">' +
@@ -1102,6 +1127,7 @@ async function renderClientTab(name) {
 
     document.body.appendChild(div);
     clientLoadSecurityCatalog(name);
+    clientLoadIspScenarios(name);
 }
 
 // ─── Client Actions ──────────────────────────────────────────
@@ -2093,7 +2119,34 @@ function clientRenderSecurityPanel(name, catalog) {
         }
         html += '</div></div>';
     }
+    // PCAP Replay section
+    html += '<div class="security-category">' +
+        '<div class="security-category-header" onclick="toggleSection(\'c-' + name + '-sec-pcap_replay\')">' +
+        '<div class="security-category-title"><span>💾</span><span>PCAP Replay (Zero-Day / Threat Captures)</span>' +
+        '<span class="security-category-badge pcap">replay</span></div>' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+        '<span class="chevron" id="chevron-c-' + name + '-sec-pcap_replay" style="font-size:10px;color:var(--text-secondary)">&#9660;</span></div></div>' +
+        '<div class="security-test-list" id="section-c-' + name + '-sec-pcap_replay">' +
+        '<div style="padding:10px;font-size:12px">' +
+        '<p style="color:var(--text-secondary);margin:0 0 8px">Upload PCAP files containing zero-day attacks, threat captures, or exploit traffic. The tool replays them through the firewall using tcpreplay to validate detection.</p>' +
+        '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;margin-bottom:10px">' +
+        '<label style="color:var(--text-secondary);font-size:11px">PCAP File</label>' +
+        '<div style="display:flex;gap:4px;align-items:center">' +
+        '<select id="c-' + name + '-pcap-file" style="flex:1;padding:4px 6px;font-size:11px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"><option value="">-- Upload a PCAP --</option></select>' +
+        '<label class="btn btn-primary" style="padding:3px 8px;font-size:10px;cursor:pointer;margin:0">Upload <input type="file" accept=".pcap,.pcapng,.cap" style="display:none" onchange="clientUploadPcap(\'' + name + '\',this)"></label>' +
+        '<button class="btn btn-stop" style="padding:3px 6px;font-size:10px" onclick="clientDeletePcap(\'' + name + '\')" title="Delete selected">&#10005;</button></div>' +
+        '<label style="color:var(--text-secondary);font-size:11px">Interface</label>' +
+        '<input type="text" id="c-' + name + '-pcap-iface" value="" placeholder="auto-detect" style="padding:4px 6px;font-size:11px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
+        '<label style="color:var(--text-secondary);font-size:11px">Speed</label>' +
+        '<input type="number" id="c-' + name + '-pcap-rate" value="1.0" step="0.1" min="0" style="width:80px;padding:4px 6px;font-size:11px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px" title="1.0=realtime, 2.0=2x, 0=max speed">' +
+        '<label style="color:var(--text-secondary);font-size:11px">Loop</label>' +
+        '<input type="checkbox" id="c-' + name + '-pcap-loop" style="width:14px;height:14px"></div>' +
+        '<div style="display:flex;gap:6px;align-items:center">' +
+        '<button class="btn btn-start" onclick="clientStartPcapReplay(\'' + name + '\')" style="padding:4px 12px;font-size:11px">&#9654; Replay</button>' +
+        '<button class="btn btn-stop" onclick="clientStopPcapReplay(\'' + name + '\')" style="padding:4px 12px;font-size:11px">Stop</button>' +
+        '<span id="c-' + name + '-pcap-status" style="font-size:11px;color:var(--text-secondary)"></span></div></div></div></div>';
     panel.innerHTML = html;
+    clientLoadPcapFiles(name);
 }
 
 function escapeHtml(str) {
@@ -2228,6 +2281,207 @@ async function clientClearSecurity(name) {
     });
     var summaryEl = document.getElementById('c-' + name + '-security-summary');
     if (summaryEl) summaryEl.style.display = 'none';
+}
+
+// PCAP Replay helpers
+async function clientLoadPcapFiles(name) {
+    try {
+        var resp = await fetch('/api/client/' + name + '/pcap/list');
+        var data = await resp.json();
+        var sel = document.getElementById('c-' + name + '-pcap-file');
+        if (!sel) return;
+        var cur = sel.value;
+        sel.innerHTML = '<option value="">-- Upload a PCAP --</option>';
+        for (var i = 0; i < (data.files || []).length; i++) {
+            var f = data.files[i];
+            var sizeStr = f.size > 1048576 ? (f.size/1048576).toFixed(1)+'MB' : (f.size/1024).toFixed(0)+'KB';
+            sel.innerHTML += '<option value="' + f.name + '">' + f.name + ' (' + sizeStr + ')</option>';
+        }
+        if (cur) sel.value = cur;
+    } catch(e) {}
+}
+
+async function clientUploadPcap(name, input) {
+    if (!input.files.length) return;
+    var formData = new FormData();
+    formData.append('file', input.files[0]);
+    try {
+        var resp = await fetch('/api/client/' + name + '/pcap/upload', { method: 'POST', body: formData });
+        var data = await resp.json();
+        if (data.ok) {
+            await clientLoadPcapFiles(name);
+            var sel = document.getElementById('c-' + name + '-pcap-file');
+            if (sel) sel.value = data.filename;
+        }
+    } catch(e) {}
+    input.value = '';
+}
+
+async function clientDeletePcap(name) {
+    var sel = document.getElementById('c-' + name + '-pcap-file');
+    if (!sel || !sel.value) return;
+    try {
+        await fetch('/api/client/' + name + '/pcap/' + encodeURIComponent(sel.value), { method: 'DELETE' });
+        await clientLoadPcapFiles(name);
+    } catch(e) {}
+}
+
+async function clientStartPcapReplay(name) {
+    var file = document.getElementById('c-' + name + '-pcap-file');
+    if (!file || !file.value) return;
+    var config = {
+        pcap_file: file.value,
+        interface: (document.getElementById('c-' + name + '-pcap-iface') || {}).value || '',
+        replay_rate: parseFloat((document.getElementById('c-' + name + '-pcap-rate') || {}).value || 1.0),
+        loop: (document.getElementById('c-' + name + '-pcap-loop') || {}).checked || false,
+    };
+    var statusEl = document.getElementById('c-' + name + '-pcap-status');
+    if (statusEl) statusEl.textContent = 'Starting...';
+    await fetch('/api/client/' + name + '/start', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ protocol: 'pcap_replay', config: config })
+    });
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--success)">Running</span>';
+}
+
+async function clientStopPcapReplay(name) {
+    await fetch('/api/client/' + name + '/stop', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ protocol: 'pcap_replay' })
+    });
+    var statusEl = document.getElementById('c-' + name + '-pcap-status');
+    if (statusEl) statusEl.textContent = 'Stopped';
+}
+
+// ISP Scenario helpers
+var _clientIspScenarios = {};
+var _clientIspPolling = {};
+
+function _ispPhaseSeverity(phase) {
+    var score = (phase.latency_ms / 50) + (phase.packet_loss_pct * 2) +
+        (phase.bandwidth_mbps > 0 && phase.bandwidth_mbps < 10 ? 3 : phase.bandwidth_mbps > 0 && phase.bandwidth_mbps < 30 ? 1 : 0);
+    if (phase.packet_loss_pct >= 50) return 'outage';
+    if (score >= 6) return 'severe';
+    if (score >= 3) return 'moderate';
+    if (score >= 1) return 'mild';
+    return 'normal';
+}
+
+async function clientLoadIspScenarios(name) {
+    try {
+        var resp = await fetch('/api/client/' + name + '/shaping/scenarios');
+        var data = await resp.json();
+        _clientIspScenarios[name] = data;
+        clientRenderIspUI(name);
+    } catch(e) {}
+}
+
+function clientRenderIspUI(name) {
+    var container = document.getElementById('c-' + name + '-isp-container');
+    if (!container) return;
+    var scenarios = _clientIspScenarios[name] || {};
+    var keys = Object.keys(scenarios);
+    if (!keys.length) { container.innerHTML = '<div style="font-size:12px;color:var(--text-secondary)">No scenarios available</div>'; return; }
+    var options = keys.map(function(k) {
+        var s = scenarios[k];
+        var mins = Math.round(s.total_duration_sec / 60);
+        return '<option value="' + k + '">' + s.name + ' (' + mins + ' min)</option>';
+    }).join('');
+    container.innerHTML = '<div class="isp-scenario-section">' +
+        '<h4>Simulate Real-World ISP Behavior</h4>' +
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' +
+        '<select id="c-' + name + '-isp-select" onchange="clientRenderIspTimeline(\'' + name + '\')" style="flex:1;min-width:200px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' + options + '</select>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" id="c-' + name + '-isp-loop" style="width:14px;height:14px"> Loop</label></div>' +
+        '<div id="c-' + name + '-isp-desc" class="isp-scenario-desc"></div>' +
+        '<div id="c-' + name + '-isp-timeline" class="isp-scenario-timeline"></div>' +
+        '<div id="c-' + name + '-isp-status" class="isp-scenario-status"></div></div>';
+    clientRenderIspTimeline(name);
+}
+
+function clientRenderIspTimeline(name) {
+    var sel = document.getElementById('c-' + name + '-isp-select');
+    if (!sel) return;
+    var scenarios = _clientIspScenarios[name] || {};
+    var scenario = scenarios[sel.value];
+    if (!scenario) return;
+    var descEl = document.getElementById('c-' + name + '-isp-desc');
+    if (descEl) descEl.textContent = scenario.description;
+    var timeline = document.getElementById('c-' + name + '-isp-timeline');
+    if (!timeline) return;
+    var total = scenario.total_duration_sec;
+    timeline.innerHTML = scenario.phases.map(function(p, i) {
+        var widthPct = (p.duration_sec / total * 100).toFixed(1);
+        var sev = _ispPhaseSeverity(p);
+        return '<div class="isp-phase severity-' + sev + '" data-phase="' + i + '" style="width:' + widthPct + '%" title="' + p.name + ': ' + p.duration_sec + 's">' + p.name + '</div>';
+    }).join('');
+}
+
+async function clientStartIspScenario(name) {
+    var sel = document.getElementById('c-' + name + '-isp-select');
+    if (!sel) return;
+    var loop = (document.getElementById('c-' + name + '-isp-loop') || {}).checked || false;
+    await fetch('/api/client/' + name + '/shaping/scenario/start', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ scenario_id: sel.value, loop: loop })
+    });
+    clientStartIspPolling(name);
+}
+
+async function clientStopIspScenario(name) {
+    await fetch('/api/client/' + name + '/shaping/scenario/stop', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+    });
+    _clientIspPolling[name] = false;
+    var container = document.getElementById('c-' + name + '-isp-container');
+    if (container) {
+        container.querySelectorAll('.isp-phase').forEach(function(el) { el.classList.remove('active', 'dimmed'); });
+    }
+    var statusEl = document.getElementById('c-' + name + '-isp-status');
+    if (statusEl) statusEl.innerHTML = '';
+}
+
+function clientStartIspPolling(name) {
+    if (_clientIspPolling[name]) return;
+    _clientIspPolling[name] = true;
+    clientPollIspStatus(name);
+}
+
+async function clientPollIspStatus(name) {
+    if (!_clientIspPolling[name]) return;
+    try {
+        var resp = await fetch('/api/client/' + name + '/shaping/scenario/status');
+        var st = await resp.json();
+        clientUpdateIspUI(name, st);
+        if (!st.running) { _clientIspPolling[name] = false; return; }
+    } catch(e) {}
+    setTimeout(function() { clientPollIspStatus(name); }, 2000);
+}
+
+function clientUpdateIspUI(name, st) {
+    var container = document.getElementById('c-' + name + '-isp-container');
+    if (container) {
+        container.querySelectorAll('.isp-phase').forEach(function(el) {
+            var idx = parseInt(el.dataset.phase);
+            el.classList.remove('active', 'dimmed');
+            if (st.running) {
+                if (idx === st.current_phase) el.classList.add('active');
+                else if (idx > st.current_phase) el.classList.add('dimmed');
+            }
+        });
+    }
+    var statusEl = document.getElementById('c-' + name + '-isp-status');
+    if (!statusEl) return;
+    if (!st.running) { statusEl.innerHTML = ''; return; }
+    var imp = st.impairment || {};
+    var phasePct = st.phase_duration_sec > 0 ? Math.round(st.phase_elapsed_sec / st.phase_duration_sec * 100) : 0;
+    var totalPct = st.total_duration_sec > 0 ? Math.round(st.total_elapsed_sec / st.total_duration_sec * 100) : 0;
+    statusEl.innerHTML = '<span class="phase-label">' + st.phase_name + '</span>' +
+        '<span>' + st.phase_elapsed_sec + '/' + st.phase_duration_sec + 's</span>' +
+        '<span style="flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden">' +
+        '<span style="display:block;height:100%;width:' + phasePct + '%;background:var(--accent-teal);border-radius:2px;transition:width 1s"></span></span>' +
+        '<span style="font-size:10px">' + totalPct + '%</span>' +
+        '<span style="font-size:10px;color:var(--text-secondary)">Lat:' + (imp.latency_ms||0) + 'ms Loss:' + (imp.packet_loss_pct||0) + '% BW:' + (imp.bandwidth_mbps||'∞') + 'Mbps</span>' +
+        (st.loop ? '<span style="font-size:9px;background:#e8f0fe;color:#0066cc;padding:1px 6px;border-radius:8px">LOOP</span>' : '');
 }
 
 function clientStartSecurityPolling(name) {
@@ -2955,6 +3209,58 @@ def delete_file(name):
         return jsonify({"error": "File not found"}), 404
     os.remove(path)
     return jsonify({"ok": True, "message": f"Deleted {os.path.basename(path)}"})
+
+
+# ─── PCAP Replay proxy routes ───────────────────────────────
+
+@app.route('/api/client/<name>/pcap/list')
+def client_pcap_list(name):
+    result, code = proxy_to_client(name, '/api/pcap/list')
+    return jsonify(result), code
+
+@app.route('/api/client/<name>/pcap/upload', methods=['POST'])
+def client_pcap_upload(name):
+    with clients_lock:
+        url = clients.get(name)
+    if not url:
+        return jsonify({'error': f'Client {name} not found'}), 404
+    target = url.rstrip('/') + '/api/pcap/upload'
+    try:
+        files = {}
+        for key, f in request.files.items():
+            files[key] = (f.filename, f.stream, f.content_type)
+        r = http_client.post(target, files=files, timeout=30)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({'error': f'Cannot reach client {name}: {e}'}), 502
+
+@app.route('/api/client/<name>/pcap/<fname>', methods=['DELETE'])
+def client_pcap_delete(name, fname):
+    result, code = proxy_to_client(name, f'/api/pcap/{fname}', 'DELETE')
+    return jsonify(result), code
+
+
+# ─── ISP Scenario proxy routes ───────────────────────────────
+
+@app.route('/api/client/<name>/shaping/scenarios')
+def client_isp_scenarios(name):
+    result, code = proxy_to_client(name, '/api/shaping/scenarios')
+    return jsonify(result), code
+
+@app.route('/api/client/<name>/shaping/scenario/start', methods=['POST'])
+def client_isp_start(name):
+    result, code = proxy_to_client(name, '/api/shaping/scenario/start', 'POST', request.json or {})
+    return jsonify(result), code
+
+@app.route('/api/client/<name>/shaping/scenario/stop', methods=['POST'])
+def client_isp_stop(name):
+    result, code = proxy_to_client(name, '/api/shaping/scenario/stop', 'POST', {})
+    return jsonify(result), code
+
+@app.route('/api/client/<name>/shaping/scenario/status')
+def client_isp_status(name):
+    result, code = proxy_to_client(name, '/api/shaping/scenario/status')
+    return jsonify(result), code
 
 
 if __name__ == '__main__':
