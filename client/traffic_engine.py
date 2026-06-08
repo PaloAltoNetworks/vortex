@@ -286,6 +286,8 @@ class TrafficEngine:
 
     def _run_https(self, job: TrafficJob):
         cfg = job.config
+        if cfg.get('highcps_mode', True):
+            return self._run_hey(job, 'https')
         if cfg.get('browser_mode'):
             url = cfg.get('url', 'https://server/')
             if not url.startswith('https'):
@@ -455,6 +457,8 @@ class TrafficEngine:
     def _run_http_plain(self, job: TrafficJob):
         """HTTP requests to the plain HTTP server on port 9999 (App-ID: web-browsing)."""
         cfg = job.config
+        if cfg.get('highcps_mode', True):
+            return self._run_hey(job, 'http')
         if cfg.get('browser_mode'):
             host = cfg.get('host', 'server')
             port = int(cfg.get('port', 9999))
@@ -1190,3 +1194,148 @@ class TrafficEngine:
             job.log(f"PCAP replay error: {e}")
 
         job.log("Stopped")
+
+    # ─── High-CPS Engine (hey-based) ──────────────────────────
+
+    def _run_hey(self, job: TrafficJob, proto: str):
+        """High CPS testing using hey CLI. Called from _run_https and _run_http_plain."""
+        import re as _re
+
+        cfg = job.config
+        server = os.environ.get('SERVER_HOST', 'server')
+        target_cps = int(cfg.get('target_cps', 100))
+        concurrency = int(cfg.get('concurrency', 50))
+        duration = job.duration or 60
+        method = cfg.get('method', 'GET').upper()
+
+        # Ramping config
+        ramp_enabled = cfg.get('ramp_enabled', False)
+        ramp_start = int(cfg.get('ramp_start_cps', 10))
+        ramp_steps = int(cfg.get('ramp_steps', 5))
+
+        # Extended stats
+        job.stats['cps'] = 0
+        job.stats['peak_cps'] = 0
+        job.stats['avg_latency_ms'] = 0
+        job.stats['p99_latency_ms'] = 0
+        job.stats['connections_total'] = 0
+        job.stats['connections_failed'] = 0
+
+        if proto == 'https':
+            url = cfg.get('url', f'https://{server}/')
+            if not url.startswith('https'):
+                url = url.replace('http://', 'https://')
+        else:
+            host = cfg.get('host', server)
+            port = int(cfg.get('port', 9999))
+            url = f"http://{host}:{port}/"
+
+        # Run hey in chunks for live stats updates
+        chunk_duration = min(10, duration)
+        remaining = duration
+        elapsed = 0
+
+        if ramp_enabled:
+            job.log(f"High-CPS {proto.upper()} RAMP → {url} | {ramp_start}→{target_cps} cps "
+                    f"in {ramp_steps} steps, concurrency={concurrency}, duration={duration}s")
+        else:
+            job.log(f"High-CPS {proto.upper()} → {url} | target={target_cps} cps, "
+                    f"concurrency={concurrency}, method={method}, duration={duration}s")
+
+        while not job.should_stop() and remaining > 0:
+            run_for = min(chunk_duration, remaining)
+
+            # Calculate current CPS (ramping or fixed)
+            if ramp_enabled:
+                progress = min(elapsed / max(duration - chunk_duration, 1), 1.0)
+                step_index = min(int(progress * ramp_steps), ramp_steps - 1)
+                current_cps = int(ramp_start + (target_cps - ramp_start) * (step_index + 1) / ramp_steps)
+                job.log(f"Ramp step {step_index + 1}/{ramp_steps}: {current_cps} CPS")
+            else:
+                current_cps = target_cps
+
+            rate_per_worker = max(1, current_cps // max(concurrency, 1))
+            cmd = [
+                'hey',
+                '-z', f'{run_for}s',
+                '-c', str(concurrency),
+                '-q', str(rate_per_worker),
+                '-m', method,
+                '-disable-keepalive',
+                '-disable-compression',
+            ]
+            cmd.append(url)
+            job.log(f"cmd: {' '.join(cmd)}")
+
+            try:
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT, text=True)
+                while not job.should_stop() and proc.poll() is None:
+                    time.sleep(0.5)
+
+                if proc.poll() is None:
+                    proc.terminate()
+                    proc.wait(timeout=5)
+                    break
+
+                output = proc.stdout.read()
+                if output:
+                    self._parse_hey_output(job, output)
+
+            except Exception as e:
+                job.stats['errors'] += 1
+                job.log(f"hey error: {e}")
+
+            remaining -= run_for
+            elapsed += run_for
+
+        job.log("Stopped")
+
+    def _parse_hey_output(self, job, output):
+        """Parse hey summary output for CPS and latency metrics."""
+        import re as _re
+
+        for line in output.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+
+            # Requests/sec
+            m = _re.match(r'Requests/sec:\s+([\d.]+)', line)
+            if m:
+                cps = float(m.group(1))
+                job.stats['cps'] = round(cps, 1)
+                job.stats['peak_cps'] = max(job.stats.get('peak_cps', 0), cps)
+                job.log(f"CPS: {cps:.1f}")
+
+            # Average latency
+            m = _re.match(r'\s*Average:\s+([\d.]+)\s+secs', line)
+            if m:
+                avg_ms = float(m.group(1)) * 1000
+                job.stats['avg_latency_ms'] = round(avg_ms, 2)
+
+            # Status code distribution
+            m = _re.match(r'\s*\[(\d+)\]\s+(\d+)\s+responses', line)
+            if m:
+                code, count = int(m.group(1)), int(m.group(2))
+                job.stats['requests'] += count
+                job.stats['connections_total'] += count
+                if code >= 400:
+                    job.stats['errors'] += count
+                    job.stats['connections_failed'] += count
+                job.log(f"HTTP {code}: {count} responses")
+
+            # Latency distribution (99%)
+            m = _re.match(r'\s*99%\s+in\s+([\d.]+)\s+secs', line)
+            if m:
+                p99_ms = float(m.group(1)) * 1000
+                job.stats['p99_latency_ms'] = round(p99_ms, 2)
+
+            # Total data
+            m = _re.match(r'Total data:\s+(\d+)\s+bytes', line)
+            if m:
+                job.stats['bytes_recv'] += int(m.group(1))
+
+            # Error lines
+            if line.startswith('[') and 'error' in line.lower():
+                job.log(f"Error: {line}")
