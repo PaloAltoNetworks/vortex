@@ -441,6 +441,7 @@ async function stopRouterIspScenario(routerId) {
     const res = await apiPost(`/api/routers/${routerId}/scenario/stop`, {});
     addLog(`[ISP:${routerId}] ${res.message}`);
     _ispPollingRouters.delete(routerId);
+    delete _ispLastStatus[routerId];
     // Reset timeline
     const timeline = document.getElementById(`rtr-${routerId}-isp-timeline`);
     if (timeline) timeline.querySelectorAll('.isp-phase').forEach(el => { el.classList.remove('active', 'dimmed'); });
@@ -449,6 +450,7 @@ async function stopRouterIspScenario(routerId) {
 }
 
 const _ispPollingRouters = new Set();
+const _ispLastStatus = {};
 
 function startRouterIspPolling(routerId) {
     if (_ispPollingRouters.has(routerId)) return;
@@ -461,8 +463,9 @@ async function pollRouterIspStatus(routerId) {
     try {
         const resp = await fetch(`/api/routers/${routerId}/scenario/status`);
         const st = await resp.json();
+        _ispLastStatus[routerId] = st;
         updateRouterIspUI(routerId, st);
-        if (!st.running) { _ispPollingRouters.delete(routerId); return; }
+        if (!st.running) { _ispPollingRouters.delete(routerId); delete _ispLastStatus[routerId]; return; }
     } catch(e) {}
     setTimeout(() => pollRouterIspStatus(routerId), 2000);
 }
@@ -816,6 +819,7 @@ async function pollRouterStatus() {
         }
         const savedValues = {};
         const expandedIfaces = {};
+        const savedIsp = {};
         for (const r of routers) {
             const rid = r.router_id;
             for (const f of ['latency','jitter','loss','bw']) {
@@ -824,6 +828,10 @@ async function pollRouterStatus() {
             }
             const ifaceEl = document.getElementById('rtr-ifaces-' + rid);
             if (ifaceEl && ifaceEl.style.display !== 'none') expandedIfaces[rid] = true;
+            // Save ISP scenario state
+            const ispSel = document.getElementById('rtr-' + rid + '-isp-scenario');
+            const ispLoop = document.getElementById('rtr-' + rid + '-isp-loop');
+            if (ispSel) savedIsp[rid] = { scenario: ispSel.value, loop: ispLoop ? ispLoop.checked : false };
         }
         container.innerHTML = routers.map(r => renderRouterCard(r)).join('');
         for (const [key, val] of Object.entries(savedValues)) {
@@ -835,6 +843,13 @@ async function pollRouterStatus() {
             const toggleBtn = document.getElementById('rtr-ifaces-toggle-' + rid);
             if (ifaceEl) ifaceEl.style.display = 'block';
             if (toggleBtn) toggleBtn.textContent = 'Hide Interfaces';
+        }
+        // Restore ISP scenario state
+        for (const [rid, isp] of Object.entries(savedIsp)) {
+            const ispSel = document.getElementById('rtr-' + rid + '-isp-scenario');
+            const ispLoop = document.getElementById('rtr-' + rid + '-isp-loop');
+            if (ispSel) ispSel.value = isp.scenario;
+            if (ispLoop) ispLoop.checked = isp.loop;
         }
         for (const r of routers) {
             if (r.logs) {
@@ -848,14 +863,19 @@ async function pollRouterStatus() {
             }
         }
         renderLogPanel();
-        // Render ISP timelines and poll status for connected routers
+        // Render ISP timelines and immediately re-apply cached status
         for (const r of routers) {
             if (r.connected && r.selected_interface) {
                 renderRouterIspTimeline(r.router_id);
-                // Start polling if a scenario is running
+                // Re-apply cached ISP status immediately to prevent flickering
+                const cachedSt = _ispLastStatus[r.router_id];
+                if (cachedSt && cachedSt.running) {
+                    updateRouterIspUI(r.router_id, cachedSt);
+                }
+                // Start polling if not already polling
                 if (!_ispPollingRouters.has(r.router_id)) {
                     fetch(`/api/routers/${r.router_id}/scenario/status`).then(resp => resp.json()).then(st => {
-                        if (st.running) startRouterIspPolling(r.router_id);
+                        if (st.running) { _ispLastStatus[r.router_id] = st; updateRouterIspUI(r.router_id, st); startRouterIspPolling(r.router_id); }
                     }).catch(() => {});
                 }
             }
