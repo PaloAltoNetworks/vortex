@@ -4,8 +4,8 @@
 services:
   client:
     build: ./client
-    image: ajaymare/traffic-client:latest
-    container_name: traffic-client
+    image: ajaymare/vortex-client:latest
+    container_name: vortex-client
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -15,15 +15,15 @@ services:
     environment:
       - SERVER_HOST=server
     networks:
-      - traffic-net
+      - vortex-net
     depends_on:
       - server
     restart: unless-stopped
 
   server:
     build: ./server
-    image: ajaymare/traffic-server:latest
-    container_name: traffic-server
+    image: ajaymare/vortex-server:latest
+    container_name: vortex-server
     ports:
       - "8081:80"
       - "8444:443"
@@ -41,9 +41,9 @@ services:
       - "8082:8082"
       - "18443:8443"
     networks:
-      - traffic-net
+      - vortex-net
     restart: unless-stopped
 
 networks:
-  traffic-net:
+  vortex-net:
     driver: bridge

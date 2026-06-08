@@ -92,7 +92,7 @@ def track_response(response):
 
 @app.route('/')
 def index():
-    return jsonify({"status": "ok", "service": "traffic-server",
+    return jsonify({"status": "ok", "service": "vortex-server",
                     "protocols": ["http", "https", "tcp", "udp", "ftp", "ssh", "icmp"]})
 
 

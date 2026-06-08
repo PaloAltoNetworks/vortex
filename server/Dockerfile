@@ -20,7 +20,7 @@ RUN useradd -m -s /bin/bash ftpuser && echo "ftpuser:ftppass" | chpasswd
 RUN mkdir -p /etc/nginx/ssl && \
     openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
     -keyout /etc/nginx/ssl/server.key -out /etc/nginx/ssl/server.crt \
-    -subj "/C=US/ST=CA/L=SanJose/O=TrafficGen/CN=traffic-server"
+    -subj "/C=US/ST=CA/L=SanJose/O=Vortex/CN=vortex-server"
 
 WORKDIR /app
 COPY requirements.txt .

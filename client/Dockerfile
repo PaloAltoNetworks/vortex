@@ -13,7 +13,7 @@ RUN useradd -m -s /bin/bash appuser && \
 RUN mkdir -p /etc/nginx/ssl && \
     openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
     -keyout /etc/nginx/ssl/client.key -out /etc/nginx/ssl/client.crt \
-    -subj "/C=US/ST=CA/L=SanJose/O=TrafficGen/CN=traffic-client"
+    -subj "/C=US/ST=CA/L=SanJose/O=Vortex/CN=vortex-client"
 
 WORKDIR /app
 COPY requirements.txt .

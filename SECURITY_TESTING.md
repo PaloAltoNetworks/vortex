@@ -4,7 +4,7 @@ Validate PAN-OS NGFW security profiles (Vulnerability Protection, Anti-Virus, UR
 
 ## Prerequisites
 
-- Traffic Generator client and server deployed (see [README](README.md))
+- Vortex client and server deployed (see [README](README.md))
 - For full validation: PAN-OS NGFW inline between client and server with:
   - **Vulnerability Protection** profile (for web attack detection)
   - **Anti-Virus / Threat Prevention** profile (for malware detection)
@@ -232,4 +232,4 @@ curl -X POST http://<client-ip>:8080/api/security/stop
 | EICAR HTTPS shows FAIL but HTTP shows PASS | SSL Decryption not enabled | Configure SSL Decryption policy on PAN-OS to decrypt traffic to the server |
 | URL Filtering tests show ERROR | Test URLs unreachable | Check DNS resolution and internet connectivity from the client container |
 | All tests show ERROR | Server unreachable | Verify server container is running and reachable from client (`ping <server-ip>`) |
-| Web attack tests show PASS without firewall | Echo server not running | Check server container logs: `docker logs traffic-server` |
+| Web attack tests show PASS without firewall | Echo server not running | Check server container logs: `docker logs vortex-server` |
