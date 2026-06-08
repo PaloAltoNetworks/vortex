@@ -1,8 +1,8 @@
 services:
   server:
     build: ./server
-    image: ajaymare/traffic-server:latest
-    container_name: traffic-server
+    image: ajaymare/vortex-server:latest
+    container_name: vortex-server
     ports:
       - "80:80"
       - "443:443"

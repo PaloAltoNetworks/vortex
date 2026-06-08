@@ -291,8 +291,8 @@ class TrafficHTTPHandler(BaseHTTPRequestHandler):
                     stats['http']['bytes_sent'] += len(data)
             else:
                 body = (
-                    '<html><head><title>Traffic Generator</title></head>'
-                    '<body><h1>Traffic Generator HTTP Server</h1>'
+                    '<html><head><title>Vortex</title></head>'
+                    '<body><h1>Vortex HTTP Server</h1>'
                     '<p>Port 9999 — App-ID: web-browsing</p>'
                     f'<p>Requests served: {stats["http"]["requests"]}</p>'
                     '</body></html>'
@@ -393,7 +393,7 @@ STATIC_DNS = {
     'www.reddit.com': '151.101.1.140',
     'stackoverflow.com': '151.101.1.69',
     'www.stackoverflow.com': '151.101.1.69',
-    'traffic-server': '127.0.0.1',
+    'vortex-server': '127.0.0.1',
     'server': '127.0.0.1',
 }
 

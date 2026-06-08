@@ -41,7 +41,7 @@ DASHBOARD_HTML = r"""
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traffic Generator — Control Panel</title>
+    <title>Vortex — Control Panel</title>
     <style>
         :root {
             --bg-primary: #f0f4f8;
@@ -534,7 +534,7 @@ DASHBOARD_HTML = r"""
 <body>
 
 <div class="header">
-    <h1>Traffic Generator — Control Panel</h1>
+    <h1>Vortex — Control Panel</h1>
     <div class="status">Auto-refresh: 2s | <span id="last-update">--</span></div>
 </div>
 
@@ -1076,7 +1076,7 @@ async function renderClientTab(name) {
         '<button class="btn btn-secondary" onclick="clientTestProxy(\'' + name + '\')" style="padding:4px 12px">Test</button>' +
         '</div></div></div></div>' +
         // Protocol cards
-        '<div class="card"><div class="card-header" onclick="toggleSection(\'c-' + name + '-protos\')"><span>Traffic Generators</span>' +
+        '<div class="card"><div class="card-header" onclick="toggleSection(\'c-' + name + '-protos\')"><span>Vortex Generators</span>' +
         '<div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">' +
         '<div class="bulk-actions">' +
         '<button class="btn btn-secondary" onclick="clientSelectAll(\'' + name + '\')">Select All</button>' +

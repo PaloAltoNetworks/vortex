@@ -1,8 +1,8 @@
 services:
   client:
     build: ./client
-    image: ajaymare/traffic-client:latest
-    container_name: traffic-client
+    image: ajaymare/vortex-client:latest
+    container_name: vortex-client
     cap_add:
       - NET_ADMIN
       - NET_RAW

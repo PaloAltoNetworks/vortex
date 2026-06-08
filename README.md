@@ -1,4 +1,4 @@
-# Traffic Generator
+# Vortex
 
 Docker-based network traffic generation and testing tool with a blue/corporate-themed web UI. Supports multiple protocols with real-time monitoring, per-protocol topology visualization, router-based link simulation via SSH, and multi-client control.
 
@@ -160,7 +160,7 @@ Images (amd64) are available on Docker Hub.
 **Server VM:**
 
 ```bash
-docker run -d --name traffic-server \
+docker run -d --name vortex-server \
   -p 80:80 -p 443:443 \
   -p 5201:5201 -p 5201:5201/udp \
   -p 5202:5202 -p 5202:5202/udp \
@@ -171,19 +171,19 @@ docker run -d --name traffic-server \
   -p 8082:8082 \
   -p 8443:8443 \
   --restart unless-stopped \
-  ajaymare/traffic-server:latest
+  ajaymare/vortex-server:latest
 ```
 
 **Client VM:**
 
 ```bash
-docker run -d --name traffic-client \
+docker run -d --name vortex-client \
   --cap-add NET_ADMIN \
   -p 8080:8080 \
   -p 8443:8443 \
   -e SERVER_HOST=<server-vm-ip> \
   --restart unless-stopped \
-  ajaymare/traffic-client:latest
+  ajaymare/vortex-client:latest
 ```
 
 - Client dashboard: `https://<client-vm-ip>:8443` (or `http://<client-vm-ip>:8080`)
@@ -193,11 +193,11 @@ docker run -d --name traffic-client \
 
 ```bash
 # Create a docker network
-docker network create traffic-net
+docker network create vortex-net
 
 # Start server
-docker run -d --name traffic-server \
-  --network traffic-net \
+docker run -d --name vortex-server \
+  --network vortex-net \
   -p 80:80 -p 443:443 \
   -p 5201:5201 -p 5201:5201/udp \
   -p 5202:5202 -p 5202:5202/udp \
@@ -208,17 +208,17 @@ docker run -d --name traffic-server \
   -p 8082:8082 \
   -p 18443:8443 \
   --restart unless-stopped \
-  ajaymare/traffic-server:latest
+  ajaymare/vortex-server:latest
 
 # Start client (points to server container by name)
-docker run -d --name traffic-client \
-  --network traffic-net \
+docker run -d --name vortex-client \
+  --network vortex-net \
   --cap-add NET_ADMIN \
   -p 8080:8080 \
   -p 8443:8443 \
-  -e SERVER_HOST=traffic-server \
+  -e SERVER_HOST=vortex-server \
   --restart unless-stopped \
-  ajaymare/traffic-client:latest
+  ajaymare/vortex-client:latest
 ```
 
 - Client dashboard: `https://<server-ip>:8443` (or `http://<server-ip>:8080`)
@@ -227,9 +227,9 @@ docker run -d --name traffic-client \
 ### Stop and Remove
 
 ```bash
-docker stop traffic-client traffic-server
-docker rm traffic-client traffic-server
-docker network rm traffic-net  # if using same-server setup
+docker stop vortex-client vortex-server
+docker rm vortex-client vortex-server
+docker network rm vortex-net  # if using same-server setup
 ```
 
 ## Server Dashboard — Multi-Client Control

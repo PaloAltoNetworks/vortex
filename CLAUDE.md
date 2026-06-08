@@ -2,13 +2,13 @@
 
 ## Project Overview
 
-Traffic Generator — a Docker-based network traffic generation and testing tool with a Flask web UI. Two containers (client + server) generate multi-protocol traffic with real-time monitoring, per-protocol topology visualization via traceroute + vis.js, SSH-based router link simulation, source IP rotation, DSCP marking, proxy support, and browser mode (Playwright). Designed for SD-WAN demos and network testing.
+Vortex — a Docker-based network traffic generation and testing tool with a Flask web UI. Two containers (client + server) generate multi-protocol traffic with real-time monitoring, per-protocol topology visualization via traceroute + vis.js, SSH-based router link simulation, source IP rotation, DSCP marking, proxy support, and browser mode (Playwright). Designed for SD-WAN demos and network testing.
 
 ## Architecture
 
 - **Client container** (`client/`): Flask web UI (port 8080/8443) + traffic engine + network shaper + router shaper
 - **Server container** (`server/`): nginx (HTTP/HTTPS with HTTP/2) + iperf3 (3 instances) + DNS server + vsftpd (FTP) + openssh (SSH) + echo server (HTTP port 9999) + server dashboard (port 8082)
-- **Network**: Docker bridge `traffic-net` (172.20.0.0/24) for single-host, or separate VMs with `SERVER_HOST` env var
+- **Network**: Docker bridge `vortex-net` (172.20.0.0/24) for single-host, or separate VMs with `SERVER_HOST` env var
 - **Process management**: supervisord in both containers
 
 ## Key Files
@@ -59,8 +59,8 @@ Traffic Generator — a Docker-based network traffic generation and testing tool
 
 ```bash
 # Build and push (amd64)
-docker buildx build --platform linux/amd64 -t ajaymare/traffic-client:latest -f client/Dockerfile ./client --push
-docker buildx build --platform linux/amd64 -t ajaymare/traffic-server:latest -f server/Dockerfile ./server --push
+docker buildx build --platform linux/amd64 -t ajaymare/vortex-client:latest -f client/Dockerfile ./client --push
+docker buildx build --platform linux/amd64 -t ajaymare/vortex-server:latest -f server/Dockerfile ./server --push
 
 # Run locally (same host)
 docker compose up -d
@@ -145,7 +145,7 @@ SERVER_HOST=<server-ip> docker compose -f docker-compose.client.yml up -d
 ### Multi-Client Control
 - Server dashboard registers clients by name + URL
 - Each client tab proxies all API calls (`/api/client/<name>/...`) through server to client
-- Enables centralized control of multiple traffic generators
+- Enables centralized control of multiple Vortex clients
 
 ### Security Testing (`security_engine.py`)
 - Separate engine from TrafficEngine — tests run once per case with pass/fail verdicts vs continuous traffic
@@ -181,7 +181,7 @@ SERVER_HOST=<server-ip> docker compose -f docker-compose.client.yml up -d
 
 ## Git
 
-- Remote origin: https://github.com/ajaymare/traffic-gen.git
+- Remote origin: https://github.com/ajaymare/vortex.git
 - Remote gitlab: https://code.pan.run/netsec/netsec-tme/traffic-tool.git
-- Docker images: `ajaymare/traffic-client:latest`, `ajaymare/traffic-server:latest` (amd64)
+- Docker images: `ajaymare/vortex-client:latest`, `ajaymare/vortex-server:latest` (amd64)
 - Author: Ajay Mare (ajaymaray@gmail.com)

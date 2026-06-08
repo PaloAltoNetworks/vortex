@@ -1,4 +1,4 @@
-"""Traffic Generator Client — Flask Web UI + REST API."""
+"""Vortex Client — Flask Web UI + REST API."""
 import os
 import time
 import socket
