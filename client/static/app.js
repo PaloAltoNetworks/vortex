@@ -1,13 +1,19 @@
 const SRV = (typeof SERVER_HOST !== 'undefined') ? SERVER_HOST : 'server';
 
 const DSCP_OPTIONS = ['BE','CS1','AF11','AF12','AF13','CS2','AF21','AF22','AF23','CS3','AF31','AF32','AF33','CS4','AF41','AF42','AF43','CS5','VA','EF','CS6','CS7'];
-const ADVANCED_KEYS = ['browser_mode', 'browser_type', 'proxy', 'dscp', 'rate_pps', 'burst_enabled', 'burst_count', 'burst_pause'];
+const ADVANCED_KEYS = ['browser_mode', 'browser_type', 'proxy', 'dscp', 'rate_pps', 'burst_enabled', 'burst_count', 'burst_pause', 'target_cps', 'concurrency', 'ramp_enabled', 'ramp_start_cps', 'ramp_steps'];
 
 const PROTOCOLS = {
     https: {
         name: 'HTTPS',
         appId: 'web-browsing',
         fields: [
+            { key: 'highcps_mode', label: 'High-CPS Mode', type: 'checkbox', default: true },
+            { key: 'target_cps', label: 'Target CPS', type: 'number', default: 100, step: 10 },
+            { key: 'concurrency', label: 'Concurrency', type: 'number', default: 50, step: 10 },
+            { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: false },
+            { key: 'ramp_start_cps', label: 'Ramp Start CPS', type: 'number', default: 10, step: 10 },
+            { key: 'ramp_steps', label: 'Ramp Steps', type: 'number', default: 5, step: 1 },
             { key: 'url', label: 'URL', type: 'text', get default() { return `https://${SRV}/`; } },
             { key: 'method', label: 'Method', type: 'select', options: ['GET', 'POST'], default: 'GET' },
             { key: 'data_size_kb', label: 'Data KB', type: 'number', default: 0 },
@@ -64,6 +70,12 @@ const PROTOCOLS = {
         name: 'HTTP (Plain)',
         appId: 'web-browsing',
         fields: [
+            { key: 'highcps_mode', label: 'High-CPS Mode', type: 'checkbox', default: true },
+            { key: 'target_cps', label: 'Target CPS', type: 'number', default: 100, step: 10 },
+            { key: 'concurrency', label: 'Concurrency', type: 'number', default: 50, step: 10 },
+            { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: false },
+            { key: 'ramp_start_cps', label: 'Ramp Start CPS', type: 'number', default: 10, step: 10 },
+            { key: 'ramp_steps', label: 'Ramp Steps', type: 'number', default: 5, step: 1 },
             { key: 'host', label: 'Host', type: 'text', get default() { return SRV; } },
             { key: 'port', label: 'Port', type: 'number', default: 9999 },
             { key: 'method', label: 'Method', type: 'select', options: ['GET', 'POST'], default: 'GET' },

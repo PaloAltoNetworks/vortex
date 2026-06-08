@@ -4,6 +4,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iproute2 iptables iputils-ping iperf3 hping3 curl nginx openssl supervisor sudo openssh-client sshpass traceroute dnsutils tcpreplay \
     && rm -rf /var/lib/apt/lists/*
 
+# Install hey (Go-based HTTP load generator for High-CPS testing)
+RUN curl -sL https://hey-release.s3.us-east-2.amazonaws.com/hey_linux_amd64 -o /usr/local/bin/hey && \
+    chmod +x /usr/local/bin/hey
+
 # Create non-root user with passwordless sudo for network commands
 RUN useradd -m -s /bin/bash appuser && \
     echo 'appuser ALL=(root) NOPASSWD: /sbin/tc, /usr/sbin/tc, /sbin/iptables, /usr/sbin/iptables, /sbin/ip, /usr/sbin/ip, /usr/sbin/hping3, /usr/sbin/traceroute, /usr/bin/tcpreplay' > /etc/sudoers.d/appuser && \
