@@ -1208,7 +1208,7 @@ class TrafficEngine:
     # ─── UDP Traffic Generator ─────────────────────────────────
 
     def _run_udp(self, job: TrafficJob):
-        """UDP traffic generator using iperf3 in UDP mode to the Vortex server."""
+        """UDP traffic generator using Python sockets with per-second logging."""
         cfg = job.config
         host = cfg.get('host', os.environ.get('SERVER_HOST', 'server'))
         port = int(cfg.get('port', 5201))
@@ -1226,128 +1226,76 @@ class TrafficEngine:
         job.stats['peak_pps'] = 0
         job.stats['mbps'] = 0
 
-        # Verify server reachability first
-        job.log(f"Checking server reachability: {host}...")
+        # Resolve host to verify DNS works
         try:
-            test_sock = socket.create_connection((host, port), timeout=5)
-            test_sock.close()
-            job.log(f"Server {host}:{port} is reachable")
+            addr = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_DGRAM)[0][4]
+            job.log(f"Resolved {host}:{port} → {addr[0]}:{addr[1]}")
         except Exception as e:
-            job.log(f"ERROR: Server {host}:{port} is not reachable — {e}")
+            job.log(f"ERROR: Cannot resolve {host}:{port} — {e}")
             job.stats['errors'] += 1
             return
-
-        # Calculate bandwidth from PPS and packet size
-        # iperf3 bandwidth = PPS * packet_size * 8 bits
-        target_bps = target_pps * packet_size * 8
-        bandwidth = f"{target_bps}"
 
         ramp_str = f" ramp={ramp_start_pps}→{target_pps} in {ramp_steps} steps" if ramp_enabled else ""
         job.log(f"UDP → {host}:{port} | size={packet_size}B pps={target_pps} "
                 f"DSCP={dscp}(TOS={tos}){ramp_str}")
 
-        if ramp_enabled:
-            # Run iperf3 in steps with increasing bandwidth
-            step_duration = max(duration // ramp_steps, 5)
-            for step in range(ramp_steps):
-                if job.should_stop():
-                    break
-                step_pps = int(ramp_start_pps + (target_pps - ramp_start_pps) * (step + 1) / ramp_steps)
-                step_bw = step_pps * packet_size * 8
-                job.log(f"Ramp step {step + 1}/{ramp_steps}: {step_pps} PPS ({step_bw // 1000}Kbps)")
-                self._run_iperf3_udp(job, host, port, packet_size, step_bw,
-                                     step_duration, tos)
-        else:
-            self._run_iperf3_udp(job, host, port, packet_size, target_bps,
-                                 duration, tos)
-
-        job.log("Stopped")
-
-    def _run_iperf3_udp(self, job, host, port, packet_size, bandwidth, duration, tos):
-        """Run a single iperf3 UDP session and parse output for stats."""
-        cmd = ['iperf3', '-c', host, '-p', str(port), '-u',
-               '-b', str(bandwidth), '-l', str(packet_size),
-               '-t', str(duration)]
-        if tos > 0:
-            cmd.extend(['-S', str(tos)])
-
-        job.log(f"cmd: {' '.join(cmd)}")
-
         try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE, text=True)
-            while not job.should_stop() and proc.poll() is None:
-                line = proc.stdout.readline()
-                if line:
-                    stripped = line.strip()
-                    if stripped and ('sec' in stripped or 'sender' in stripped
-                                    or 'receiver' in stripped):
-                        job.log(f"iperf3-udp | {stripped}")
-                        # Parse transfer stats from interval lines
-                        self._parse_iperf3_udp_line(job, stripped)
-                else:
-                    time.sleep(0.5)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            if tos > 0:
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_TOS, tos)
+            sock.setblocking(False)
 
-            if proc.poll() is None:
-                proc.terminate()
-                proc.wait(timeout=5)
+            payload = os.urandom(packet_size)
+            interval = 1.0 / max(target_pps, 1)
+            window_start = time.time()
+            window_count = 0
+            current_pps = target_pps
+            step_start = time.time()
 
-            # Read remaining output
-            remaining = proc.stdout.read()
-            if remaining:
-                for line in remaining.split('\n'):
-                    stripped = line.strip()
-                    if stripped and ('sec' in stripped or 'sender' in stripped
-                                    or 'receiver' in stripped):
-                        job.log(f"iperf3-udp | {stripped}")
-                        self._parse_iperf3_udp_line(job, stripped)
+            while not job.should_stop():
+                # Ramping: recalculate current PPS based on elapsed time
+                if ramp_enabled:
+                    elapsed = time.time() - step_start
+                    progress = min(elapsed / max(duration, 1), 1.0)
+                    step_index = min(int(progress * ramp_steps), ramp_steps - 1)
+                    new_pps = int(ramp_start_pps + (target_pps - ramp_start_pps) * (step_index + 1) / ramp_steps)
+                    if new_pps != current_pps:
+                        current_pps = new_pps
+                        interval = 1.0 / max(current_pps, 1)
+                        job.log(f"Ramp step {step_index + 1}/{ramp_steps}: {current_pps} PPS")
 
-            stderr = proc.stderr.read()
-            if stderr and proc.returncode != 0:
-                err = stderr.strip()[:200]
-                job.log(f"iperf3-udp error: {err}")
-                job.stats['errors'] += 1
+                # Send packet
+                try:
+                    sock.sendto(payload, (host, port))
+                    job.stats['requests'] += 1
+                    job.stats['bytes_sent'] += packet_size
+                    window_count += 1
+                except Exception as e:
+                    job.stats['errors'] += 1
 
+                # Log stats every second
+                now = time.time()
+                window_elapsed = now - window_start
+                if window_elapsed >= 1.0:
+                    pps = window_count / window_elapsed
+                    mbps = (window_count * packet_size * 8) / (window_elapsed * 1_000_000)
+                    job.stats['pps'] = round(pps, 1)
+                    job.stats['peak_pps'] = max(job.stats.get('peak_pps', 0), pps)
+                    job.stats['mbps'] = round(mbps, 2)
+                    job.log(f"UDP {host}:{port} | {pps:.0f} pps, {mbps:.2f} Mbps, "
+                            f"total={job.stats['requests']} errors={job.stats['errors']}")
+                    window_start = now
+                    window_count = 0
+
+                # Pace to target PPS
+                time.sleep(max(0, interval - 0.0001))
+
+            sock.close()
         except Exception as e:
             job.stats['errors'] += 1
-            job.log(f"iperf3-udp error: {e}")
+            job.log(f"UDP error: {e}")
 
-    def _parse_iperf3_udp_line(self, job, line):
-        """Parse iperf3 UDP output line for stats."""
-        import re as _re
-        # Match interval lines: "[ ID] Interval Transfer Bitrate Jitter Lost/Total Datagrams"
-        # Example: "[  5]   0.00-1.00   sec  62.5 KBytes   512 Kbits/sec  0.123 ms  0/50 (0%)
-        m = _re.search(r'([\d.]+)\s+(K|M|G)?bits/sec', line)
-        if m:
-            val = float(m.group(1))
-            unit = m.group(2) or ''
-            if unit == 'K':
-                mbps = val / 1000
-            elif unit == 'G':
-                mbps = val * 1000
-            else:
-                mbps = val
-            job.stats['mbps'] = round(mbps, 2)
-
-        # Parse lost/total datagrams
-        m = _re.search(r'(\d+)/(\d+)\s+\(', line)
-        if m:
-            lost = int(m.group(1))
-            total = int(m.group(2))
-            job.stats['requests'] = total
-            job.stats['errors'] = lost
-            if total > 0:
-                pps = total  # per-second line
-                job.stats['pps'] = pps
-                job.stats['peak_pps'] = max(job.stats.get('peak_pps', 0), pps)
-
-        # Parse transfer bytes
-        m = _re.search(r'([\d.]+)\s+(K|M|G)?Bytes', line)
-        if m:
-            val = float(m.group(1))
-            unit = m.group(2) or ''
-            multiplier = {'K': 1024, 'M': 1024**2, 'G': 1024**3}.get(unit, 1)
-            job.stats['bytes_sent'] = int(val * multiplier)
+        job.log("Stopped")
 
     # ─── High-CPS Engine (ab-based) ───────────────────────────
 
