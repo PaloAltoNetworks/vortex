@@ -660,10 +660,16 @@ function toggleAdvanced(clientName, proto) {
 }
 // ─── Protocol Definitions ────────────────────────────────────
 const DSCP_OPTIONS = ['BE','CS1','AF11','AF12','AF13','CS2','AF21','AF22','AF23','CS3','AF31','AF32','AF33','CS4','AF41','AF42','AF43','CS5','VA','EF','CS6','CS7'];
-const ADVANCED_KEYS = ['browser_mode', 'browser_type', 'proxy', 'dscp', 'rate_pps', 'burst_enabled', 'burst_count', 'burst_pause'];
+const ADVANCED_KEYS = ['browser_mode', 'browser_type', 'proxy', 'dscp', 'rate_pps', 'burst_enabled', 'burst_count', 'burst_pause', 'target_cps', 'concurrency', 'ramp_enabled', 'ramp_start_cps', 'ramp_steps'];
 
 const PROTOCOLS = {
     https: { name: 'HTTPS', fields: [
+        { key: 'highcps_mode', label: 'High-CPS Mode', type: 'checkbox', default: true },
+        { key: 'target_cps', label: 'Target CPS', type: 'number', default: 100, step: 10 },
+        { key: 'concurrency', label: 'Concurrency', type: 'number', default: 50, step: 10 },
+        { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: false },
+        { key: 'ramp_start_cps', label: 'Ramp Start CPS', type: 'number', default: 10, step: 10 },
+        { key: 'ramp_steps', label: 'Ramp Steps', type: 'number', default: 5, step: 1 },
         { key: 'url', label: 'URL', type: 'text', default: 'https://server/' },
         { key: 'method', label: 'Method', type: 'select', options: ['GET','POST'], default: 'GET' },
         { key: 'data_size_kb', label: 'Data KB', type: 'number', default: 0 },
@@ -708,6 +714,12 @@ const PROTOCOLS = {
         { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
     ]},
     http_plain: { name: 'HTTP (Plain)', fields: [
+        { key: 'highcps_mode', label: 'High-CPS Mode', type: 'checkbox', default: true },
+        { key: 'target_cps', label: 'Target CPS', type: 'number', default: 100, step: 10 },
+        { key: 'concurrency', label: 'Concurrency', type: 'number', default: 50, step: 10 },
+        { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: false },
+        { key: 'ramp_start_cps', label: 'Ramp Start CPS', type: 'number', default: 10, step: 10 },
+        { key: 'ramp_steps', label: 'Ramp Steps', type: 'number', default: 5, step: 1 },
         { key: 'host', label: 'Host', type: 'text', default: 'server' },
         { key: 'port', label: 'Port', type: 'number', default: 9999 },
         { key: 'method', label: 'Method', type: 'select', options: ['GET','POST'], default: 'GET' },
@@ -736,6 +748,21 @@ const PROTOCOLS = {
         { key: 'burst_enabled', label: 'Burst Mode', type: 'checkbox', default: false },
         { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
         { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
+        { key: 'flows', label: 'Flows', type: 'number', default: 1 },
+        { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+    ]},
+    udp: { name: 'UDP', fields: [
+        { key: 'host', label: 'Host', type: 'text', default: 'server' },
+        { key: 'port', label: 'Port', type: 'number', default: 5001 },
+        { key: 'packet_size', label: 'Packet Size (B)', type: 'number', default: 512, step: 64 },
+        { key: 'target_pps', label: 'Target PPS', type: 'number', default: 100, step: 10 },
+        { key: 'payload_type', label: 'Payload', type: 'select', options: ['random','pattern','zeros'], default: 'random' },
+        { key: 'port_range', label: 'Port Range', type: 'checkbox', default: false },
+        { key: 'port_end', label: 'Port End', type: 'number', default: 5010 },
+        { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: false },
+        { key: 'ramp_start_pps', label: 'Ramp Start PPS', type: 'number', default: 10, step: 10 },
+        { key: 'ramp_steps', label: 'Ramp Steps', type: 'number', default: 5, step: 1 },
+        { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
         { key: 'flows', label: 'Flows', type: 'number', default: 1 },
         { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
     ]},
