@@ -5,8 +5,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install hey (Go-based HTTP load generator for High-CPS testing)
-RUN curl -sL https://hey-release.s3.us-east-2.amazonaws.com/hey_linux_amd64 -o /usr/local/bin/hey && \
-    chmod +x /usr/local/bin/hey
+RUN apt-get update && apt-get install -y --no-install-recommends golang-go && \
+    GOBIN=/usr/local/bin go install github.com/rakyll/hey@latest && \
+    apt-get purge -y golang-go && apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/* /root/go
 
 # Create non-root user with passwordless sudo for network commands
 RUN useradd -m -s /bin/bash appuser && \
