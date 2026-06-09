@@ -112,6 +112,25 @@ const PROTOCOLS = {
             { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
         ]
     },
+    udp: {
+        name: 'UDP',
+        appId: 'udp-custom',
+        fields: [
+            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; } },
+            { key: 'port', label: 'Port', type: 'number', default: 5001 },
+            { key: 'packet_size', label: 'Packet Size (B)', type: 'number', default: 512, step: 64 },
+            { key: 'target_pps', label: 'Target PPS', type: 'number', default: 100, step: 10 },
+            { key: 'payload_type', label: 'Payload', type: 'select', options: ['random', 'pattern', 'zeros'], default: 'random' },
+            { key: 'port_range', label: 'Port Range', type: 'checkbox', default: false },
+            { key: 'port_end', label: 'Port End', type: 'number', default: 5010 },
+            { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: false },
+            { key: 'ramp_start_pps', label: 'Ramp Start PPS', type: 'number', default: 10, step: 10 },
+            { key: 'ramp_steps', label: 'Ramp Steps', type: 'number', default: 5, step: 1 },
+            { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
+            { key: 'flows', label: 'Flows', type: 'number', default: 1 },
+            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+        ]
+    },
     ftp: {
         name: 'FTP',
         appId: 'ftp',
