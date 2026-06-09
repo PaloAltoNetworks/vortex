@@ -6,7 +6,10 @@ import threading
 import time
 
 import requests as http_client
+import urllib3
 from flask import Flask, jsonify, request, render_template_string
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -2841,13 +2844,13 @@ def proxy_to_client(name, path, method='GET', data=None):
     target = url.rstrip('/') + path
     try:
         if method == 'POST':
-            r = http_client.post(target, json=data, timeout=10)
+            r = http_client.post(target, json=data, timeout=10, verify=False)
         elif method == 'PUT':
-            r = http_client.put(target, json=data, timeout=10)
+            r = http_client.put(target, json=data, timeout=10, verify=False)
         elif method == 'DELETE':
-            r = http_client.delete(target, timeout=10)
+            r = http_client.delete(target, timeout=10, verify=False)
         else:
-            r = http_client.get(target, timeout=10)
+            r = http_client.get(target, timeout=10, verify=False)
         return r.json(), r.status_code
     except Exception as e:
         return {'error': f'Cannot reach client {name}: {e}'}, 502
@@ -3281,7 +3284,7 @@ def client_pcap_upload(name):
         files = {}
         for key, f in request.files.items():
             files[key] = (f.filename, f.stream, f.content_type)
-        r = http_client.post(target, files=files, timeout=30)
+        r = http_client.post(target, files=files, timeout=30, verify=False)
         return jsonify(r.json()), r.status_code
     except Exception as e:
         return jsonify({'error': f'Cannot reach client {name}: {e}'}), 502

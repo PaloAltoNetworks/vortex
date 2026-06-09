@@ -1,14 +1,8 @@
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    iproute2 iptables iputils-ping iperf3 hping3 curl nginx openssl supervisor sudo openssh-client sshpass traceroute dnsutils tcpreplay \
+    iproute2 iptables iputils-ping iperf3 hping3 curl nginx openssl supervisor sudo openssh-client sshpass traceroute dnsutils tcpreplay apache2-utils \
     && rm -rf /var/lib/apt/lists/*
-
-# Install hey (Go-based HTTP load generator for High-CPS testing)
-RUN apt-get update && apt-get install -y --no-install-recommends golang-go && \
-    GOBIN=/usr/local/bin go install github.com/rakyll/hey@latest && \
-    apt-get purge -y golang-go && apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/* /root/go
 
 # Create non-root user with passwordless sudo for network commands
 RUN useradd -m -s /bin/bash appuser && \

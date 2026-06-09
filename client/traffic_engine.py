@@ -297,7 +297,7 @@ class TrafficEngine:
     def _run_https(self, job: TrafficJob):
         cfg = job.config
         if cfg.get('highcps_mode', True):
-            return self._run_hey(job, 'https')
+            return self._run_ab(job, 'https')
         if cfg.get('browser_mode'):
             url = cfg.get('url', 'https://server/')
             if not url.startswith('https'):
@@ -468,7 +468,7 @@ class TrafficEngine:
         """HTTP requests to the plain HTTP server on port 9999 (App-ID: web-browsing)."""
         cfg = job.config
         if cfg.get('highcps_mode', True):
-            return self._run_hey(job, 'http')
+            return self._run_ab(job, 'http')
         if cfg.get('browser_mode'):
             host = cfg.get('host', 'server')
             port = int(cfg.get('port', 9999))
@@ -1349,37 +1349,10 @@ class TrafficEngine:
             multiplier = {'K': 1024, 'M': 1024**2, 'G': 1024**3}.get(unit, 1)
             job.stats['bytes_sent'] = int(val * multiplier)
 
-                # Update stats every second
-                now = time.time()
-                window_elapsed = now - window_start
-                if window_elapsed >= 1.0:
-                    pps = window_count / window_elapsed
-                    mbps = (window_count * packet_size * 8) / (window_elapsed * 1_000_000)
-                    job.stats['pps'] = round(pps, 1)
-                    job.stats['peak_pps'] = max(job.stats.get('peak_pps', 0), pps)
-                    job.stats['mbps'] = round(mbps, 2)
-                    total_elapsed += window_elapsed
-                    job.log(f"UDP {host}:{current_port} | {pps:.0f} pps, {mbps:.2f} Mbps, "
-                            f"total={job.stats['requests']} errors={job.stats['errors']}")
-                    window_start = now
-                    window_count = 0
+    # ─── High-CPS Engine (ab-based) ───────────────────────────
 
-                # Pace to target PPS
-                time.sleep(max(0, interval - 0.0001))
-
-            sock.close()
-        except Exception as e:
-            job.stats['errors'] += 1
-            job.log(f"UDP error: {e}")
-
-        job.log("Stopped")
-
-    # ─── High-CPS Engine (hey-based) ──────────────────────────
-
-    def _run_hey(self, job: TrafficJob, proto: str):
-        """High CPS testing using hey CLI. Called from _run_https and _run_http_plain."""
-        import re as _re
-
+    def _run_ab(self, job: TrafficJob, proto: str):
+        """High CPS testing using ab (Apache Bench). Called from _run_https and _run_http_plain."""
         cfg = job.config
         server = os.environ.get('SERVER_HOST', 'server')
         target_cps = int(cfg.get('target_cps', 100))
@@ -1409,8 +1382,8 @@ class TrafficEngine:
             port = int(cfg.get('port', 9999))
             url = f"http://{host}:{port}/"
 
-        # Run hey in chunks for live stats updates
-        chunk_duration = min(10, duration)
+        # Run ab in 5s chunks for frequent log updates
+        chunk_duration = min(5, duration)
         remaining = duration
         elapsed = 0
 
@@ -1433,18 +1406,19 @@ class TrafficEngine:
             else:
                 current_cps = target_cps
 
-            rate_per_worker = max(1, current_cps // max(concurrency, 1))
-            cmd = [
-                'hey',
-                '-z', f'{run_for}s',
-                '-c', str(concurrency),
-                '-q', str(rate_per_worker),
-                '-m', method,
-                '-disable-keepalive',
-                '-disable-compression',
-            ]
+            # ab uses -n (total requests) not rate — estimate from CPS * duration
+            total_requests = current_cps * run_for
+            conc = min(concurrency, total_requests)
+
+            cmd = ['ab', '-n', str(total_requests), '-c', str(conc),
+                   '-s', '30']  # 30s socket timeout
+            # No -k flag = new connection per request (CPS mode)
+            if method != 'GET':
+                cmd.extend(['-m', method])
+            if proto == 'https':
+                cmd.extend(['-f', 'TLS1.2'])
             cmd.append(url)
-            job.log(f"cmd: {' '.join(cmd)}")
+            job.log(f"ab -n {total_requests} -c {conc} {url}")
 
             try:
                 proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
@@ -1459,62 +1433,81 @@ class TrafficEngine:
 
                 output = proc.stdout.read()
                 if output:
-                    self._parse_hey_output(job, output)
+                    chunk_stats = self._parse_ab_output(job, output)
+                    cps = job.stats.get('cps', 0)
+                    avg_lat = job.stats.get('avg_latency_ms', 0)
+                    p99_lat = job.stats.get('p99_latency_ms', 0)
+                    reqs = chunk_stats.get('chunk_requests', 0)
+                    errs = chunk_stats.get('chunk_errors', 0)
+                    job.log(f"{proto.upper()} {url} | {cps:.0f} cps, "
+                            f"avg={avg_lat:.1f}ms p99={p99_lat:.1f}ms, "
+                            f"reqs={reqs} errs={errs}")
 
             except Exception as e:
                 job.stats['errors'] += 1
-                job.log(f"hey error: {e}")
+                job.log(f"ab error: {e}")
 
             remaining -= run_for
             elapsed += run_for
 
         job.log("Stopped")
 
-    def _parse_hey_output(self, job, output):
-        """Parse hey summary output for CPS and latency metrics."""
+    def _parse_ab_output(self, job, output):
+        """Parse ab (Apache Bench) output for CPS and latency metrics. Returns chunk stats."""
         import re as _re
+
+        chunk_requests = 0
+        chunk_errors = 0
 
         for line in output.split('\n'):
             line = line.strip()
             if not line:
                 continue
 
-            # Requests/sec
-            m = _re.match(r'Requests/sec:\s+([\d.]+)', line)
+            # Requests per second: 95.23 [#/sec] (mean)
+            m = _re.match(r'Requests per second:\s+([\d.]+)', line)
             if m:
                 cps = float(m.group(1))
                 job.stats['cps'] = round(cps, 1)
                 job.stats['peak_cps'] = max(job.stats.get('peak_cps', 0), cps)
-                job.log(f"CPS: {cps:.1f}")
 
-            # Average latency
-            m = _re.match(r'\s*Average:\s+([\d.]+)\s+secs', line)
+            # Time per request: 10.501 [ms] (mean)
+            m = _re.match(r'Time per request:\s+([\d.]+)\s+\[ms\]\s+\(mean\)$', line)
             if m:
-                avg_ms = float(m.group(1)) * 1000
-                job.stats['avg_latency_ms'] = round(avg_ms, 2)
+                job.stats['avg_latency_ms'] = round(float(m.group(1)), 2)
 
-            # Status code distribution
-            m = _re.match(r'\s*\[(\d+)\]\s+(\d+)\s+responses', line)
+            # Complete requests: 475
+            m = _re.match(r'Complete requests:\s+(\d+)', line)
             if m:
-                code, count = int(m.group(1)), int(m.group(2))
+                count = int(m.group(1))
                 job.stats['requests'] += count
                 job.stats['connections_total'] += count
-                if code >= 400:
-                    job.stats['errors'] += count
-                    job.stats['connections_failed'] += count
-                job.log(f"HTTP {code}: {count} responses")
+                chunk_requests = count
 
-            # Latency distribution (99%)
-            m = _re.match(r'\s*99%\s+in\s+([\d.]+)\s+secs', line)
+            # Failed requests: 0
+            m = _re.match(r'Failed requests:\s+(\d+)', line)
             if m:
-                p99_ms = float(m.group(1)) * 1000
-                job.stats['p99_latency_ms'] = round(p99_ms, 2)
+                errs = int(m.group(1))
+                job.stats['errors'] += errs
+                job.stats['connections_failed'] += errs
+                chunk_errors = errs
 
-            # Total data
-            m = _re.match(r'Total data:\s+(\d+)\s+bytes', line)
+            # Total transferred: 48000 bytes
+            m = _re.match(r'Total transferred:\s+(\d+)\s+bytes', line)
             if m:
                 job.stats['bytes_recv'] += int(m.group(1))
 
-            # Error lines
-            if line.startswith('[') and 'error' in line.lower():
-                job.log(f"Error: {line}")
+            # Non-2xx responses: 5
+            m = _re.match(r'Non-2xx responses:\s+(\d+)', line)
+            if m:
+                non2xx = int(m.group(1))
+                job.stats['errors'] += non2xx
+                job.stats['connections_failed'] += non2xx
+                chunk_errors += non2xx
+
+            # Percentile latencies: 99%    45
+            m = _re.match(r'\s*99%\s+(\d+)', line)
+            if m:
+                job.stats['p99_latency_ms'] = float(m.group(1))
+
+        return {'chunk_requests': chunk_requests, 'chunk_errors': chunk_errors}
