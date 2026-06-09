@@ -932,7 +932,7 @@ function fmtTime(s) {
 
 async function pollStatus() {
     try {
-        const resp = await fetch('/api/status');
+        const resp = await fetch('/api/status', {signal: AbortSignal.timeout(5000)});
         const data = await resp.json();
         let totSent = 0, totRecv = 0, totReqs = 0, totErrs = 0;
 

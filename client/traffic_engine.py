@@ -131,12 +131,19 @@ class TrafficJob:
         "bytes_sent": 0, "bytes_recv": 0, "requests": 0, "errors": 0})
     config: dict = field(default_factory=dict)
     logs: deque = field(default_factory=lambda: deque(maxlen=1000))
+    _log_lock: threading.Lock = field(default_factory=threading.Lock)
 
     def log(self, msg):
         ts = time.strftime('%H:%M:%S')
         entry = f"[{ts}] {msg}"
-        self.logs.append(entry)
+        with self._log_lock:
+            self.logs.append(entry)
         logger.info(f"[{self.protocol}] {msg}")
+
+    def get_recent_logs(self, n=100):
+        """Return last N log entries safely without holding the lock long."""
+        with self._log_lock:
+            return list(self.logs)[-n:]
 
     def should_stop(self):
         if not self.running:
@@ -163,19 +170,22 @@ class TrafficEngine:
         self._lock = threading.Lock()
 
     def get_status(self):
+        # Snapshot job references under lock, serialize outside to avoid contention
         with self._lock:
-            result = {}
-            for proto, job in self.jobs.items():
-                result[proto] = {
-                    "running": job.running,
-                    "stats": dict(job.stats),
-                    "config": dict(job.config),
-                    "logs": list(job.logs)[-100:],
-                    "elapsed": job.elapsed(),
-                    "remaining": job.remaining(),
-                    "duration": job.duration,
-                }
-            return result
+            jobs_snapshot = list(self.jobs.items())
+
+        result = {}
+        for proto, job in jobs_snapshot:
+            result[proto] = {
+                "running": job.running,
+                "stats": dict(job.stats),
+                "config": dict(job.config),
+                "logs": job.get_recent_logs(100),
+                "elapsed": job.elapsed(),
+                "remaining": job.remaining(),
+                "duration": job.duration,
+            }
+        return result
 
     def start_job(self, protocol, config):
         # Support flow IDs: "http_2" → handler "_run_http", job key "http_2"
