@@ -1195,6 +1195,114 @@ class TrafficEngine:
 
         job.log("Stopped")
 
+    # ─── UDP Traffic Generator ─────────────────────────────────
+
+    def _run_udp(self, job: TrafficJob):
+        """UDP traffic generator using Python sockets. Sends to any target port."""
+        cfg = job.config
+        host = cfg.get('host', os.environ.get('SERVER_HOST', 'server'))
+        port = int(cfg.get('port', 5001))
+        packet_size = int(cfg.get('packet_size', 512))
+        target_pps = int(cfg.get('target_pps', 100))
+        payload_type = cfg.get('payload_type', 'random')
+        dscp = cfg.get('dscp', 'BE')
+        tos = _dscp_to_tos(dscp)
+        port_range = cfg.get('port_range', False)
+        port_end = int(cfg.get('port_end', port + 10))
+        ramp_enabled = cfg.get('ramp_enabled', False)
+        ramp_start_pps = int(cfg.get('ramp_start_pps', 10))
+        ramp_steps = int(cfg.get('ramp_steps', 5))
+        duration = job.duration or 60
+
+        # Extended stats
+        job.stats['pps'] = 0
+        job.stats['peak_pps'] = 0
+        job.stats['mbps'] = 0
+
+        port_str = f"{port}-{port_end}" if port_range else str(port)
+        ramp_str = f" ramp={ramp_start_pps}→{target_pps} in {ramp_steps} steps" if ramp_enabled else ""
+        job.log(f"UDP → {host}:{port_str} | size={packet_size}B pps={target_pps} "
+                f"payload={payload_type} DSCP={dscp}(TOS={tos}){ramp_str}")
+
+        # Build payload
+        if payload_type == 'zeros':
+            payload = b'\x00' * packet_size
+        elif payload_type == 'pattern':
+            pattern = b'VORTEX-UDP-TEST-'
+            payload = (pattern * (packet_size // len(pattern) + 1))[:packet_size]
+        else:
+            payload = os.urandom(packet_size)
+
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            if tos > 0:
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_TOS, tos)
+            sock.settimeout(1)
+
+            # Source IP binding
+            src = _get_source_address()
+            if src:
+                sock.bind((src[0], 0))
+
+            window_start = time.time()
+            window_count = 0
+            total_elapsed = 0
+            current_port = port
+
+            while not job.should_stop():
+                # Calculate current PPS (ramping or fixed)
+                if ramp_enabled and duration > 0:
+                    progress = min(total_elapsed / max(duration, 1), 1.0)
+                    step_idx = min(int(progress * ramp_steps), ramp_steps - 1)
+                    current_pps = int(ramp_start_pps + (target_pps - ramp_start_pps) * (step_idx + 1) / ramp_steps)
+                else:
+                    current_pps = target_pps
+
+                interval = 1.0 / max(current_pps, 1)
+
+                # Regenerate random payload each send if random mode
+                if payload_type == 'random':
+                    payload = os.urandom(packet_size)
+
+                # Port rotation
+                if port_range:
+                    current_port = port + (job.stats['requests'] % (port_end - port + 1))
+
+                try:
+                    sock.sendto(payload, (host, current_port))
+                    job.stats['requests'] += 1
+                    job.stats['bytes_sent'] += packet_size
+                    window_count += 1
+                except Exception as e:
+                    job.stats['errors'] += 1
+                    if job.stats['errors'] % 100 == 1:
+                        job.log(f"UDP send error: {e}")
+
+                # Update stats every second
+                now = time.time()
+                window_elapsed = now - window_start
+                if window_elapsed >= 1.0:
+                    pps = window_count / window_elapsed
+                    mbps = (window_count * packet_size * 8) / (window_elapsed * 1_000_000)
+                    job.stats['pps'] = round(pps, 1)
+                    job.stats['peak_pps'] = max(job.stats.get('peak_pps', 0), pps)
+                    job.stats['mbps'] = round(mbps, 2)
+                    total_elapsed += window_elapsed
+                    job.log(f"UDP {host}:{current_port} | {pps:.0f} pps, {mbps:.2f} Mbps, "
+                            f"total={job.stats['requests']} errors={job.stats['errors']}")
+                    window_start = now
+                    window_count = 0
+
+                # Pace to target PPS
+                time.sleep(max(0, interval - 0.0001))
+
+            sock.close()
+        except Exception as e:
+            job.stats['errors'] += 1
+            job.log(f"UDP error: {e}")
+
+        job.log("Stopped")
+
     # ─── High-CPS Engine (hey-based) ──────────────────────────
 
     def _run_hey(self, job: TrafficJob, proto: str):
