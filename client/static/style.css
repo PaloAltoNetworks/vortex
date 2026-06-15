@@ -437,6 +437,8 @@ div.vis-tooltip {
 .security-category-badge.appid { background: #ccfbf1; color: #134e4a; }
 .security-category-badge.dlp { background: #ffe4e6; color: #9f1239; }
 .security-category-badge.evasion { background: #f3e8ff; color: #6b21a8; }
+.security-category-badge.phishing { background: #fee2e2; color: #991b1b; }
+.security-category-badge.encdns { background: #ccfbf1; color: #065f46; }
 
 .comparison-modal-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;

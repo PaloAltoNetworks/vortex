@@ -274,6 +274,38 @@ class TrafficHTTPHandler(BaseHTTPRequestHandler):
                 with stats_lock:
                     stats['http']['bytes_sent'] += len(OFFICE_MACRO_TEST_BYTES)
 
+            elif path == '/login':
+                # Credential phishing test — realistic login form
+                body = (
+                    '<html><head><title>Sign In - Corporate Portal</title>'
+                    '<style>'
+                    'body{font-family:Arial,sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}'
+                    '.login-box{background:#fff;padding:32px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);width:360px}'
+                    'h2{margin:0 0 24px;color:#1a1a2e;text-align:center}'
+                    'input{width:100%;padding:10px;margin:8px 0;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;font-size:14px}'
+                    'button{width:100%;padding:10px;background:#0066cc;color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer;margin-top:12px}'
+                    'button:hover{background:#0052a3}'
+                    '.footer{text-align:center;margin-top:16px;font-size:12px;color:#888}'
+                    '</style></head>'
+                    '<body><div class="login-box">'
+                    '<h2>Corporate Portal</h2>'
+                    '<form method="POST" action="/login">'
+                    '<input type="text" name="username" placeholder="Email or Username" required>'
+                    '<input type="password" name="password" placeholder="Password" required>'
+                    '<input type="hidden" name="csrf_token" value="abc123">'
+                    '<button type="submit">Sign In</button>'
+                    '</form>'
+                    '<div class="footer">Secure Login &copy; 2024</div>'
+                    '</div></body></html>'
+                ).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                with stats_lock:
+                    stats['http']['bytes_sent'] += len(body)
+
             elif path.startswith('/download'):
                 # Parse size parameter (KB)
                 size_kb = 1
@@ -320,7 +352,19 @@ class TrafficHTTPHandler(BaseHTTPRequestHandler):
                 stats['http']['bytes_recv'] += len(body)
 
             parsed = urlparse(self.path)
-            if parsed.path == '/echo':
+            if parsed.path == '/login':
+                # Credential phishing test — accept form submission
+                response = json.dumps({
+                    'status': 'authenticated',
+                    'message': 'Login successful',
+                    'token': 'fake-session-token-abc123',
+                }).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(response)))
+                self.end_headers()
+                self.wfile.write(response)
+            elif parsed.path == '/echo':
                 # Echo POST body back as HTML — firewall inspects request body and response
                 payload = body.decode('utf-8', errors='replace')
                 response = (

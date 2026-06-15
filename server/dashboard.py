@@ -427,6 +427,8 @@ DASHBOARD_HTML = r"""
         .security-category-badge.appid { background: #ccfbf1; color: #134e4a; }
         .security-category-badge.dlp { background: #ffe4e6; color: #9f1239; }
         .security-category-badge.evasion { background: #f3e8ff; color: #6b21a8; }
+        .security-category-badge.phishing { background: #fee2e2; color: #991b1b; }
+        .security-category-badge.encdns { background: #ccfbf1; color: #065f46; }
         .isp-scenario-section { padding: 12px; background: var(--bg-sub); border: 1px solid var(--border); border-radius: 6px; margin-top: 10px; }
         .isp-scenario-section h4 { font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
         .isp-scenario-timeline { display: flex; height: 28px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); margin: 8px 0; }
@@ -2155,6 +2157,8 @@ var SEC_CATEGORY_META = {
     appid_validation: { label: 'App-ID Validation', badge: 'appid', icon: '\uD83D\uDD0E' },
     data_exfiltration: { label: 'Data Exfiltration / DLP', badge: 'dlp', icon: '\uD83D\uDCE4' },
     evasion_techniques: { label: 'Evasion Techniques', badge: 'evasion', icon: '\uD83E\uDD77' },
+    credential_phishing: { label: 'Credential Phishing', badge: 'phishing', icon: '\uD83C\uDFA3' },
+    encrypted_dns: { label: 'Encrypted DNS (DoH/DoT)', badge: 'encdns', icon: '\uD83D\uDD10' },
 };
 
 async function clientLoadSecurityCatalog(name) {
