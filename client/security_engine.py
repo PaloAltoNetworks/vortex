@@ -1124,8 +1124,13 @@ class SecurityTestEngine:
                 resp = requests.get(url, timeout=10)
                 if resp.status_code == 200 and b'EICAR' in resp.content:
                     return self._passthrough_result(test, resp.status_code,
-                        'EICAR test file downloaded successfully — not blocked',
+                        'EICAR test file downloaded successfully — Anti-Virus did not block it',
                         resp=resp, url=url, method='GET', sent_payload=payload)
+                # HTTP 200 but no EICAR = firewall stripped the malware content
+                if resp.status_code == 200:
+                    return self._blocked_result(test,
+                        'HTTP 200 but EICAR content stripped — Anti-Virus removed the malware from the response',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
                 return self._analyze_response(test, resp, 'EICAR',
                     url=url, method='GET', sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
@@ -1139,8 +1144,12 @@ class SecurityTestEngine:
                 resp = requests.get(url, timeout=10, verify=False)
                 if resp.status_code == 200 and b'EICAR' in resp.content:
                     return self._passthrough_result(test, resp.status_code,
-                        'EICAR downloaded over HTTPS — not blocked (SSL Decryption may not be enabled)',
+                        'EICAR downloaded over HTTPS — SSL Decryption may not be enabled or Anti-Virus profile not attached',
                         resp=resp, url=url, method='GET', sent_payload=payload)
+                if resp.status_code == 200:
+                    return self._blocked_result(test,
+                        'HTTP 200 but EICAR content stripped over HTTPS — SSL Decryption + Anti-Virus working',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
                 return self._analyze_response(test, resp, 'EICAR',
                     url=url, method='GET', sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
@@ -1157,10 +1166,18 @@ class SecurityTestEngine:
                         with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
                             if 'eicar.com' in zf.namelist():
                                 return self._passthrough_result(test, resp.status_code,
-                                    'EICAR ZIP downloaded — not blocked',
+                                    'EICAR ZIP downloaded — Anti-Virus did not block archive',
                                     resp=resp, url=url, method='GET', sent_payload=payload)
                     except zipfile.BadZipFile:
-                        pass
+                        # Firewall corrupted/stripped the ZIP content
+                        return self._blocked_result(test,
+                            'Downloaded content is not a valid ZIP — Anti-Virus stripped or modified the archive',
+                            resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
+                # 200 but empty body = content stripped
+                if resp.status_code == 200 and len(resp.content) == 0:
+                    return self._blocked_result(test,
+                        'HTTP 200 but empty response — Anti-Virus stripped the EICAR ZIP',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
                 return self._analyze_response(test, resp, 'EICAR',
                     url=url, method='GET', sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
@@ -1178,7 +1195,12 @@ class SecurityTestEngine:
                         'X-Request-ID': 'deadbeef-cafe-babe-feed-c0ffee000001',
                         'Cookie': 'session=YWRtaW46cGFzc3dvcmQ=',
                     }, timeout=10)
-                return self._analyze_response(test, resp, c2_data,
+                # If 200, C2 callback went through — the echo server will echo it back
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'C2 beacon callback POST accepted — Anti-Spyware did not detect C2 pattern',
+                        resp=resp, url=url, method='POST', sent_payload=payload)
+                return self._analyze_response(test, resp, '',
                     url=url, method='POST', sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
@@ -1191,7 +1213,13 @@ class SecurityTestEngine:
                 resp = requests.get(url,
                     headers={'User-Agent': 'Wget/1.0 (CobaltStrike)'},
                     timeout=10)
-                return self._analyze_response(test, resp, 'CobaltStrike',
+                # Payload is in the User-Agent header, not the body.
+                # If we get a 200, the firewall did NOT detect the malicious UA.
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Request with CobaltStrike User-Agent succeeded — Anti-Spyware did not detect malicious UA',
+                        resp=resp, url=url, method='GET', sent_payload=payload)
+                return self._analyze_response(test, resp, '',
                     url=url, method='GET', sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
@@ -1211,7 +1239,12 @@ class SecurityTestEngine:
                         'Accept': '*/*',
                         'Cache-Control': 'no-cache',
                     }, timeout=10)
-                return self._analyze_response(test, resp, 'beacon',
+                # If we get 200, the C2 beacon callback was not blocked
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Cobalt Strike beacon POST to /submit.php accepted — Anti-Spyware did not detect C2 pattern',
+                        resp=resp, url=url, method='POST', sent_payload=payload)
+                return self._analyze_response(test, resp, '',
                     url=url, method='POST', sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
@@ -1230,7 +1263,12 @@ class SecurityTestEngine:
                         'Content-Type': 'application/octet-stream',
                         'Connection': 'Keep-Alive',
                     }, timeout=10)
-                return self._analyze_response(test, resp, 'MZ',
+                # If we get a 200 response, the C2 beacon POST went through undetected
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Metasploit reverse HTTP POST with PE payload accepted — Anti-Spyware did not detect C2 pattern',
+                        resp=resp, url=url, method='POST', sent_payload=payload)
+                return self._analyze_response(test, resp, '',
                     url=url, method='POST', sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
@@ -1510,28 +1548,35 @@ class SecurityTestEngine:
         payload = ATTACK_PAYLOADS.get(test.id, '')
 
         if test.id == 'ssh_bruteforce':
-            # Rapid SSH login attempts with different credentials
+            # Rapid SSH login attempts with different credentials using actual SSH auth
+            import paramiko
             creds = [c.split(':') for c in payload.split('|') if ':' in c]
             blocked = False
             attempts = 0
+            last_error = ''
             for user, passwd in creds[:5]:
                 attempts += 1
                 try:
-                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    s.settimeout(5)
-                    s.connect((host, 2222))
-                    banner = s.recv(1024)
-                    s.close()
-                except (socket.timeout, ConnectionRefusedError, OSError):
+                    client = paramiko.SSHClient()
+                    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                    client.connect(host, port=2222, username=user, password=passwd,
+                                   timeout=5, look_for_keys=False, allow_agent=False,
+                                   banner_timeout=5, auth_timeout=5)
+                    client.close()
+                except paramiko.AuthenticationException:
+                    # Auth failed (expected for wrong creds) — but connection was allowed
+                    pass
+                except (paramiko.SSHException, socket.timeout, ConnectionRefusedError, OSError) as e:
+                    last_error = str(e)
                     blocked = True
                     break
-                time.sleep(0.2)
+                time.sleep(0.1)  # Rapid attempts to trigger brute-force detection
             if blocked:
                 return self._blocked_result(test,
-                    f'SSH connection refused after {attempts} attempts — brute-force detected',
+                    f'SSH blocked after {attempts} auth attempts — brute-force protection triggered: {last_error}',
                     url=f'ssh://{host}:2222', method='SSH', sent_payload=payload)
             return self._passthrough_result(test, 0,
-                f'All {attempts} SSH connection attempts succeeded — brute-force not detected',
+                f'All {attempts} SSH login attempts completed — brute-force not detected by firewall',
                 url=f'ssh://{host}:2222', method='SSH', sent_payload=payload)
 
         elif test.id == 'ftp_bounce':
@@ -1663,10 +1708,20 @@ class SecurityTestEngine:
                 return self._blocked_result(test,
                     f'HTTP {resp.status_code} — Block page detected for {desc}',
                     resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
-            if resp.status_code in (403, 406, 503):
+            if resp.status_code in (403, 406, 503, 502, 504):
                 return self._blocked_result(test,
                     f'HTTP {resp.status_code} — {desc} blocked', resp.status_code,
                     resp=resp, url=url, method='GET', sent_payload=payload)
+            # HTTP 200 but file signature doesn't match = firewall stripped/replaced content
+            if resp.status_code == 200:
+                if len(resp.content) == 0:
+                    return self._blocked_result(test,
+                        f'HTTP 200 but empty response — firewall stripped {desc}',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
+                return self._blocked_result(test,
+                    f'HTTP 200 but file content modified — firewall neutralized {desc} '
+                    f'(expected {magic[:4]}, got {resp.content[:4]})',
+                    resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
             return self._analyze_response(test, resp, '',
                 url=url, method='GET', sent_payload=payload)
         except (requests.ConnectionError, requests.Timeout, OSError) as e:
@@ -1688,6 +1743,10 @@ class SecurityTestEngine:
                     return self._passthrough_result(test, resp.status_code,
                         'EICAR downloaded over HTTPS — SSL Decryption is NOT active or Anti-Virus profile not attached',
                         resp=resp, url=url, method='GET', sent_payload=payload)
+                if resp.status_code == 200:
+                    return self._blocked_result(test,
+                        'HTTP 200 but EICAR content stripped over HTTPS — SSL Decryption + Anti-Virus working',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
                 return self._analyze_response(test, resp, 'EICAR',
                     url=url, method='GET', sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
@@ -1711,9 +1770,9 @@ class SecurityTestEngine:
                     url=url, method='POST', sent_payload=payload)
 
         else:
-            # ssl_sqli, ssl_xss, ssl_cmdi — GET with payload param over HTTPS
-            encoded = quote(payload)
-            url = f'https://{host}:{https_port}/echo?payload={encoded}'
+            # ssl_sqli, ssl_xss, ssl_cmdi — GET with raw payload over HTTPS
+            # Do NOT URL-encode: firewall must see the raw attack characters
+            url = f'https://{host}:{https_port}/echo?payload={payload}'
             try:
                 resp = requests.get(url, timeout=10, verify=False)
                 return self._analyze_response(test, resp, payload,
