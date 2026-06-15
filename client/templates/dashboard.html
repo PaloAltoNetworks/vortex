@@ -158,9 +158,14 @@
         <div class="card-header" onclick="toggleSection('security')">
             <span>Security Testing</span>
             <div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">
+                <select id="sec-mode" style="padding:3px 6px;font-size:10px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
+                    <option value="enforcement">Enforcement</option>
+                    <option value="baseline">Baseline</option>
+                </select>
                 <button class="btn btn-start" onclick="startSecurityTests()" style="padding:3px 10px;font-size:10px">Run Selected</button>
                 <button class="btn btn-stop" onclick="stopSecurityTests()" style="padding:3px 10px;font-size:10px">Stop</button>
                 <button class="btn btn-secondary" onclick="clearSecurityResults()" style="padding:3px 10px;font-size:10px">Clear</button>
+                <button class="btn btn-secondary" onclick="showSecurityComparison()" style="padding:3px 10px;font-size:10px">Compare</button>
                 <button class="btn btn-primary" onclick="showCustomPatternForm()" style="padding:3px 10px;font-size:10px">+ Custom</button>
                 <span class="chevron collapsed" id="chevron-security">&#9660;</span>
             </div>
@@ -238,6 +243,8 @@
                 <option value="Anti-Spyware">Anti-Spyware</option>
                 <option value="URL Filtering">URL Filtering</option>
             </select>
+            <label style="color:var(--text-secondary)">PAN-OS Threat ID</label>
+            <input type="text" id="cp-threat-id" placeholder="e.g. 41000 — SQL Injection" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
         </div>
         <div style="margin-top:12px;display:flex;gap:6px;justify-content:flex-end">
             <button class="btn btn-secondary" onclick="hideCustomPatternForm()" style="padding:5px 14px;font-size:12px">Cancel</button>

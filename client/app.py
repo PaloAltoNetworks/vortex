@@ -515,6 +515,11 @@ def security_clear():
     return jsonify({"ok": True, "message": "Security results cleared"})
 
 
+@app.route('/api/security/comparison')
+def security_comparison():
+    return jsonify(security_engine.get_comparison())
+
+
 # ─── Custom Attack Patterns ──────────────────────────────
 
 @app.route('/api/security/patterns', methods=['GET'])

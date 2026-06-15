@@ -423,6 +423,10 @@ DASHBOARD_HTML = r"""
         .security-category-badge.proto { background: #fce7f3; color: #7c3aed; }
         .security-category-badge.file { background: #d1fae5; color: #065f46; }
         .security-category-badge.pcap { background: #ede9fe; color: #5b21b6; }
+        .security-category-badge.ssl { background: #fef9c3; color: #854d0e; }
+        .security-category-badge.appid { background: #ccfbf1; color: #134e4a; }
+        .security-category-badge.dlp { background: #ffe4e6; color: #9f1239; }
+        .security-category-badge.evasion { background: #f3e8ff; color: #6b21a8; }
         .isp-scenario-section { padding: 12px; background: var(--bg-sub); border: 1px solid var(--border); border-radius: 6px; margin-top: 10px; }
         .isp-scenario-section h4 { font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
         .isp-scenario-timeline { display: flex; height: 28px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); margin: 8px 0; }
@@ -1116,9 +1120,11 @@ async function renderClientTab(name) {
         // Security Testing
         '<div class="card"><div class="card-header" onclick="toggleSection(\'c-' + name + '-security\')"><span>Security Testing</span>' +
         '<div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">' +
+        '<select id="c-' + name + '-sec-mode" style="padding:3px 6px;font-size:10px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"><option value="enforcement">Enforcement</option><option value="baseline">Baseline</option></select>' +
         '<button class="btn btn-start" onclick="clientStartSecurity(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Run Selected</button>' +
         '<button class="btn btn-stop" onclick="clientStopSecurity(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Stop</button>' +
         '<button class="btn btn-secondary" onclick="clientClearSecurity(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Clear</button>' +
+        '<button class="btn btn-secondary" onclick="clientShowComparison(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Compare</button>' +
         '<button class="btn btn-primary" onclick="clientShowCustomPattern(\'' + name + '\')" style="padding:3px 10px;font-size:10px">+ Custom</button>' +
         '<span class="chevron collapsed" id="chevron-c-' + name + '-security">&#9660;</span></div></div>' +
         '<div class="card-body collapsed" id="section-c-' + name + '-security">' +
@@ -2145,6 +2151,10 @@ var SEC_CATEGORY_META = {
     dns_attacks: { label: 'DNS-Based Attacks', badge: 'dns', icon: '\uD83D\uDD0D' },
     protocol_abuse: { label: 'Protocol Abuse', badge: 'proto', icon: '\u26A1' },
     file_threats: { label: 'File-Based Threats', badge: 'file', icon: '\uD83D\uDCC4' },
+    ssl_decryption: { label: 'SSL/TLS Decryption Validation', badge: 'ssl', icon: '\uD83D\uDD12' },
+    appid_validation: { label: 'App-ID Validation', badge: 'appid', icon: '\uD83D\uDD0E' },
+    data_exfiltration: { label: 'Data Exfiltration / DLP', badge: 'dlp', icon: '\uD83D\uDCE4' },
+    evasion_techniques: { label: 'Evasion Techniques', badge: 'evasion', icon: '\uD83E\uDD77' },
 };
 
 async function clientLoadSecurityCatalog(name) {
@@ -2185,7 +2195,7 @@ function clientRenderSecurityPanel(name, catalog) {
             html += '<div class="security-test-row clickable" id="c-' + name + '-sec-row-' + t.id + '" onclick="clientToggleSecDetail(\'' + name + '\',\'' + t.id + '\')">' +
                 '<input type="checkbox" class="sec-checkbox-' + name + '" data-cat="' + cat + '" data-id="' + t.id + '" checked style="width:14px;height:14px;accent-color:var(--accent)" onclick="event.stopPropagation()">' +
                 '<div><div class="security-test-name">' + escapeHtml(t.name) + overrideBadge + '</div><div class="security-test-desc">' + escapeHtml(t.description || '') + '</div></div>' +
-                '<span class="security-test-feature">' + t.panos_feature + '</span>' +
+                '<span class="security-test-feature">' + t.panos_feature + (t.threat_id ? '<br><span style="font-size:9px;color:var(--text-secondary)">' + escapeHtml(t.threat_id) + '</span>' : '') + '</span>' +
                 '<span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">' + t.expected_action + '</span>' +
                 '<span id="c-' + name + '-sec-verdict-' + t.id + '"><span class="sec-verdict pending">--</span></span>' +
                 '<span class="sec-actions" onclick="event.stopPropagation()"><button class="sec-run-btn" onclick="clientRunSingleTest(\'' + name + '\',\'' + t.id + '\')" title="Run this test">&#9654;</button>' + editBtn + resetBtn + deleteBtn + '</span></div>' +
@@ -2259,6 +2269,7 @@ function clientRenderSecDetail(name, testId) {
             detail.innerHTML = '<div class="security-detail-grid">' +
                 '<div class="detail-label">Description</div><div class="detail-value">' + (testInfo.description || 'N/A') + '</div>' +
                 '<div class="detail-label">PAN-OS Feature</div><div class="detail-value">' + testInfo.panos_feature + '</div>' +
+                '<div class="detail-label">PAN-OS Threat ID</div><div class="detail-value">' + (testInfo.threat_id || 'N/A') + '</div>' +
                 '<div class="detail-label">Status</div><div class="detail-value" style="color:var(--text-secondary)">Not yet executed</div></div>';
         } else {
             detail.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text-secondary)">No results yet</div>';
@@ -2283,6 +2294,7 @@ function clientRenderSecDetail(name, testId) {
         '<div class="detail-label">Response Body</div><div class="detail-value">' + respBodyHtml + '</div>' +
         '<div class="detail-label">Response Headers</div><div class="detail-value">' + headersHtml + '</div>' +
         '<div class="detail-label">PAN-OS Feature</div><div class="detail-value">' + (r.panos_feature || 'N/A') + '</div>' +
+        '<div class="detail-label">PAN-OS Threat ID</div><div class="detail-value">' + (r.threat_id || 'N/A') + '</div>' +
         '<div class="detail-label">Timestamp</div><div class="detail-value">' + ts + '</div>' +
         '<div class="detail-label">Verdict</div><div class="detail-value"><span class="sec-verdict ' + vCls + '" style="font-size:11px;padding:3px 10px">' + r.verdict + '</span>' +
         '<span style="margin-left:8px;font-size:11px">' + (r.verdict_explanation || r.detail || '') + '</span></div></div>';
@@ -2294,6 +2306,11 @@ function clientToggleSecCategorySelect(name, cat) {
     boxes.forEach(function(b){b.checked = !allChecked});
 }
 
+function _getClientSecMode(name) {
+    var el = document.getElementById('c-' + name + '-sec-mode');
+    return el ? el.value : 'enforcement';
+}
+
 async function clientRunSecurityCategory(name, cat) {
     var tests = Array.from(document.querySelectorAll('.sec-checkbox-' + name + '[data-cat="' + cat + '"]')).map(function(b){return b.dataset.id});
     if (!tests.length) return;
@@ -2301,6 +2318,7 @@ async function clientRunSecurityCategory(name, cat) {
         http_port: parseInt(document.getElementById('c-' + name + '-sec-http-port').value) || 9999,
         https_port: parseInt(document.getElementById('c-' + name + '-sec-https-port').value) || 443,
         interval: parseFloat(document.getElementById('c-' + name + '-sec-interval').value) || 2,
+        mode: _getClientSecMode(name),
     };
     await fetch('/api/client/' + name + '/security/start', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2314,6 +2332,7 @@ async function clientRunSingleTest(name, testId) {
         http_port: parseInt(document.getElementById('c-' + name + '-sec-http-port').value) || 9999,
         https_port: parseInt(document.getElementById('c-' + name + '-sec-https-port').value) || 443,
         interval: 0,
+        mode: _getClientSecMode(name),
     };
     await fetch('/api/client/' + name + '/security/start', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2330,6 +2349,7 @@ async function clientStartSecurity(name) {
         http_port: parseInt(document.getElementById('c-' + name + '-sec-http-port').value) || 9999,
         https_port: parseInt(document.getElementById('c-' + name + '-sec-https-port').value) || 443,
         interval: parseFloat(document.getElementById('c-' + name + '-sec-interval').value) || 2,
+        mode: _getClientSecMode(name),
     };
     await fetch('/api/client/' + name + '/security/start', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2355,6 +2375,49 @@ async function clientClearSecurity(name) {
     });
     var summaryEl = document.getElementById('c-' + name + '-security-summary');
     if (summaryEl) summaryEl.style.display = 'none';
+}
+
+async function clientShowComparison(name) {
+    try {
+        var resp = await fetch('/api/client/' + name + '/security/comparison');
+        var data = await resp.json();
+        if (!data.has_baseline && !data.has_enforcement) {
+            alert('No results yet. Run tests in Baseline mode first, then Enforcement mode, then Compare.');
+            return;
+        }
+        var comparison = data.comparison;
+        var rows = '';
+        var sorted = Object.values(comparison).sort(function(a,b){return (a.category||'').localeCompare(b.category||'') || (a.test_name||'').localeCompare(b.test_name||'')});
+        for (var i = 0; i < sorted.length; i++) {
+            var entry = sorted[i];
+            var bv = entry.baseline ? entry.baseline.verdict : '--';
+            var ev = entry.enforcement ? entry.enforcement.verdict : '--';
+            var bClass = bv === 'PASS' ? 'pass' : bv === 'FAIL' ? 'fail' : bv === 'ERROR' ? 'error' : 'pending';
+            var eClass = ev === 'PASS' ? 'pass' : ev === 'FAIL' ? 'fail' : ev === 'ERROR' ? 'error' : 'pending';
+            var catMeta = SEC_CATEGORY_META[entry.category] || { label: entry.category };
+            rows += '<tr><td style="font-size:10px;color:var(--text-secondary)">' + catMeta.label + '</td>' +
+                '<td>' + escapeHtml(entry.test_name || entry.test_id) + '</td>' +
+                '<td style="text-align:center"><span class="sec-verdict ' + bClass + '" style="font-size:10px;padding:2px 8px">' + bv + '</span></td>' +
+                '<td style="text-align:center"><span class="sec-verdict ' + eClass + '" style="font-size:10px;padding:2px 8px">' + ev + '</span></td></tr>';
+        }
+        var existing = document.getElementById('srv-comparison-modal');
+        if (existing) existing.remove();
+        var modal = document.createElement('div');
+        modal.id = 'srv-comparison-modal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999';
+        modal.innerHTML = '<div style="background:var(--bg-card);border-radius:8px;padding:20px;max-width:800px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.3);border:1px solid var(--border)">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+            '<h3 style="font-size:14px;margin:0">Before / After Comparison</h3>' +
+            '<button onclick="document.getElementById(\'srv-comparison-modal\').remove()" style="background:none;border:none;color:var(--text-primary);font-size:18px;cursor:pointer">&times;</button></div>' +
+            '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px">Baseline: ' + data.baseline_count + ' tests | Enforcement: ' + data.enforcement_count + ' tests</div>' +
+            '<div style="max-height:60vh;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">' +
+            '<thead><tr><th style="text-align:left;padding:6px 8px;border-bottom:2px solid var(--border);font-size:10px;color:var(--text-secondary)">Category</th>' +
+            '<th style="text-align:left;padding:6px 8px;border-bottom:2px solid var(--border);font-size:10px;color:var(--text-secondary)">Test</th>' +
+            '<th style="text-align:center;padding:6px 8px;border-bottom:2px solid var(--border);font-size:10px;color:var(--text-secondary)">Baseline<br>(No Security)</th>' +
+            '<th style="text-align:center;padding:6px 8px;border-bottom:2px solid var(--border);font-size:10px;color:var(--text-secondary)">Enforcement<br>(Security ON)</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody></table></div></div>';
+        document.body.appendChild(modal);
+    } catch(e) { alert('Failed to load comparison: ' + e); }
 }
 
 // PCAP Replay helpers
@@ -2641,7 +2704,8 @@ function clientShowCustomPattern(name, editId) {
             '<label style="color:var(--text-secondary)">Target Path</label><input type="text" id="srv-cp-target-path" value="/echo" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
             '<label style="color:var(--text-secondary)">Headers</label><textarea id="srv-cp-headers" rows="2" placeholder=\'{"X-Custom":"value"}\' style="padding:4px 8px;font-size:11px;font-family:monospace;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;resize:vertical"></textarea>' +
             '<label style="color:var(--text-secondary)">Description</label><textarea id="srv-cp-description" rows="2" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px;resize:vertical"></textarea>' +
-            '<label style="color:var(--text-secondary)">PAN-OS Feature</label><select id="srv-cp-panos-feature" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"><option value="Vulnerability Protection">Vulnerability Protection</option><option value="Anti-Virus">Anti-Virus</option><option value="Anti-Spyware">Anti-Spyware</option><option value="URL Filtering">URL Filtering</option></select></div>' +
+            '<label style="color:var(--text-secondary)">PAN-OS Feature</label><select id="srv-cp-panos-feature" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"><option value="Vulnerability Protection">Vulnerability Protection</option><option value="Anti-Virus">Anti-Virus</option><option value="Anti-Spyware">Anti-Spyware</option><option value="URL Filtering">URL Filtering</option></select>' +
+            '<label style="color:var(--text-secondary)">Threat ID</label><input type="text" id="srv-cp-threat-id" placeholder="e.g. 41000" style="padding:4px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"></div>' +
             '<div style="margin-top:12px;display:flex;gap:6px;justify-content:flex-end">' +
             '<button class="btn btn-secondary" onclick="document.getElementById(\'srv-custom-pattern-modal\').style.display=\'none\'" style="padding:5px 14px;font-size:12px">Cancel</button>' +
             '<button class="btn btn-primary" onclick="clientSaveCustomPattern()" style="padding:5px 14px;font-size:12px">Save</button></div></div></div>');
@@ -2659,6 +2723,7 @@ function clientShowCustomPattern(name, editId) {
         document.getElementById('srv-cp-headers').value = '';
         document.getElementById('srv-cp-description').value = '';
         document.getElementById('srv-cp-panos-feature').value = 'Vulnerability Protection';
+        document.getElementById('srv-cp-threat-id').value = '';
     } else {
         fetch('/api/client/' + name + '/security/patterns').then(function(r){return r.json()}).then(function(patterns){
             var p = patterns.find(function(x){return x.id === editId});
@@ -2671,6 +2736,7 @@ function clientShowCustomPattern(name, editId) {
                 document.getElementById('srv-cp-headers').value = p.headers ? JSON.stringify(p.headers,null,2) : '';
                 document.getElementById('srv-cp-description').value = p.description || '';
                 document.getElementById('srv-cp-panos-feature').value = p.panos_feature || 'Vulnerability Protection';
+                document.getElementById('srv-cp-threat-id').value = p.threat_id || '';
             }
         });
     }
@@ -2691,7 +2757,7 @@ async function clientSaveCustomPattern() {
         payload: payload, method: document.getElementById('srv-cp-method').value,
         target_path: document.getElementById('srv-cp-target-path').value || '/echo',
         headers: headers, description: document.getElementById('srv-cp-description').value.trim(),
-        panos_feature: document.getElementById('srv-cp-panos-feature').value, expected_action: 'block'
+        panos_feature: document.getElementById('srv-cp-panos-feature').value, threat_id: (document.getElementById('srv-cp-threat-id').value || '').trim(), expected_action: 'block'
     };
     var modal = document.getElementById('srv-custom-pattern-modal');
     var builtinEdit = modal ? modal.dataset.builtinEdit : '';
@@ -2748,6 +2814,7 @@ async function clientEditTestCase(name, testId, isCustom) {
     document.getElementById('srv-cp-headers').value = testInfo.headers && Object.keys(testInfo.headers).length > 0 ? JSON.stringify(testInfo.headers, null, 2) : '';
     document.getElementById('srv-cp-description').value = testInfo.description || '';
     document.getElementById('srv-cp-panos-feature').value = testInfo.panos_feature || 'Vulnerability Protection';
+    document.getElementById('srv-cp-threat-id').value = testInfo.threat_id || '';
     modal.dataset.builtinEdit = testId;
 }
 
@@ -3171,6 +3238,12 @@ def client_security_status(name):
 @app.route('/api/client/<name>/security/clear', methods=['POST'])
 def client_security_clear(name):
     result, code = proxy_to_client(name, '/api/security/clear', 'POST', {})
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/security/comparison')
+def client_security_comparison(name):
+    result, code = proxy_to_client(name, '/api/security/comparison')
     return jsonify(result), code
 
 

@@ -1527,6 +1527,10 @@ const SEC_CATEGORY_META = {
     dns_attacks: { label: 'DNS-Based Attacks', badge: 'dns', icon: '\uD83D\uDD0D' },
     protocol_abuse: { label: 'Protocol Abuse', badge: 'proto', icon: '\u26A1' },
     file_threats: { label: 'File-Based Threats', badge: 'file', icon: '\uD83D\uDCC4' },
+    ssl_decryption: { label: 'SSL/TLS Decryption Validation', badge: 'ssl', icon: '\uD83D\uDD12' },
+    appid_validation: { label: 'App-ID Validation', badge: 'appid', icon: '\uD83D\uDD0E' },
+    data_exfiltration: { label: 'Data Exfiltration / DLP', badge: 'dlp', icon: '\uD83D\uDCE4' },
+    evasion_techniques: { label: 'Evasion Techniques', badge: 'evasion', icon: '\uD83E\uDD77' },
     pcap_replay: { label: 'PCAP Replay (Zero-Day)', badge: 'pcap', icon: '\uD83D\uDCBE' },
 };
 
@@ -1585,7 +1589,7 @@ function renderSecurityPanel() {
                     <div class="security-test-name">${escapeHtml(t.name)}${overrideBadge}</div>
                     <div class="security-test-desc">${escapeHtml(t.description || '')}</div>
                 </div>
-                <span class="security-test-feature">${t.panos_feature}</span>
+                <span class="security-test-feature">${t.panos_feature}${t.threat_id ? '<br><span style="font-size:9px;color:var(--text-secondary)">' + escapeHtml(t.threat_id) + '</span>' : ''}</span>
                 <span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase">${t.expected_action}</span>
                 <span id="sec-verdict-${t.id}"><span class="sec-verdict pending">--</span></span>
                 <span class="sec-actions" onclick="event.stopPropagation()">
@@ -1674,6 +1678,8 @@ function renderSecDetail(testId) {
                 <div class="detail-value">${testInfo.description || 'N/A'}</div>
                 <div class="detail-label">PAN-OS Feature</div>
                 <div class="detail-value">${testInfo.panos_feature}</div>
+                <div class="detail-label">PAN-OS Threat ID</div>
+                <div class="detail-value">${testInfo.threat_id || 'N/A'}</div>
                 <div class="detail-label">Expected Action</div>
                 <div class="detail-value">${testInfo.expected_action}</div>
                 <div class="detail-label">Status</div>
@@ -1712,6 +1718,8 @@ function renderSecDetail(testId) {
         <div class="detail-value">${headersHtml}</div>
         <div class="detail-label">PAN-OS Feature</div>
         <div class="detail-value">${r.panos_feature || 'N/A'}</div>
+        <div class="detail-label">PAN-OS Threat ID</div>
+        <div class="detail-value">${r.threat_id || 'N/A'}</div>
         <div class="detail-label">Timestamp</div>
         <div class="detail-value">${ts}</div>
         <div class="detail-label">Verdict</div>
@@ -1738,6 +1746,11 @@ function toggleSecCategorySelect(cat) {
     boxes.forEach(b => b.checked = !allChecked);
 }
 
+function _getSecMode() {
+    const el = document.getElementById('sec-mode');
+    return el ? el.value : 'enforcement';
+}
+
 async function runSecurityCategory(cat) {
     const tests = Array.from(document.querySelectorAll(`.sec-checkbox[data-cat="${cat}"]`)).map(b => b.dataset.id);
     if (!tests.length) { addLog('[SECURITY] No tests in category'); return; }
@@ -1745,10 +1758,11 @@ async function runSecurityCategory(cat) {
         http_port: parseInt(document.getElementById('sec-http-port').value) || 9999,
         https_port: parseInt(document.getElementById('sec-https-port').value) || 443,
         interval: parseFloat(document.getElementById('sec-interval').value) || 2,
+        mode: _getSecMode(),
     };
     _secLogLastCount = 0;
     const res = await apiPost('/api/security/start', { tests, config });
-    addLog('[SECURITY] Running category: ' + cat + ' (' + tests.length + ' tests)');
+    addLog('[SECURITY] Running category: ' + cat + ' (' + tests.length + ' tests) [' + config.mode.toUpperCase() + ']');
     if (res.ok) startSecurityPolling();
 }
 
@@ -1761,9 +1775,10 @@ async function runSingleTest(testId) {
         http_port: parseInt(document.getElementById('sec-http-port').value) || 9999,
         https_port: parseInt(document.getElementById('sec-https-port').value) || 443,
         interval: 0,
+        mode: _getSecMode(),
     };
     const res = await apiPost('/api/security/start', { tests: [testId], config });
-    addLog('[SECURITY] Running: ' + testId);
+    addLog('[SECURITY] Running: ' + testId + ' [' + config.mode.toUpperCase() + ']');
     if (res.ok) startSecurityPolling();
 }
 
@@ -1774,10 +1789,11 @@ async function startSecurityTests() {
         http_port: parseInt(document.getElementById('sec-http-port').value) || 9999,
         https_port: parseInt(document.getElementById('sec-https-port').value) || 443,
         interval: parseFloat(document.getElementById('sec-interval').value) || 2,
+        mode: _getSecMode(),
     };
     _secLogLastCount = 0;
     const res = await apiPost('/api/security/start', { tests, config });
-    addLog('[SECURITY] ' + res.message);
+    addLog('[SECURITY] ' + res.message + ' [' + config.mode.toUpperCase() + ']');
     if (res.ok) startSecurityPolling();
 }
 
@@ -1888,6 +1904,7 @@ function showCustomPatternForm(editId) {
                 document.getElementById('cp-headers').value = p.headers ? JSON.stringify(p.headers, null, 2) : '';
                 document.getElementById('cp-description').value = p.description || '';
                 document.getElementById('cp-panos-feature').value = p.panos_feature || 'Vulnerability Protection';
+                document.getElementById('cp-threat-id').value = p.threat_id || '';
             }
         });
     } else {
@@ -1901,6 +1918,7 @@ function showCustomPatternForm(editId) {
         document.getElementById('cp-headers').value = '';
         document.getElementById('cp-description').value = '';
         document.getElementById('cp-panos-feature').value = 'Vulnerability Protection';
+        document.getElementById('cp-threat-id').value = '';
     }
     modal.style.display = 'flex';
 }
@@ -1931,6 +1949,7 @@ async function saveCustomPattern() {
         headers,
         description: document.getElementById('cp-description').value.trim(),
         panos_feature: document.getElementById('cp-panos-feature').value,
+        threat_id: document.getElementById('cp-threat-id').value.trim(),
         expected_action: 'block',
     };
 
@@ -1991,6 +2010,7 @@ async function editTestCase(testId, isCustom) {
     document.getElementById('cp-headers').value = testInfo.headers && Object.keys(testInfo.headers).length > 0 ? JSON.stringify(testInfo.headers, null, 2) : '';
     document.getElementById('cp-description').value = testInfo.description || '';
     document.getElementById('cp-panos-feature').value = testInfo.panos_feature || 'Vulnerability Protection';
+    document.getElementById('cp-threat-id').value = testInfo.threat_id || '';
     // Tag this as a builtin edit
     modal.dataset.builtinEdit = testId;
     modal.style.display = 'flex';
@@ -2008,6 +2028,56 @@ async function deleteCustomPattern(patternId) {
     await fetch('/api/security/patterns/' + patternId, { method: 'DELETE' });
     await loadSecurityCatalog();
     addLog('[SECURITY] Custom pattern deleted');
+}
+
+// ─── Security Comparison Modal ──────────────────────────────
+
+async function showSecurityComparison() {
+    try {
+        const resp = await fetch('/api/security/comparison');
+        const data = await resp.json();
+        if (!data.has_baseline && !data.has_enforcement) {
+            alert('No results yet. Run tests in Baseline mode first, then Enforcement mode, then Compare.');
+            return;
+        }
+        const comparison = data.comparison;
+        let rows = '';
+        const sorted = Object.values(comparison).sort((a, b) => (a.category || '').localeCompare(b.category || '') || (a.test_name || '').localeCompare(b.test_name || ''));
+        for (const entry of sorted) {
+            const bv = entry.baseline ? entry.baseline.verdict : '--';
+            const ev = entry.enforcement ? entry.enforcement.verdict : '--';
+            const bClass = bv === 'PASS' ? 'pass' : bv === 'FAIL' ? 'fail' : bv === 'ERROR' ? 'error' : 'pending';
+            const eClass = ev === 'PASS' ? 'pass' : ev === 'FAIL' ? 'fail' : ev === 'ERROR' ? 'error' : 'pending';
+            const catMeta = SEC_CATEGORY_META[entry.category] || { label: entry.category };
+            rows += `<tr>
+                <td style="font-size:10px;color:var(--text-secondary)">${catMeta.label}</td>
+                <td>${escapeHtml(entry.test_name || entry.test_id)}</td>
+                <td style="text-align:center"><span class="sec-verdict ${bClass}" style="font-size:10px;padding:2px 8px">${bv}</span></td>
+                <td style="text-align:center"><span class="sec-verdict ${eClass}" style="font-size:10px;padding:2px 8px">${ev}</span></td>
+            </tr>`;
+        }
+        const modal = document.createElement('div');
+        modal.className = 'comparison-modal-overlay';
+        modal.id = 'comparison-modal';
+        modal.innerHTML = `<div class="comparison-modal">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <h3 style="font-size:14px;margin:0">Before / After Comparison</h3>
+                <button onclick="document.getElementById('comparison-modal').remove()" style="background:none;border:none;color:var(--text-primary);font-size:18px;cursor:pointer">&times;</button>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px">
+                Baseline: ${data.baseline_count} tests | Enforcement: ${data.enforcement_count} tests
+            </div>
+            <div style="max-height:60vh;overflow-y:auto">
+            <table class="comparison-table">
+                <thead><tr><th>Category</th><th>Test</th><th>Baseline<br>(No Security)</th><th>Enforcement<br>(Security ON)</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            </div>
+        </div>`;
+        document.body.appendChild(modal);
+    } catch (e) {
+        addLog('[SECURITY] Failed to load comparison: ' + e);
+    }
 }
 
 // ─── Init ──────────────────────────────────────────────────

