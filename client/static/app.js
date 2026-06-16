@@ -1533,6 +1533,13 @@ const SEC_CATEGORY_META = {
     evasion_techniques: { label: 'Evasion Techniques', badge: 'evasion', icon: '\uD83E\uDD77' },
     credential_phishing: { label: 'Credential Phishing', badge: 'phishing', icon: '\uD83C\uDFA3' },
     encrypted_dns: { label: 'Encrypted DNS (DoH/DoT)', badge: 'encdns', icon: '\uD83D\uDD10' },
+    spyware_phonehome: { label: 'Spyware Phone-Home', badge: 'spyware', icon: '\uD83D\uDC80' },
+    cve_exploits: { label: 'CVE Exploits', badge: 'cve', icon: '\uD83D\uDEA8' },
+    brute_force: { label: 'Brute Force', badge: 'brute', icon: '\uD83D\uDD28' },
+    file_blocking: { label: 'File Blocking', badge: 'fileblk', icon: '\uD83D\uDEAB' },
+    wildfire_analysis: { label: 'WildFire Analysis', badge: 'wildfire', icon: '\uD83D\uDD25' },
+    cryptomining: { label: 'Cryptomining Detection', badge: 'crypto', icon: '\u26CF\uFE0F' },
+    ransomware: { label: 'Ransomware Patterns', badge: 'ransom', icon: '\uD83D\uDD12' },
     pcap_replay: { label: 'PCAP Replay (Zero-Day)', badge: 'pcap', icon: '\uD83D\uDCBE' },
 };
 

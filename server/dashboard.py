@@ -429,6 +429,13 @@ DASHBOARD_HTML = r"""
         .security-category-badge.evasion { background: #f3e8ff; color: #6b21a8; }
         .security-category-badge.phishing { background: #fee2e2; color: #991b1b; }
         .security-category-badge.encdns { background: #ccfbf1; color: #065f46; }
+        .security-category-badge.spyware { background: #fef2f2; color: #991b1b; }
+        .security-category-badge.cve { background: #fff7ed; color: #9a3412; }
+        .security-category-badge.brute { background: #fefce8; color: #854d0e; }
+        .security-category-badge.fileblk { background: #f0fdf4; color: #166534; }
+        .security-category-badge.wildfire { background: #fff1f2; color: #be123c; }
+        .security-category-badge.crypto { background: #fdf4ff; color: #86198f; }
+        .security-category-badge.ransom { background: #fef2f2; color: #7f1d1d; }
         .isp-scenario-section { padding: 12px; background: var(--bg-sub); border: 1px solid var(--border); border-radius: 6px; margin-top: 10px; }
         .isp-scenario-section h4 { font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
         .isp-scenario-timeline { display: flex; height: 28px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); margin: 8px 0; }
@@ -2159,17 +2166,29 @@ var SEC_CATEGORY_META = {
     evasion_techniques: { label: 'Evasion Techniques', badge: 'evasion', icon: '\uD83E\uDD77' },
     credential_phishing: { label: 'Credential Phishing', badge: 'phishing', icon: '\uD83C\uDFA3' },
     encrypted_dns: { label: 'Encrypted DNS (DoH/DoT)', badge: 'encdns', icon: '\uD83D\uDD10' },
+    spyware_phonehome: { label: 'Spyware Phone-Home', badge: 'spyware', icon: '\uD83D\uDC80' },
+    cve_exploits: { label: 'CVE Exploits', badge: 'cve', icon: '\uD83D\uDEA8' },
+    brute_force: { label: 'Brute Force', badge: 'brute', icon: '\uD83D\uDD28' },
+    file_blocking: { label: 'File Blocking', badge: 'fileblk', icon: '\uD83D\uDEAB' },
+    wildfire_analysis: { label: 'WildFire Analysis', badge: 'wildfire', icon: '\uD83D\uDD25' },
+    cryptomining: { label: 'Cryptomining Detection', badge: 'crypto', icon: '\u26CF\uFE0F' },
+    ransomware: { label: 'Ransomware Patterns', badge: 'ransom', icon: '\uD83D\uDD12' },
 };
 
 async function clientLoadSecurityCatalog(name) {
     try {
         var resp = await fetch('/api/client/' + name + '/security/catalog');
+        if (!resp.ok) {
+            var err = await resp.json().catch(function(){return {}});
+            throw new Error(err.error || 'HTTP ' + resp.status);
+        }
         var catalog = await resp.json();
+        if (catalog.error) throw new Error(catalog.error);
         _clientSecCatalogs[name] = catalog;
         clientRenderSecurityPanel(name, catalog);
     } catch(e) {
         var panel = document.getElementById('c-' + name + '-security-panel');
-        if (panel) panel.innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:12px;text-align:center">Failed to load security catalog</div>';
+        if (panel) panel.innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:12px;text-align:center">Failed to load security catalog: ' + escapeHtml(e.message) + '</div>';
     }
 }
 
@@ -2914,15 +2933,25 @@ def proxy_to_client(name, path, method='GET', data=None):
         return {'error': f'Client {name} not found'}, 404
     target = url.rstrip('/') + path
     try:
+        kwargs = {'timeout': 15, 'verify': False}
         if method == 'POST':
-            r = http_client.post(target, json=data, timeout=10, verify=False)
+            r = http_client.post(target, json=data, **kwargs)
         elif method == 'PUT':
-            r = http_client.put(target, json=data, timeout=10, verify=False)
+            r = http_client.put(target, json=data, **kwargs)
         elif method == 'DELETE':
-            r = http_client.delete(target, timeout=10, verify=False)
+            r = http_client.delete(target, **kwargs)
         else:
-            r = http_client.get(target, timeout=10, verify=False)
-        return r.json(), r.status_code
+            r = http_client.get(target, **kwargs)
+        try:
+            return r.json(), r.status_code
+        except ValueError:
+            return {'error': f'Client {name} returned non-JSON response (HTTP {r.status_code})'}, 502
+    except http_client.exceptions.SSLError as e:
+        return {'error': f'SSL error connecting to client {name}: {e}'}, 502
+    except http_client.exceptions.ConnectionError as e:
+        return {'error': f'Connection refused by client {name}: {e}'}, 502
+    except http_client.exceptions.Timeout:
+        return {'error': f'Timeout connecting to client {name}'}, 504
     except Exception as e:
         return {'error': f'Cannot reach client {name}: {e}'}, 502
 
