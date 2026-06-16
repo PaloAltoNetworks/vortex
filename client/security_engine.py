@@ -2307,10 +2307,33 @@ class SecurityTestEngine:
                         'Content-Type': 'text/plain',
                         'X-Data-Export': 'employee-records',
                     }, timeout=10)
-                return self._analyze_response(test, resp, payload[:20],
-                    url=url, method='POST', sent_payload=payload)
+                # Data Filtering inspects the outbound POST body for sensitive
+                # data patterns (CC numbers, SSNs).  If the POST succeeds with
+                # HTTP 200 the data was exfiltrated — FAIL.
+                if self._is_block_page(resp):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — Data Filtering blocked sensitive data exfiltration',
+                        resp.status_code, resp=resp, url=url, method='POST', sent_payload=payload)
+                if resp.status_code in (403, 406, 502, 503, 504):
+                    return self._blocked_result(test,
+                        f'HTTP {resp.status_code} — Data Filtering blocked outbound data',
+                        resp.status_code, resp=resp, url=url, method='POST', sent_payload=payload)
+                if resp.status_code == 200:
+                    data_type = {
+                        'exfil_credit_card': 'credit card numbers',
+                        'exfil_ssn': 'Social Security Numbers',
+                        'exfil_bulk_data': 'bulk PII (credit cards, SSNs, emails)',
+                    }.get(test.id, 'sensitive data')
+                    return self._passthrough_result(test, resp.status_code,
+                        f'POST with {data_type} accepted (HTTP 200) — Data Filtering did not detect sensitive data in the request body. '
+                        'Verify Data Filtering profile is attached to the security rule and configured to detect SSN/CC patterns',
+                        resp=resp, url=url, method='POST', sent_payload=payload)
+                return self._passthrough_result(test, resp.status_code,
+                    f'HTTP {resp.status_code} — data exfiltration not blocked',
+                    resp=resp, url=url, method='POST', sent_payload=payload)
             except (requests.ConnectionError, requests.Timeout, OSError) as e:
-                return self._blocked_result(test, f'Connection blocked: {e}',
+                return self._blocked_result(test,
+                    f'Connection blocked — Data Filtering detected sensitive data exfiltration: {e}',
                     url=url, method='POST', sent_payload=payload)
 
         elif test.id == 'exfil_dns_data':
