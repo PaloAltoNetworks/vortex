@@ -1713,6 +1713,7 @@ class SecurityTestEngine:
         '::1',               # PAN-OS default sinkhole IPv6
         '127.0.0.1',         # Common custom sinkhole
         '0.0.0.0',           # Null sinkhole
+        '10.0.0.1',          # Vortex echo DNS default (not a real resolution)
         'sinkhole.paloaltonetworks.com',
     }
 
