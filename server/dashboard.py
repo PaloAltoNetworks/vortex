@@ -1328,7 +1328,8 @@ async function clientPollRealWorldStatus(clientName) {
         }
 
         if (data.running) {
-            if (badge) { badge.textContent = data.loop ? 'Looping' : 'Running'; badge.classList.add('running'); }
+            var profileLabel = ((data.loop_profile || data.profile || '').replace(/_/g, ' '));
+            if (badge) { badge.textContent = data.loop ? 'Looping: ' + profileLabel : 'Running'; badge.classList.add('running'); }
             if (statsDiv) statsDiv.style.display = 'block';
             var el = function(id) { return document.getElementById(id); };
             var childEl = el('c-' + clientName + '-rw-children');

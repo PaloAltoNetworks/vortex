@@ -649,7 +649,11 @@ async function pollRealWorldStatus() {
         }
 
         if (data.running) {
-            if (badge) { badge.textContent = data.loop ? 'Looping' : 'Running'; badge.classList.add('running'); }
+            const profileLabel = (data.loop_profile || data.profile || '').replace(/_/g, ' ');
+            if (badge) {
+                badge.textContent = data.loop ? `Looping: ${profileLabel}` : 'Running';
+                badge.classList.add('running');
+            }
             if (liveStats) liveStats.style.display = 'block';
 
             const el = id => document.getElementById(id);
