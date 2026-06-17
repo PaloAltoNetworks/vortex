@@ -172,6 +172,85 @@ def _build_ole2_macro():
 
 OFFICE_MACRO_TEST_BYTES = _build_ole2_macro()
 
+# ─── File Blocking test payloads ──────────────────────────────
+SCRIPT_FILES = {
+    'bat': (
+        b'@echo off\r\necho Security Test - File Blocking Validation\r\n'
+        b'echo This file tests BAT file type detection\r\npause\r\n',
+        'application/x-msdos-program', 'test.bat'
+    ),
+    'ps1': (
+        b'# PowerShell Security Test - File Blocking Validation\r\n'
+        b'Write-Host "Testing file blocking policy"\r\n'
+        b'Invoke-WebRequest -Uri "http://example.com/test" -OutFile "test.txt"\r\n'
+        b'Get-Process | Select-Object -First 5\r\n',
+        'application/x-powershell', 'test.ps1'
+    ),
+    'vbs': (
+        b'Dim objShell\r\nSet objShell = CreateObject("WScript.Shell")\r\n'
+        b'Dim s : s = Chr(83) & Chr(101) & Chr(99) & Chr(117) & Chr(114) '
+        b'& Chr(105) & Chr(116) & Chr(121) & Chr(32) & Chr(84) & Chr(101) '
+        b'& Chr(115) & Chr(116)\r\n'
+        b'WScript.Echo s\r\nobjShell.Run "cmd.exe /c echo " & s\r\n',
+        'application/x-vbs', 'test.vbs'
+    ),
+}
+
+HTA_TEST_BYTES = (
+    b'<html>\r\n<head>\r\n<title>Security Test</title>\r\n'
+    b'<HTA:APPLICATION ID="SecurityTest" APPLICATIONNAME="Test" '
+    b'BORDER="thin" BORDERSTYLE="normal" SCROLL="yes">\r\n'
+    b'</head>\r\n<body>\r\n'
+    b'<script language="VBScript">\r\n'
+    b'Sub RunTest\r\n'
+    b'  Set objShell = CreateObject("WScript.Shell")\r\n'
+    b'  objShell.Run "cmd.exe /c echo Security Test"\r\n'
+    b'End Sub\r\n'
+    b'</script>\r\n'
+    b'<button onclick="RunTest">Run</button>\r\n'
+    b'</body>\r\n</html>\r\n'
+)
+
+# Minimal valid JAR (ZIP with manifest)
+def _build_jar():
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('META-INF/MANIFEST.MF',
+            'Manifest-Version: 1.0\r\n'
+            'Main-Class: SecurityTest\r\n'
+            'Created-By: Vortex Security Testing\r\n')
+        zf.writestr('SecurityTest.class',
+            # Minimal class file magic + version (not real bytecode, just triggers file type detection)
+            b'\xca\xfe\xba\xbe\x00\x00\x00\x34' + b'\x00' * 50 +
+            b'SecurityTest - File Blocking Validation')
+    return buf.getvalue()
+
+JAR_TEST_BYTES = _build_jar()
+
+# Novel PE for WildFire testing — PE with suspicious import names
+def _build_wildfire_pe():
+    """Build a PE with suspicious Windows API imports in its string table.
+    This is NOT actual malware — just a file with suspicious characteristics
+    that should trigger WildFire sandbox analysis."""
+    suspicious_strings = (
+        b'VirtualAllocEx\x00CreateRemoteThread\x00WriteProcessMemory\x00'
+        b'NtUnmapViewOfSection\x00RtlCreateUserThread\x00'
+        b'LoadLibraryA\x00GetProcAddress\x00'
+        b'InternetOpenA\x00InternetConnectA\x00HttpOpenRequestA\x00'
+        b'URLDownloadToFileA\x00WinExec\x00ShellExecuteA\x00'
+    )
+    # Build on top of existing PE structure but with different content
+    pe = bytearray(PE_TEST_BYTES)
+    # Replace the trailing text with suspicious import strings
+    trail_start = pe.find(b'This is a test PE')
+    if trail_start > 0:
+        pe[trail_start:trail_start + len(suspicious_strings)] = suspicious_strings
+    else:
+        pe += suspicious_strings
+    return bytes(pe)
+
+WILDFIRE_PE_BYTES = _build_wildfire_pe()
+
 STATS_FILE = '/tmp/echo_stats.json'
 stats_lock = threading.Lock()
 stats = {
@@ -273,6 +352,53 @@ class TrafficHTTPHandler(BaseHTTPRequestHandler):
                 self.wfile.write(OFFICE_MACRO_TEST_BYTES)
                 with stats_lock:
                     stats['http']['bytes_sent'] += len(OFFICE_MACRO_TEST_BYTES)
+
+            elif path.startswith('/test-file/script'):
+                # Serve script files for file blocking tests
+                params = parse_qs(parsed.query)
+                script_type = params.get('type', ['bat'])[0]
+                if script_type in SCRIPT_FILES:
+                    content, ctype, fname = SCRIPT_FILES[script_type]
+                else:
+                    content, ctype, fname = SCRIPT_FILES['bat']
+                self.send_response(200)
+                self.send_header('Content-Type', ctype)
+                self.send_header('Content-Disposition', f'attachment; filename="{fname}"')
+                self.send_header('Content-Length', str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                with stats_lock:
+                    stats['http']['bytes_sent'] += len(content)
+
+            elif path == '/test-file/hta':
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/hta')
+                self.send_header('Content-Disposition', 'attachment; filename="test.hta"')
+                self.send_header('Content-Length', str(len(HTA_TEST_BYTES)))
+                self.end_headers()
+                self.wfile.write(HTA_TEST_BYTES)
+                with stats_lock:
+                    stats['http']['bytes_sent'] += len(HTA_TEST_BYTES)
+
+            elif path == '/test-file/jar':
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/java-archive')
+                self.send_header('Content-Disposition', 'attachment; filename="test.jar"')
+                self.send_header('Content-Length', str(len(JAR_TEST_BYTES)))
+                self.end_headers()
+                self.wfile.write(JAR_TEST_BYTES)
+                with stats_lock:
+                    stats['http']['bytes_sent'] += len(JAR_TEST_BYTES)
+
+            elif path == '/test-file/wildfire-pe':
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/x-dosexec')
+                self.send_header('Content-Disposition', 'attachment; filename="suspicious.exe"')
+                self.send_header('Content-Length', str(len(WILDFIRE_PE_BYTES)))
+                self.end_headers()
+                self.wfile.write(WILDFIRE_PE_BYTES)
+                with stats_lock:
+                    stats['http']['bytes_sent'] += len(WILDFIRE_PE_BYTES)
 
             elif path == '/login':
                 # Credential phishing test — realistic login form
