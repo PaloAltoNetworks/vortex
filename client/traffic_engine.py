@@ -37,6 +37,64 @@ DSCP_VALUES = {
 }
 
 
+REALWORLD_PROFILES = {
+    'office_worker': {
+        'name': 'Office Worker',
+        'description': 'Typical office: heavy web browsing, frequent DNS, some file downloads, occasional SSH',
+        'protocols': [
+            {'protocol': 'https', 'flow_id': 'rw', 'config': {
+                'highcps_mode': True, 'target_cps': 50, 'concurrency': 20,
+                'method': 'GET', 'ignore_ssl': True}},
+            {'protocol': 'http_plain', 'flow_id': 'rw', 'config': {
+                'highcps_mode': True, 'target_cps': 20, 'concurrency': 10,
+                'method': 'GET'}},
+            {'protocol': 'dns', 'flow_id': 'rw', 'config': {
+                'interval': 0.5,
+                'domains': 'google.com\namazon.com\nmicrosoft.com\ngithub.com\ncloudflare.com\noffice365.com\nslack.com\nzoom.us'}},
+            {'protocol': 'ssh', 'flow_id': 'rw', 'config': {
+                'interval': 10, 'command': 'uptime'}},
+        ],
+    },
+    'remote_worker': {
+        'name': 'Remote Worker',
+        'description': 'VPN-heavy: lots of HTTPS, video-call-like UDP, SSH tunnels, DNS',
+        'protocols': [
+            {'protocol': 'https', 'flow_id': 'rw', 'config': {
+                'highcps_mode': True, 'target_cps': 80, 'concurrency': 30,
+                'method': 'GET', 'ignore_ssl': True}},
+            {'protocol': 'dns', 'flow_id': 'rw', 'config': {
+                'interval': 0.3,
+                'domains': 'google.com\nmicrosoft.com\nzoom.us\nteams.microsoft.com\nslack.com\ngithub.com'}},
+            {'protocol': 'udp', 'flow_id': 'rw', 'config': {
+                'port': 5201, 'packet_size': 1200, 'target_pps': 200}},
+            {'protocol': 'ssh', 'flow_id': 'rw', 'config': {
+                'interval': 5, 'command': 'ls -la /tmp'}},
+        ],
+    },
+    'branch_office': {
+        'name': 'Branch Office',
+        'description': 'Multi-user branch: high CPS web, bulk FTP transfers, heavy DNS, UDP',
+        'protocols': [
+            {'protocol': 'https', 'flow_id': 'rw', 'config': {
+                'highcps_mode': True, 'target_cps': 150, 'concurrency': 50,
+                'method': 'GET', 'ignore_ssl': True}},
+            {'protocol': 'http_plain', 'flow_id': 'rw', 'config': {
+                'highcps_mode': True, 'target_cps': 50, 'concurrency': 20,
+                'method': 'GET'}},
+            {'protocol': 'dns', 'flow_id': 'rw', 'config': {
+                'interval': 0.2,
+                'domains': 'google.com\namazon.com\nmicrosoft.com\ngithub.com\ncloudflare.com\noffice365.com\naws.amazon.com\nazure.microsoft.com'}},
+            {'protocol': 'ftp', 'flow_id': 'rw', 'config': {
+                'filename': 'testfile_100mb.bin'}},
+            {'protocol': 'ssh', 'flow_id': 'rw', 'config': {
+                'interval': 8, 'command': 'uptime'}},
+            {'protocol': 'udp', 'flow_id': 'rw', 'config': {
+                'port': 5201, 'packet_size': 512, 'target_pps': 100}},
+        ],
+    },
+}
+
+
 def _dscp_to_tos(dscp):
     """Convert DSCP value or name to TOS byte. DSCP occupies upper 6 bits."""
     if isinstance(dscp, str):

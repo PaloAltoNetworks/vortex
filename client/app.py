@@ -3,11 +3,12 @@ import os
 import time
 import socket
 import logging
+import threading
 import subprocess
 from flask import Flask, render_template, jsonify, request, send_file
 from werkzeug.utils import secure_filename
 
-from traffic_engine import TrafficEngine
+from traffic_engine import TrafficEngine, REALWORLD_PROFILES
 from security_engine import SecurityTestEngine, CustomPatternStore
 import network_shaper
 from router_shaper import router_manager
@@ -117,6 +118,198 @@ def sudo_auth():
 def clear_stats():
     engine.clear_stats()
     return jsonify({"ok": True, "message": "Stats cleared"})
+
+
+# ─── Real World Traffic ──────────────────────────────────
+
+_realworld_active = {}  # tracks running realworld session
+_realworld_loop = {'running': False, 'thread': None, 'current_profile': None, 'cycle': 0}
+
+
+@app.route('/api/realworld/profiles')
+def realworld_profiles():
+    profiles = {}
+    for key, profile in REALWORLD_PROFILES.items():
+        profiles[key] = {
+            'name': profile['name'],
+            'description': profile['description'],
+            'protocol_count': len(profile['protocols']),
+            'protocols': [p['protocol'] for p in profile['protocols']],
+        }
+    return jsonify(profiles)
+
+
+@app.route('/api/realworld/start', methods=['POST'])
+def realworld_start():
+    data = _get_json()
+    profile_key = data.get('profile', 'office_worker')
+    duration = int(data.get('duration', 900))
+
+    profile = REALWORLD_PROFILES.get(profile_key)
+    if not profile:
+        return jsonify({"error": f"Unknown profile: {profile_key}"}), 400
+
+    # Stop any existing realworld session
+    if _realworld_active.get('_jobs'):
+        for job_key in list(_realworld_active['_jobs']):
+            engine.stop_job(job_key)
+        _realworld_active.clear()
+
+    started = []
+    errors = []
+    for proto_def in profile['protocols']:
+        config = dict(proto_def['config'])
+        config['flow_id'] = proto_def.get('flow_id', 'rw')
+        config['duration'] = duration
+        # Set default host/url
+        if proto_def['protocol'] == 'https' and 'url' not in config:
+            config['url'] = f'https://{SERVER_HOST}/'
+        elif proto_def['protocol'] == 'http_plain':
+            config.setdefault('host', SERVER_HOST)
+        elif proto_def['protocol'] not in ('ext_https',):
+            config.setdefault('host', SERVER_HOST)
+        # Apply global proxy if enabled
+        if _proxy_config.get('enabled') and _proxy_config.get('host'):
+            config['_proxy'] = dict(_proxy_config)
+
+        ok, msg = engine.start_job(proto_def['protocol'], config)
+        job_key = f"{proto_def['protocol']}_{proto_def.get('flow_id', 'rw')}"
+        if ok:
+            started.append(job_key)
+        else:
+            errors.append(f"{proto_def['protocol']}: {msg}")
+
+    _realworld_active['_jobs'] = started
+    _realworld_active['_profile'] = profile_key
+
+    result = {
+        "ok": len(started) > 0,
+        "message": f"Real World Traffic '{profile['name']}' started: {len(started)} protocols",
+        "started": started,
+        "errors": errors,
+    }
+    return jsonify(result), 200 if result['ok'] else 409
+
+
+@app.route('/api/realworld/stop', methods=['POST'])
+def realworld_stop():
+    stopped = []
+    for job_key in list(_realworld_active.get('_jobs', [])):
+        ok, msg = engine.stop_job(job_key)
+        if ok:
+            stopped.append(job_key)
+    _realworld_active.clear()
+    return jsonify({"ok": True, "message": f"Stopped {len(stopped)} real-world traffic flows", "stopped": stopped})
+
+
+@app.route('/api/realworld/status')
+def realworld_status():
+    if not _realworld_active.get('_jobs'):
+        return jsonify({"running": False, "profile": None})
+
+    all_status = engine.get_status()
+    total_stats = {"bytes_sent": 0, "bytes_recv": 0, "requests": 0, "errors": 0}
+    child_status = {}
+    any_running = False
+
+    for job_key in _realworld_active.get('_jobs', []):
+        if job_key in all_status:
+            info = all_status[job_key]
+            child_status[job_key] = info
+            if info['running']:
+                any_running = True
+            for k in total_stats:
+                total_stats[k] += info['stats'].get(k, 0)
+
+    if not any_running:
+        _realworld_active.clear()
+
+    return jsonify({
+        "running": any_running,
+        "profile": _realworld_active.get('_profile'),
+        "stats": total_stats,
+        "children": child_status,
+        "loop": _realworld_loop['running'],
+        "loop_cycle": _realworld_loop.get('cycle', 0),
+        "loop_profile": _realworld_loop.get('current_profile'),
+    })
+
+
+def _realworld_loop_worker(duration_per_profile):
+    """Background thread that cycles through all profiles."""
+    import time as _time
+    profile_keys = list(REALWORLD_PROFILES.keys())
+    cycle = 0
+    while _realworld_loop['running']:
+        for profile_key in profile_keys:
+            if not _realworld_loop['running']:
+                break
+            _realworld_loop['current_profile'] = profile_key
+            _realworld_loop['cycle'] = cycle + 1
+            profile = REALWORLD_PROFILES[profile_key]
+
+            # Stop previous
+            for job_key in list(_realworld_active.get('_jobs', [])):
+                engine.stop_job(job_key)
+            _realworld_active.clear()
+            _time.sleep(1)
+
+            # Start new profile
+            started = []
+            for proto_def in profile['protocols']:
+                config = dict(proto_def['config'])
+                config['flow_id'] = proto_def.get('flow_id', 'rw')
+                config['duration'] = duration_per_profile
+                if proto_def['protocol'] == 'https' and 'url' not in config:
+                    config['url'] = f'https://{SERVER_HOST}/'
+                elif proto_def['protocol'] == 'http_plain':
+                    config.setdefault('host', SERVER_HOST)
+                elif proto_def['protocol'] not in ('ext_https',):
+                    config.setdefault('host', SERVER_HOST)
+                if _proxy_config.get('enabled') and _proxy_config.get('host'):
+                    config['_proxy'] = dict(_proxy_config)
+                ok, msg = engine.start_job(proto_def['protocol'], config)
+                if ok:
+                    started.append(f"{proto_def['protocol']}_{proto_def.get('flow_id', 'rw')}")
+            _realworld_active['_jobs'] = started
+            _realworld_active['_profile'] = profile_key
+
+            # Wait for duration
+            end_time = _time.time() + duration_per_profile
+            while _time.time() < end_time and _realworld_loop['running']:
+                _time.sleep(2)
+
+        cycle += 1
+
+    # Clean up on exit
+    for job_key in list(_realworld_active.get('_jobs', [])):
+        engine.stop_job(job_key)
+    _realworld_active.clear()
+    _realworld_loop['current_profile'] = None
+    _realworld_loop['cycle'] = 0
+
+
+@app.route('/api/realworld/loop/start', methods=['POST'])
+def realworld_loop_start():
+    if _realworld_loop['running']:
+        return jsonify({"ok": False, "message": "Loop already running"}), 409
+    data = _get_json()
+    duration_per_profile = int(data.get('duration', 300))
+    _realworld_loop['running'] = True
+    t = threading.Thread(target=_realworld_loop_worker, args=(duration_per_profile,), daemon=True)
+    _realworld_loop['thread'] = t
+    t.start()
+    profile_names = [p['name'] for p in REALWORLD_PROFILES.values()]
+    return jsonify({
+        "ok": True,
+        "message": f"Loop started — cycling through {', '.join(profile_names)} ({duration_per_profile}s each)",
+    })
+
+
+@app.route('/api/realworld/loop/stop', methods=['POST'])
+def realworld_loop_stop():
+    _realworld_loop['running'] = False
+    return jsonify({"ok": True, "message": "Loop stopping..."})
 
 
 # ─── Proxy Configuration ─────────────────────────────────

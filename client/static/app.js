@@ -570,6 +570,106 @@ async function clearStats() {
     addLog('[STATS] Stats cleared');
 }
 
+// ─── Real World Traffic ─────────────────────────────────────
+
+let _rwProfiles = {};
+
+async function loadRealWorldProfiles() {
+    try {
+        const resp = await fetch('/api/realworld/profiles');
+        _rwProfiles = await resp.json();
+        const sel = document.getElementById('rw-profile');
+        if (!sel) return;
+        sel.innerHTML = '';
+        for (const [key, profile] of Object.entries(_rwProfiles)) {
+            sel.innerHTML += `<option value="${key}">${profile.name}</option>`;
+        }
+        updateRealWorldDesc();
+    } catch(e) {}
+}
+
+function updateRealWorldDesc() {
+    const sel = document.getElementById('rw-profile');
+    if (!sel) return;
+    const profile = _rwProfiles[sel.value];
+    if (!profile) return;
+    const descEl = document.getElementById('rw-profile-desc');
+    if (descEl) descEl.textContent = profile.description;
+    const protosEl = document.getElementById('rw-profile-protos');
+    if (protosEl) {
+        protosEl.innerHTML = profile.protocols.map(p =>
+            `<span style="padding:2px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:10px">${p.toUpperCase()}</span>`
+        ).join('');
+    }
+}
+
+async function startRealWorld() {
+    const profile = document.getElementById('rw-profile')?.value || 'office_worker';
+    const duration = parseInt(document.getElementById('rw-duration')?.value || 900);
+    const res = await apiPost('/api/realworld/start', { profile, duration });
+    addLog(`[REALWORLD] ${res.message}`);
+    if (res.errors && res.errors.length) {
+        for (const err of res.errors) addLog(`[REALWORLD] Error: ${err}`);
+    }
+}
+
+async function stopRealWorld() {
+    const res = await apiPost('/api/realworld/stop', {});
+    addLog(`[REALWORLD] ${res.message}`);
+}
+
+async function startRealWorldLoop() {
+    const duration = parseInt(document.getElementById('rw-duration')?.value || 300);
+    const res = await apiPost('/api/realworld/loop/start', { duration });
+    addLog(`[REALWORLD] ${res.message}`);
+}
+
+async function stopRealWorldLoop() {
+    const res = await apiPost('/api/realworld/loop/stop', {});
+    addLog(`[REALWORLD] ${res.message}`);
+}
+
+async function pollRealWorldStatus() {
+    try {
+        const resp = await fetch('/api/realworld/status');
+        const data = await resp.json();
+        const badge = document.getElementById('rw-status-badge');
+        const liveStats = document.getElementById('rw-live-stats');
+
+        // Update loop button states
+        const loopBtn = document.getElementById('rw-loop-btn');
+        const loopStopBtn = document.getElementById('rw-loop-stop-btn');
+        const loopInfo = document.getElementById('rw-loop-info');
+        if (data.loop) {
+            if (loopBtn) loopBtn.style.display = 'none';
+            if (loopStopBtn) loopStopBtn.style.display = '';
+            if (loopInfo) { loopInfo.style.display = ''; loopInfo.textContent = `Cycle #${data.loop_cycle} — ${(data.loop_profile||'').replace(/_/g,' ')}`; }
+        } else {
+            if (loopBtn) loopBtn.style.display = '';
+            if (loopStopBtn) loopStopBtn.style.display = 'none';
+            if (loopInfo) loopInfo.style.display = 'none';
+        }
+
+        if (data.running) {
+            if (badge) { badge.textContent = data.loop ? 'Looping' : 'Running'; badge.classList.add('running'); }
+            if (liveStats) liveStats.style.display = 'block';
+
+            const el = id => document.getElementById(id);
+            const childEl = el('rw-child-status');
+            if (childEl && data.children) {
+                childEl.innerHTML = Object.entries(data.children).map(([key, info]) => {
+                    const color = info.running ? 'var(--success)' : 'var(--text-secondary)';
+                    const label = key.replace('_rw', '').toUpperCase();
+                    return `<span style="color:${color};margin-right:8px">${label}: ${(info.stats.requests||0).toLocaleString()} reqs</span>`;
+                }).join('');
+            }
+        } else {
+            if (badge) { badge.textContent = 'Stopped'; badge.classList.remove('running'); }
+            if (liveStats) liveStats.style.display = 'none';
+        }
+    } catch(e) {}
+}
+
 function getSelectedProtos() {
     return Object.keys(PROTOCOLS).filter(p =>
         document.getElementById(`select-${p}`).checked
@@ -2099,8 +2199,9 @@ document.addEventListener('DOMContentLoaded', () => {
     loadProxy();
     loadFtpFileList();
     loadSecurityCatalog();
+    loadRealWorldProfiles();
     document.getElementById('source-ip-toggle').addEventListener('change', toggleSourceIpConfig);
-    autoRefreshInterval = setInterval(() => { pollStatus(); pollRouterStatus(); }, 2000);
+    autoRefreshInterval = setInterval(() => { pollStatus(); pollRouterStatus(); pollRealWorldStatus(); }, 2000);
     setInterval(loadFtpFileList, 10000);
     setInterval(refreshTopology, 10000);
     pollStatus();

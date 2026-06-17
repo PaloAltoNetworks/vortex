@@ -134,6 +134,41 @@
         </div>
     </div>
 
+    <!-- Real World Traffic -->
+    <div class="card">
+        <div class="card-header" onclick="toggleSection('realworld')">
+            <span>Real World Traffic</span>
+            <div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">
+                <span class="proto-badge" id="rw-status-badge">Stopped</span>
+                <button class="btn btn-start" onclick="startRealWorld()" id="rw-start-btn" style="padding:3px 10px;font-size:10px">Start</button>
+                <button class="btn btn-stop" onclick="stopRealWorld()" id="rw-stop-btn" style="padding:3px 10px;font-size:10px">Stop</button>
+                <button class="btn btn-secondary" onclick="startRealWorldLoop()" id="rw-loop-btn" style="padding:3px 10px;font-size:10px">Loop All</button>
+                <button class="btn btn-stop" onclick="stopRealWorldLoop()" id="rw-loop-stop-btn" style="padding:3px 10px;font-size:10px;display:none">Stop Loop</button>
+                <span class="chevron" id="chevron-realworld">&#9660;</span>
+            </div>
+        </div>
+        <div class="card-body" id="section-realworld">
+            <div style="padding:8px;background:var(--bg-sub);border:1px solid var(--border);border-radius:6px">
+                <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">
+                    Simulate realistic mixed traffic patterns with one click. Launches multiple protocols simultaneously to test SD-WAN with real-world-like traffic.
+                </p>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+                    <label style="font-size:11px;color:var(--text-secondary)">Profile</label>
+                    <select id="rw-profile" style="flex:1;min-width:180px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px" onchange="updateRealWorldDesc()">
+                    </select>
+                    <label style="font-size:11px;color:var(--text-secondary)">Duration (s)</label>
+                    <input type="number" id="rw-duration" value="900" min="30" step="30" style="width:80px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">
+                </div>
+                <div id="rw-profile-desc" style="margin-top:6px;font-size:11px;color:var(--text-secondary)"></div>
+                <div id="rw-profile-protos" style="margin-top:4px;font-size:11px;display:flex;gap:4px;flex-wrap:wrap"></div>
+            </div>
+            <div id="rw-live-stats" style="display:none;margin-top:8px">
+                <div id="rw-loop-info" style="display:none;font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:600"></div>
+                <div id="rw-child-status" style="font-size:11px"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Protocol Cards -->
     <div class="card">
         <div class="card-header" onclick="toggleSection('protocols')">
