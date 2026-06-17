@@ -142,6 +142,8 @@
                 <span class="proto-badge" id="rw-status-badge">Stopped</span>
                 <button class="btn btn-start" onclick="startRealWorld()" id="rw-start-btn" style="padding:3px 10px;font-size:10px">Start</button>
                 <button class="btn btn-stop" onclick="stopRealWorld()" id="rw-stop-btn" style="padding:3px 10px;font-size:10px">Stop</button>
+                <button class="btn btn-secondary" onclick="startRealWorldLoop()" id="rw-loop-btn" style="padding:3px 10px;font-size:10px">Loop All</button>
+                <button class="btn btn-stop" onclick="stopRealWorldLoop()" id="rw-loop-stop-btn" style="padding:3px 10px;font-size:10px;display:none">Stop Loop</button>
                 <span class="chevron" id="chevron-realworld">&#9660;</span>
             </div>
         </div>
@@ -161,13 +163,8 @@
                 <div id="rw-profile-protos" style="margin-top:4px;font-size:11px;display:flex;gap:4px;flex-wrap:wrap"></div>
             </div>
             <div id="rw-live-stats" style="display:none;margin-top:8px">
-                <div class="stats-grid">
-                    <div class="stat-box"><div class="stat-label">Bytes Sent</div><div class="stat-value" id="rw-stat-sent">0 B</div></div>
-                    <div class="stat-box"><div class="stat-label">Bytes Received</div><div class="stat-value" id="rw-stat-recv">0 B</div></div>
-                    <div class="stat-box"><div class="stat-label">Requests</div><div class="stat-value" id="rw-stat-reqs">0</div></div>
-                    <div class="stat-box"><div class="stat-label">Errors</div><div class="stat-value" id="rw-stat-errors">0</div></div>
-                </div>
-                <div id="rw-child-status" style="margin-top:6px;font-size:11px"></div>
+                <div id="rw-loop-info" style="display:none;font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:600"></div>
+                <div id="rw-child-status" style="font-size:11px"></div>
             </div>
         </div>
     </div>

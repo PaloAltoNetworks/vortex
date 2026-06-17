@@ -618,6 +618,17 @@ async function stopRealWorld() {
     addLog(`[REALWORLD] ${res.message}`);
 }
 
+async function startRealWorldLoop() {
+    const duration = parseInt(document.getElementById('rw-duration')?.value || 300);
+    const res = await apiPost('/api/realworld/loop/start', { duration });
+    addLog(`[REALWORLD] ${res.message}`);
+}
+
+async function stopRealWorldLoop() {
+    const res = await apiPost('/api/realworld/loop/stop', {});
+    addLog(`[REALWORLD] ${res.message}`);
+}
+
 async function pollRealWorldStatus() {
     try {
         const resp = await fetch('/api/realworld/status');
@@ -625,17 +636,25 @@ async function pollRealWorldStatus() {
         const badge = document.getElementById('rw-status-badge');
         const liveStats = document.getElementById('rw-live-stats');
 
+        // Update loop button states
+        const loopBtn = document.getElementById('rw-loop-btn');
+        const loopStopBtn = document.getElementById('rw-loop-stop-btn');
+        const loopInfo = document.getElementById('rw-loop-info');
+        if (data.loop) {
+            if (loopBtn) loopBtn.style.display = 'none';
+            if (loopStopBtn) loopStopBtn.style.display = '';
+            if (loopInfo) { loopInfo.style.display = ''; loopInfo.textContent = `Cycle #${data.loop_cycle} — ${(data.loop_profile||'').replace(/_/g,' ')}`; }
+        } else {
+            if (loopBtn) loopBtn.style.display = '';
+            if (loopStopBtn) loopStopBtn.style.display = 'none';
+            if (loopInfo) loopInfo.style.display = 'none';
+        }
+
         if (data.running) {
-            if (badge) { badge.textContent = 'Running'; badge.classList.add('running'); }
+            if (badge) { badge.textContent = data.loop ? 'Looping' : 'Running'; badge.classList.add('running'); }
             if (liveStats) liveStats.style.display = 'block';
 
-            const s = data.stats || {};
             const el = id => document.getElementById(id);
-            if (el('rw-stat-sent')) el('rw-stat-sent').textContent = fmtBytes(s.bytes_sent || 0);
-            if (el('rw-stat-recv')) el('rw-stat-recv').textContent = fmtBytes(s.bytes_recv || 0);
-            if (el('rw-stat-reqs')) el('rw-stat-reqs').textContent = (s.requests || 0).toLocaleString();
-            if (el('rw-stat-errors')) el('rw-stat-errors').textContent = (s.errors || 0).toLocaleString();
-
             const childEl = el('rw-child-status');
             if (childEl && data.children) {
                 childEl.innerHTML = Object.entries(data.children).map(([key, info]) => {

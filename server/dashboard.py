@@ -1115,6 +1115,28 @@ async function renderClientTab(name) {
         '<button class="btn btn-primary" onclick="clientSaveProxy(\'' + name + '\')" style="padding:4px 12px">Apply</button>' +
         '<button class="btn btn-secondary" onclick="clientTestProxy(\'' + name + '\')" style="padding:4px 12px">Test</button>' +
         '</div></div></div></div>' +
+        // Real World Traffic
+        '<div class="card"><div class="card-header" onclick="toggleSection(\'c-' + name + '-realworld\')"><span>Real World Traffic</span>' +
+        '<div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">' +
+        '<span class="proto-badge" id="c-' + name + '-rw-badge">Stopped</span>' +
+        '<button class="btn btn-start" onclick="clientStartRealWorld(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Start</button>' +
+        '<button class="btn btn-stop" onclick="clientStopRealWorld(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Stop</button>' +
+        '<button class="btn btn-secondary" onclick="clientStartRwLoop(\'' + name + '\')" id="c-' + name + '-rw-loop-btn" style="padding:3px 10px;font-size:10px">Loop All</button>' +
+        '<button class="btn btn-stop" onclick="clientStopRwLoop(\'' + name + '\')" id="c-' + name + '-rw-loop-stop" style="padding:3px 10px;font-size:10px;display:none">Stop Loop</button>' +
+        '<span class="chevron" id="chevron-c-' + name + '-realworld">&#9660;</span></div></div>' +
+        '<div class="card-body" id="section-c-' + name + '-realworld">' +
+        '<div style="padding:8px;background:var(--bg-sub);border:1px solid var(--border);border-radius:6px">' +
+        '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Simulate realistic mixed traffic patterns with one click.</p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">' +
+        '<label style="font-size:11px;color:var(--text-secondary)">Profile</label>' +
+        '<select id="c-' + name + '-rw-profile" style="flex:1;min-width:180px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px" onchange="clientUpdateRwDesc(\'' + name + '\')"></select>' +
+        '<label style="font-size:11px;color:var(--text-secondary)">Duration (s)</label>' +
+        '<input type="number" id="c-' + name + '-rw-duration" value="900" min="30" step="30" style="width:80px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"></div>' +
+        '<div id="c-' + name + '-rw-desc" style="margin-top:6px;font-size:11px;color:var(--text-secondary)"></div>' +
+        '<div id="c-' + name + '-rw-protos" style="margin-top:4px;font-size:11px;display:flex;gap:4px;flex-wrap:wrap"></div></div>' +
+        '<div id="c-' + name + '-rw-stats" style="display:none;margin-top:8px">' +
+        '<div id="c-' + name + '-rw-loop-info" style="display:none;font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:600"></div>' +
+        '<div id="c-' + name + '-rw-children" style="font-size:11px"></div></div></div></div>' +
         // Protocol cards
         '<div class="card"><div class="card-header" onclick="toggleSection(\'c-' + name + '-protos\')"><span>Vortex Generators</span>' +
         '<div style="display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">' +
@@ -1163,6 +1185,7 @@ async function renderClientTab(name) {
     document.body.appendChild(div);
     clientLoadSecurityCatalog(name);
     clientLoadIspScenarios(name);
+    clientLoadRwProfiles(name);
 }
 
 // ─── Client Actions ──────────────────────────────────────────
@@ -1222,6 +1245,108 @@ async function clientClearStats(clientName) {
 async function clientStopAll(clientName) {
     await apiPost('/api/client/' + clientName + '/stop', { protocol: 'all' });
     addClientLog(clientName, '[ALL] Stopping all traffic');
+}
+
+// ─── Real World Traffic (per-client) ────────────────────
+
+var _clientRwProfiles = {};
+
+async function clientLoadRwProfiles(clientName) {
+    try {
+        const resp = await fetch('/api/client/' + clientName + '/realworld/profiles');
+        const profiles = await resp.json();
+        _clientRwProfiles[clientName] = profiles;
+        const sel = document.getElementById('c-' + clientName + '-rw-profile');
+        if (!sel) return;
+        sel.innerHTML = '';
+        for (const [key, profile] of Object.entries(profiles)) {
+            sel.innerHTML += '<option value="' + key + '">' + profile.name + '</option>';
+        }
+        clientUpdateRwDesc(clientName);
+    } catch(e) {}
+}
+
+function clientUpdateRwDesc(clientName) {
+    const sel = document.getElementById('c-' + clientName + '-rw-profile');
+    if (!sel) return;
+    const profiles = _clientRwProfiles[clientName] || {};
+    const profile = profiles[sel.value];
+    if (!profile) return;
+    const descEl = document.getElementById('c-' + clientName + '-rw-desc');
+    if (descEl) descEl.textContent = profile.description;
+    const protosEl = document.getElementById('c-' + clientName + '-rw-protos');
+    if (protosEl) {
+        protosEl.innerHTML = profile.protocols.map(function(p) {
+            return '<span style="padding:2px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:10px">' + p.toUpperCase() + '</span>';
+        }).join('');
+    }
+}
+
+async function clientStartRealWorld(clientName) {
+    var profile = (document.getElementById('c-' + clientName + '-rw-profile') || {}).value || 'office_worker';
+    var duration = parseInt((document.getElementById('c-' + clientName + '-rw-duration') || {}).value || 900);
+    var res = await apiPost('/api/client/' + clientName + '/realworld/start', { profile: profile, duration: duration });
+    addClientLog(clientName, '[REALWORLD] ' + (res.message || res.error || 'sent'));
+    if (res.errors && res.errors.length) {
+        for (var i = 0; i < res.errors.length; i++) addClientLog(clientName, '[REALWORLD] Error: ' + res.errors[i]);
+    }
+}
+
+async function clientStopRealWorld(clientName) {
+    var res = await apiPost('/api/client/' + clientName + '/realworld/stop', {});
+    addClientLog(clientName, '[REALWORLD] ' + (res.message || res.error || 'sent'));
+}
+
+async function clientStartRwLoop(clientName) {
+    var duration = parseInt((document.getElementById('c-' + clientName + '-rw-duration') || {}).value || 300);
+    var res = await apiPost('/api/client/' + clientName + '/realworld/loop/start', { duration: duration });
+    addClientLog(clientName, '[REALWORLD] ' + (res.message || res.error || 'sent'));
+}
+
+async function clientStopRwLoop(clientName) {
+    var res = await apiPost('/api/client/' + clientName + '/realworld/loop/stop', {});
+    addClientLog(clientName, '[REALWORLD] ' + (res.message || res.error || 'sent'));
+}
+
+async function clientPollRealWorldStatus(clientName) {
+    try {
+        var resp = await fetch('/api/client/' + clientName + '/realworld/status');
+        var data = await resp.json();
+        var badge = document.getElementById('c-' + clientName + '-rw-badge');
+        var statsDiv = document.getElementById('c-' + clientName + '-rw-stats');
+
+        // Update loop button states
+        var loopBtn = document.getElementById('c-' + clientName + '-rw-loop-btn');
+        var loopStopBtn = document.getElementById('c-' + clientName + '-rw-loop-stop');
+        var loopInfo = document.getElementById('c-' + clientName + '-rw-loop-info');
+        if (data.loop) {
+            if (loopBtn) loopBtn.style.display = 'none';
+            if (loopStopBtn) loopStopBtn.style.display = '';
+            if (loopInfo) { loopInfo.style.display = ''; loopInfo.textContent = 'Cycle #' + (data.loop_cycle||0) + ' \u2014 ' + ((data.loop_profile||'').replace(/_/g,' ')); }
+        } else {
+            if (loopBtn) loopBtn.style.display = '';
+            if (loopStopBtn) loopStopBtn.style.display = 'none';
+            if (loopInfo) loopInfo.style.display = 'none';
+        }
+
+        if (data.running) {
+            if (badge) { badge.textContent = data.loop ? 'Looping' : 'Running'; badge.classList.add('running'); }
+            if (statsDiv) statsDiv.style.display = 'block';
+            var el = function(id) { return document.getElementById(id); };
+            var childEl = el('c-' + clientName + '-rw-children');
+            if (childEl && data.children) {
+                childEl.innerHTML = Object.entries(data.children).map(function(e) {
+                    var key = e[0], info = e[1];
+                    var color = info.running ? 'var(--success)' : 'var(--text-secondary)';
+                    var label = key.replace('_rw', '').toUpperCase();
+                    return '<span style="color:' + color + ';margin-right:8px">' + label + ': ' + (info.stats.requests||0).toLocaleString() + ' reqs</span>';
+                }).join('');
+            }
+        } else {
+            if (badge) { badge.textContent = 'Stopped'; badge.classList.remove('running'); }
+            if (statsDiv) statsDiv.style.display = 'none';
+        }
+    } catch(e) {}
 }
 
 function clientSelectAll(clientName) {
@@ -2095,6 +2220,7 @@ async function pollAll() {
     } else if (clientList[activeTab]) {
         await pollClientStatus(activeTab);
         clientPollRouterStatus(activeTab);
+        clientPollRealWorldStatus(activeTab);
     }
 }
 
@@ -3241,6 +3367,42 @@ def client_topology(name):
 @app.route('/api/client/<name>/clear_stats', methods=['POST'])
 def client_clear_stats(name):
     result, code = proxy_to_client(name, '/api/clear_stats', 'POST', {})
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/realworld/profiles')
+def client_realworld_profiles(name):
+    result, code = proxy_to_client(name, '/api/realworld/profiles')
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/realworld/start', methods=['POST'])
+def client_realworld_start(name):
+    result, code = proxy_to_client(name, '/api/realworld/start', 'POST', request.json or {})
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/realworld/stop', methods=['POST'])
+def client_realworld_stop(name):
+    result, code = proxy_to_client(name, '/api/realworld/stop', 'POST', {})
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/realworld/status')
+def client_realworld_status(name):
+    result, code = proxy_to_client(name, '/api/realworld/status')
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/realworld/loop/start', methods=['POST'])
+def client_realworld_loop_start(name):
+    result, code = proxy_to_client(name, '/api/realworld/loop/start', 'POST', request.json or {})
+    return jsonify(result), code
+
+
+@app.route('/api/client/<name>/realworld/loop/stop', methods=['POST'])
+def client_realworld_loop_stop(name):
+    result, code = proxy_to_client(name, '/api/realworld/loop/stop', 'POST', {})
     return jsonify(result), code
 
 
