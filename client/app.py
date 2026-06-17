@@ -523,7 +523,10 @@ def topology():
     proto_agg = {}
     for job_key, info in status.items():
         parts = job_key.split('_')
-        if len(parts) >= 3 and parts[-1].isdigit():
+        # Strip flow suffixes: "https_2" (numeric), "https_rw" (realworld)
+        if len(parts) >= 2 and parts[-1] == 'rw':
+            base = '_'.join(parts[:-1])
+        elif len(parts) >= 3 and parts[-1].isdigit():
             base = '_'.join(parts[:-1])
         elif len(parts) == 2 and parts[-1].isdigit():
             base = parts[0]
