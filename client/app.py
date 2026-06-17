@@ -204,8 +204,10 @@ def realworld_stop():
 
 @app.route('/api/realworld/status')
 def realworld_status():
-    if not _realworld_active.get('_jobs'):
-        return jsonify({"running": False, "profile": None})
+    is_looping = _realworld_loop['running']
+
+    if not _realworld_active.get('_jobs') and not is_looping:
+        return jsonify({"running": False, "profile": None, "loop": False})
 
     all_status = engine.get_status()
     total_stats = {"bytes_sent": 0, "bytes_recv": 0, "requests": 0, "errors": 0}
@@ -221,15 +223,20 @@ def realworld_status():
             for k in total_stats:
                 total_stats[k] += info['stats'].get(k, 0)
 
-    if not any_running:
+    # Don't clear active state during loop transitions (brief gap between profiles)
+    if not any_running and not is_looping:
         _realworld_active.clear()
 
+    # If loop is running, report as running even during profile transitions
+    effective_running = any_running or is_looping
+    effective_profile = _realworld_loop.get('current_profile') if is_looping else _realworld_active.get('_profile')
+
     return jsonify({
-        "running": any_running,
-        "profile": _realworld_active.get('_profile'),
+        "running": effective_running,
+        "profile": effective_profile,
         "stats": total_stats,
         "children": child_status,
-        "loop": _realworld_loop['running'],
+        "loop": is_looping,
         "loop_cycle": _realworld_loop.get('cycle', 0),
         "loop_profile": _realworld_loop.get('current_profile'),
     })
@@ -523,7 +530,10 @@ def topology():
     proto_agg = {}
     for job_key, info in status.items():
         parts = job_key.split('_')
-        if len(parts) >= 3 and parts[-1].isdigit():
+        # Strip flow suffixes: "https_2" (numeric), "https_rw" (realworld)
+        if len(parts) >= 2 and parts[-1] == 'rw':
+            base = '_'.join(parts[:-1])
+        elif len(parts) >= 3 and parts[-1].isdigit():
             base = '_'.join(parts[:-1])
         elif len(parts) == 2 and parts[-1].isdigit():
             base = parts[0]

@@ -604,28 +604,32 @@ function updateRealWorldDesc() {
 }
 
 async function startRealWorld() {
-    const profile = document.getElementById('rw-profile')?.value || 'office_worker';
-    const duration = parseInt(document.getElementById('rw-duration')?.value || 900);
-    const res = await apiPost('/api/realworld/start', { profile, duration });
-    addLog(`[REALWORLD] ${res.message}`);
-    if (res.errors && res.errors.length) {
-        for (const err of res.errors) addLog(`[REALWORLD] Error: ${err}`);
+    const loop = document.getElementById('rw-loop')?.checked || false;
+    const totalDuration = parseInt(document.getElementById('rw-duration')?.value || 900);
+
+    if (loop) {
+        // Loop mode: divide total duration equally among profiles
+        const profileCount = Object.keys(_rwProfiles).length || 3;
+        const perProfile = Math.max(60, Math.floor(totalDuration / profileCount));
+        const res = await apiPost('/api/realworld/loop/start', { duration: perProfile });
+        addLog(`[REALWORLD] ${res.message}`);
+    } else {
+        const profile = document.getElementById('rw-profile')?.value || 'office_worker';
+        const res = await apiPost('/api/realworld/start', { profile, duration: totalDuration });
+        addLog(`[REALWORLD] ${res.message}`);
+        if (res.errors && res.errors.length) {
+            for (const err of res.errors) addLog(`[REALWORLD] Error: ${err}`);
+        }
     }
 }
 
 async function stopRealWorld() {
+    const loop = document.getElementById('rw-loop')?.checked || false;
+    if (loop) {
+        const res = await apiPost('/api/realworld/loop/stop', {});
+        addLog(`[REALWORLD] ${res.message}`);
+    }
     const res = await apiPost('/api/realworld/stop', {});
-    addLog(`[REALWORLD] ${res.message}`);
-}
-
-async function startRealWorldLoop() {
-    const duration = parseInt(document.getElementById('rw-duration')?.value || 300);
-    const res = await apiPost('/api/realworld/loop/start', { duration });
-    addLog(`[REALWORLD] ${res.message}`);
-}
-
-async function stopRealWorldLoop() {
-    const res = await apiPost('/api/realworld/loop/stop', {});
     addLog(`[REALWORLD] ${res.message}`);
 }
 
@@ -636,22 +640,20 @@ async function pollRealWorldStatus() {
         const badge = document.getElementById('rw-status-badge');
         const liveStats = document.getElementById('rw-live-stats');
 
-        // Update loop button states
-        const loopBtn = document.getElementById('rw-loop-btn');
-        const loopStopBtn = document.getElementById('rw-loop-stop-btn');
+        // Update loop info
         const loopInfo = document.getElementById('rw-loop-info');
         if (data.loop) {
-            if (loopBtn) loopBtn.style.display = 'none';
-            if (loopStopBtn) loopStopBtn.style.display = '';
             if (loopInfo) { loopInfo.style.display = ''; loopInfo.textContent = `Cycle #${data.loop_cycle} — ${(data.loop_profile||'').replace(/_/g,' ')}`; }
         } else {
-            if (loopBtn) loopBtn.style.display = '';
-            if (loopStopBtn) loopStopBtn.style.display = 'none';
             if (loopInfo) loopInfo.style.display = 'none';
         }
 
         if (data.running) {
-            if (badge) { badge.textContent = data.loop ? 'Looping' : 'Running'; badge.classList.add('running'); }
+            const profileLabel = (data.loop_profile || data.profile || '').replace(/_/g, ' ');
+            if (badge) {
+                badge.textContent = data.loop ? `Looping: ${profileLabel}` : 'Running';
+                badge.classList.add('running');
+            }
             if (liveStats) liveStats.style.display = 'block';
 
             const el = id => document.getElementById(id);
