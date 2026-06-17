@@ -1121,8 +1121,6 @@ async function renderClientTab(name) {
         '<span class="proto-badge" id="c-' + name + '-rw-badge">Stopped</span>' +
         '<button class="btn btn-start" onclick="clientStartRealWorld(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Start</button>' +
         '<button class="btn btn-stop" onclick="clientStopRealWorld(\'' + name + '\')" style="padding:3px 10px;font-size:10px">Stop</button>' +
-        '<button class="btn btn-secondary" onclick="clientStartRwLoop(\'' + name + '\')" id="c-' + name + '-rw-loop-btn" style="padding:3px 10px;font-size:10px">Loop All</button>' +
-        '<button class="btn btn-stop" onclick="clientStopRwLoop(\'' + name + '\')" id="c-' + name + '-rw-loop-stop" style="padding:3px 10px;font-size:10px;display:none">Stop Loop</button>' +
         '<span class="chevron" id="chevron-c-' + name + '-realworld">&#9660;</span></div></div>' +
         '<div class="card-body" id="section-c-' + name + '-realworld">' +
         '<div style="padding:8px;background:var(--bg-sub);border:1px solid var(--border);border-radius:6px">' +
@@ -1131,7 +1129,8 @@ async function renderClientTab(name) {
         '<label style="font-size:11px;color:var(--text-secondary)">Profile</label>' +
         '<select id="c-' + name + '-rw-profile" style="flex:1;min-width:180px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px" onchange="clientUpdateRwDesc(\'' + name + '\')"></select>' +
         '<label style="font-size:11px;color:var(--text-secondary)">Duration (s)</label>' +
-        '<input type="number" id="c-' + name + '-rw-duration" value="900" min="30" step="30" style="width:80px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px"></div>' +
+        '<input type="number" id="c-' + name + '-rw-duration" value="900" min="30" step="30" style="width:80px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
+        '<label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="c-' + name + '-rw-loop" style="cursor:pointer"> Loop</label></div>' +
         '<div id="c-' + name + '-rw-desc" style="margin-top:6px;font-size:11px;color:var(--text-secondary)"></div>' +
         '<div id="c-' + name + '-rw-protos" style="margin-top:4px;font-size:11px;display:flex;gap:4px;flex-wrap:wrap"></div></div>' +
         '<div id="c-' + name + '-rw-stats" style="display:none;margin-top:8px">' +
@@ -1283,28 +1282,33 @@ function clientUpdateRwDesc(clientName) {
 }
 
 async function clientStartRealWorld(clientName) {
-    var profile = (document.getElementById('c-' + clientName + '-rw-profile') || {}).value || 'office_worker';
-    var duration = parseInt((document.getElementById('c-' + clientName + '-rw-duration') || {}).value || 900);
-    var res = await apiPost('/api/client/' + clientName + '/realworld/start', { profile: profile, duration: duration });
-    addClientLog(clientName, '[REALWORLD] ' + (res.message || res.error || 'sent'));
-    if (res.errors && res.errors.length) {
-        for (var i = 0; i < res.errors.length; i++) addClientLog(clientName, '[REALWORLD] Error: ' + res.errors[i]);
+    var loopEl = document.getElementById('c-' + clientName + '-rw-loop');
+    var loop = loopEl ? loopEl.checked : false;
+    var totalDuration = parseInt((document.getElementById('c-' + clientName + '-rw-duration') || {}).value || 900);
+
+    if (loop) {
+        var profiles = _clientRwProfiles[clientName] || {};
+        var profileCount = Object.keys(profiles).length || 3;
+        var perProfile = Math.max(60, Math.floor(totalDuration / profileCount));
+        var res = await apiPost('/api/client/' + clientName + '/realworld/loop/start', { duration: perProfile });
+        addClientLog(clientName, '[REALWORLD] ' + (res.message || res.error || 'sent'));
+    } else {
+        var profile = (document.getElementById('c-' + clientName + '-rw-profile') || {}).value || 'office_worker';
+        var res = await apiPost('/api/client/' + clientName + '/realworld/start', { profile: profile, duration: totalDuration });
+        addClientLog(clientName, '[REALWORLD] ' + (res.message || res.error || 'sent'));
+        if (res.errors && res.errors.length) {
+            for (var i = 0; i < res.errors.length; i++) addClientLog(clientName, '[REALWORLD] Error: ' + res.errors[i]);
+        }
     }
 }
 
 async function clientStopRealWorld(clientName) {
+    var loopEl = document.getElementById('c-' + clientName + '-rw-loop');
+    var loop = loopEl ? loopEl.checked : false;
+    if (loop) {
+        await apiPost('/api/client/' + clientName + '/realworld/loop/stop', {});
+    }
     var res = await apiPost('/api/client/' + clientName + '/realworld/stop', {});
-    addClientLog(clientName, '[REALWORLD] ' + (res.message || res.error || 'sent'));
-}
-
-async function clientStartRwLoop(clientName) {
-    var duration = parseInt((document.getElementById('c-' + clientName + '-rw-duration') || {}).value || 300);
-    var res = await apiPost('/api/client/' + clientName + '/realworld/loop/start', { duration: duration });
-    addClientLog(clientName, '[REALWORLD] ' + (res.message || res.error || 'sent'));
-}
-
-async function clientStopRwLoop(clientName) {
-    var res = await apiPost('/api/client/' + clientName + '/realworld/loop/stop', {});
     addClientLog(clientName, '[REALWORLD] ' + (res.message || res.error || 'sent'));
 }
 
@@ -1315,17 +1319,11 @@ async function clientPollRealWorldStatus(clientName) {
         var badge = document.getElementById('c-' + clientName + '-rw-badge');
         var statsDiv = document.getElementById('c-' + clientName + '-rw-stats');
 
-        // Update loop button states
-        var loopBtn = document.getElementById('c-' + clientName + '-rw-loop-btn');
-        var loopStopBtn = document.getElementById('c-' + clientName + '-rw-loop-stop');
+        // Update loop info
         var loopInfo = document.getElementById('c-' + clientName + '-rw-loop-info');
         if (data.loop) {
-            if (loopBtn) loopBtn.style.display = 'none';
-            if (loopStopBtn) loopStopBtn.style.display = '';
             if (loopInfo) { loopInfo.style.display = ''; loopInfo.textContent = 'Cycle #' + (data.loop_cycle||0) + ' \u2014 ' + ((data.loop_profile||'').replace(/_/g,' ')); }
         } else {
-            if (loopBtn) loopBtn.style.display = '';
-            if (loopStopBtn) loopStopBtn.style.display = 'none';
             if (loopInfo) loopInfo.style.display = 'none';
         }
 
