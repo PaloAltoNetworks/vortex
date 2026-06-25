@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    iproute2 iptables iputils-ping iperf3 hping3 curl nginx openssl supervisor sudo openssh-client sshpass traceroute dnsutils tcpreplay apache2-utils \
+    iproute2 iptables iputils-ping iperf3 hping3 curl nginx openssl supervisor sudo openssh-client sshpass traceroute dnsutils tcpreplay apache2-utils ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user with passwordless sudo for network commands
