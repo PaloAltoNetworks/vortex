@@ -15,6 +15,7 @@ docker run -d --name vortex-server \
   -p 5201:5201 -p 5201:5201/udp \
   -p 5202:5202 -p 5202:5202/udp \
   -p 5203:5203 -p 5203:5203/udp \
+  -p 5000:5000 \
   -p 5004-5007:5004-5007/udp \
   -p 9999:9999 -p 53:53/udp \
   -p 21:21 -p 21100-21110:21100-21110 \
@@ -154,6 +155,7 @@ docker compose up -d
 | Port | Service |
 |------|---------|
 | 80 | HTTP (nginx) |
+| 5000 | Flask API (multicast/RTP coordination) |
 | 443 | HTTPS (self-signed cert, HTTP/2) |
 | 5201-5203 | iperf3 (3 instances) |
 | 5004-5007/udp | RTP video/audio + RTCP, multicast |
