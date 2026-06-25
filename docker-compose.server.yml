@@ -3,6 +3,9 @@ services:
     build: ./server
     image: ajaymare/vortex-server:latest
     container_name: vortex-server
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     ports:
       - "80:80"
       - "443:443"
@@ -12,6 +15,7 @@ services:
       - "5202:5202/udp"
       - "5203:5203"
       - "5203:5203/udp"
+      - "5004-5007:5004-5007/udp"
       - "9999:9999"
       - "53:53/udp"
       - "21:21"

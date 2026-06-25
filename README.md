@@ -10,10 +10,12 @@ Docker-based network traffic generation, security validation, and performance te
 
 ```bash
 docker run -d --name vortex-server \
+  --cap-add NET_ADMIN --cap-add NET_RAW \
   -p 80:80 -p 443:443 \
   -p 5201:5201 -p 5201:5201/udp \
   -p 5202:5202 -p 5202:5202/udp \
   -p 5203:5203 -p 5203:5203/udp \
+  -p 5004-5007:5004-5007/udp \
   -p 9999:9999 -p 53:53/udp \
   -p 21:21 -p 21100-21110:21100-21110 \
   -p 2222:2222 \
@@ -64,12 +66,12 @@ docker compose up -d
 |----------|------|-------------|
 | HTTPS | ab / requests / Playwright | High-CPS mode (default), standard requests, or browser mode with HTTP/2 support |
 | HTTP (Plain) | ab / requests / Playwright | High-CPS mode (default) on port 9999, standard requests, or browser mode |
-| UDP | Python sockets | Raw UDP datagram generator with PPS control, DSCP, and ramping |
+| RTP Audio/Video | ffmpeg | Real-time H.264 video + Opus/G.711 audio RTP streams for App-ID classification and QoS testing |
+| Multicast | Python sockets / IGMP | IGMP join + UDP multicast receive — validates PIM, IGMP snooping, multicast routing |
 | iperf3 | iperf3 CLI | TCP/UDP bandwidth testing with parallel streams and reverse mode |
-| hping3 | hping3 CLI | ICMP, TCP SYN/ACK/FIN, UDP, Traceroute with flood mode |
 | DNS | dig | DNS queries to configurable domains via built-in DNS server |
 | FTP | ftplib | Continuous file download/upload with progress logging |
-| SSH | paramiko | Repeated command execution over SSH |
+| SSH | sshpass + ssh | Repeated command execution over SSH |
 | External HTTPS | requests / Playwright | Multi-URL round-robin to external sites |
 
 ## Key Features
@@ -77,15 +79,25 @@ docker compose up -d
 ### High-CPS Engine
 - **Connections-per-second testing** using Apache Bench (`ab`) for HTTP and HTTPS
 - New TCP connection per request (no keepalive) — measures real connection setup rate
-- **Ramping**: Gradually increase CPS from start value to target in configurable steps
+- **Ramping**: Gradually increase CPS from start value to target in configurable steps (enabled by default)
+- **Random packet sizes** enabled by default for realistic traffic patterns
 - Per-chunk stats every 5 seconds: CPS, avg latency, P99 latency, request count, errors
 - Configurable concurrency (parallel workers)
 
-### UDP Traffic Generator
-- Raw Python UDP sockets with precise PPS (packets-per-second) rate control
-- Per-second logging: PPS, Mbps, total packets, errors
-- DSCP marking, configurable packet size
-- Ramping support: step-based PPS increase over time
+### RTP Audio/Video
+- Real RTP streams via **ffmpeg** with proper codec headers (H.264 video, Opus/G.711 audio)
+- Firewalls see authentic `rtp` and `rtcp` App-IDs
+- Three modes: **Video Call** (bidirectional), **Streaming** (unidirectional), **Audio Only**
+- DSCP marking: Video = AF41, Audio = EF (configurable)
+- Configurable resolution (320x240 to 1920x1080), bitrate, and codec
+- Server receives streams and sends RTCP feedback; bidirectional mode sends RTP both ways
+
+### Multicast Traffic
+- Server sends sequenced UDP multicast, client joins via **IGMP** and receives
+- Tests IGMP snooping, PIM routing, and multicast forwarding on firewalls
+- Per-second stats: PPS, packet loss percentage (via sequence number tracking)
+- Configurable multicast group (default 239.1.1.1), TTL, packet size, target PPS
+- Note: Firewall must have PIM/IGMP configured for multicast routing between subnets
 
 ### Security Testing (NGFW Validation)
 - **30+ attack simulations** across 6 categories:
@@ -144,6 +156,7 @@ docker compose up -d
 | 80 | HTTP (nginx) |
 | 443 | HTTPS (self-signed cert, HTTP/2) |
 | 5201-5203 | iperf3 (3 instances) |
+| 5004-5007/udp | RTP video/audio + RTCP, multicast |
 | 9999 | HTTP echo server + security test endpoints |
 | 53 | DNS server |
 | 21 | FTP (passive: 21100-21110) |

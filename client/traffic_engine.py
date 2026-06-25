@@ -44,6 +44,7 @@ REALWORLD_PROFILES = {
         'protocols': [
             {'protocol': 'https', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 3, 'ignore_ssl': True,
+                'random_size': True, 'ramp_enabled': True,
                 'dscp': 'AF21'}},
             {'protocol': 'ext_https', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 5, 'ignore_ssl': True,
@@ -51,6 +52,7 @@ REALWORLD_PROFILES = {
                 'dscp': 'AF21'}},
             {'protocol': 'http_plain', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 5,
+                'random_size': True, 'ramp_enabled': True,
                 'dscp': 'BE'}},
             {'protocol': 'dns', 'flow_id': 'rw', 'config': {
                 'interval': 0.5, 'dscp': 'CS6',
@@ -61,10 +63,11 @@ REALWORLD_PROFILES = {
     },
     'remote_worker': {
         'name': 'Remote Worker',
-        'description': 'VPN-heavy: browser HTTPS, video-call UDP (EF), SaaS apps, SSH tunnels',
+        'description': 'VPN-heavy: browser HTTPS, video-call RTP (EF/AF41), SaaS apps, SSH tunnels',
         'protocols': [
             {'protocol': 'https', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 3, 'ignore_ssl': True,
+                'random_size': True, 'ramp_enabled': True,
                 'dscp': 'AF21'}},
             {'protocol': 'ext_https', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 5, 'ignore_ssl': True,
@@ -73,19 +76,21 @@ REALWORLD_PROFILES = {
             {'protocol': 'dns', 'flow_id': 'rw', 'config': {
                 'interval': 0.3, 'dscp': 'CS6',
                 'domains': 'google.com\nmicrosoft.com\nzoom.us\nteams.microsoft.com\nslack.com\ngithub.com'}},
-            {'protocol': 'udp', 'flow_id': 'rw', 'config': {
-                'port': 5201, 'packet_size': 1200, 'target_pps': 200,
-                'dscp': 'EF'}},
+            {'protocol': 'rtp', 'flow_id': 'rw', 'config': {
+                'mode': 'Video Call', 'video_bitrate': '500k',
+                'audio_bitrate': '64k', 'resolution': '640x480',
+                'dscp_video': 'AF41', 'dscp_audio': 'EF'}},
             {'protocol': 'ssh', 'flow_id': 'rw', 'config': {
                 'interval': 5, 'command': 'ls -la /tmp', 'dscp': 'CS2'}},
         ],
     },
     'branch_office': {
         'name': 'Branch Office',
-        'description': 'Multi-user branch: browser web, SaaS apps, bulk FTP (AF11), video UDP (AF41), DNS',
+        'description': 'Multi-user branch: browser web, SaaS apps, bulk FTP (AF11), video RTP (AF41), multicast, DNS',
         'protocols': [
             {'protocol': 'https', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 2, 'ignore_ssl': True,
+                'random_size': True, 'ramp_enabled': True,
                 'dscp': 'AF21'}},
             {'protocol': 'ext_https', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 4, 'ignore_ssl': True,
@@ -93,17 +98,22 @@ REALWORLD_PROFILES = {
                 'dscp': 'AF21'}},
             {'protocol': 'http_plain', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 5,
+                'random_size': True, 'ramp_enabled': True,
                 'dscp': 'BE'}},
             {'protocol': 'dns', 'flow_id': 'rw', 'config': {
                 'interval': 0.2, 'dscp': 'CS6',
                 'domains': 'google.com\namazon.com\nmicrosoft.com\ngithub.com\ncloudflare.com\noffice365.com\naws.amazon.com\nazure.microsoft.com'}},
             {'protocol': 'ftp', 'flow_id': 'rw', 'config': {
-                'filename': 'testfile_100mb.bin', 'dscp': 'AF11'}},
+                'filename': 'testfile_100mb.bin', 'random_size': True,
+                'dscp': 'AF11'}},
             {'protocol': 'ssh', 'flow_id': 'rw', 'config': {
                 'interval': 8, 'command': 'uptime', 'dscp': 'CS2'}},
-            {'protocol': 'udp', 'flow_id': 'rw', 'config': {
-                'port': 5201, 'packet_size': 1200, 'target_pps': 150,
-                'dscp': 'AF41'}},
+            {'protocol': 'rtp', 'flow_id': 'rw', 'config': {
+                'mode': 'Streaming', 'video_bitrate': '2M',
+                'resolution': '1280x720', 'dscp_video': 'AF41'}},
+            {'protocol': 'multicast', 'flow_id': 'rw', 'config': {
+                'group': '239.1.1.1', 'port': 5004, 'packet_size': 1200,
+                'target_pps': 50, 'dscp': 'AF41'}},
         ],
     },
 }
@@ -1080,88 +1090,319 @@ class TrafficEngine:
 
         job.log("Browser mode stopped")
 
-    # ─── hping3 ─────────────────────────────────────────────
+    # ─── Multicast ─────────────────────────────────────────
 
-    def _run_hping3(self, job: TrafficJob):
+    def _run_multicast(self, job: TrafficJob):
+        """Multicast traffic: IGMP join + receive UDP multicast from server."""
         cfg = job.config
-        host = cfg.get('host', 'server')
-        mode = cfg.get('mode', 'ICMP')
-        port = int(cfg.get('port', 0))
-        packet_size = int(cfg.get('packet_size', 64))
-        count = int(cfg.get('count', 0))
-        interval_cfg = float(cfg.get('interval', 1))
-        flood = cfg.get('flood', False)
-        ttl = int(cfg.get('ttl', 64))
-        dscp = cfg.get('dscp', 'BE')
-        tos = _dscp_to_tos(dscp)
+        group = cfg.get('group', '239.1.1.1')
+        port = int(cfg.get('port', 5004))
+        ttl = int(cfg.get('ttl', 32))
+        packet_size = int(cfg.get('packet_size', 1200))
+        target_pps = int(cfg.get('target_pps', 100))
+        dscp = cfg.get('dscp', 'AF41')
+        server = cfg.get('host', os.environ.get('SERVER_HOST', 'server'))
 
-        # hping3 requires raw sockets — run via sudo (NOPASSWD configured)
-        # -n: skip reverse DNS lookups (avoids "name=UNKNOWN" delays)
-        cmd = ['sudo', 'hping3', host, '-n', '--ttl', str(ttl), '-d', str(packet_size)]
+        # Extended stats
+        job.stats['pps'] = 0
+        job.stats['loss_pct'] = 0.0
 
-        # Mode flags
-        mode_map = {
-            'ICMP': ['--icmp'],
-            'TCP SYN': ['-S', '-p', str(port or 80)],
-            'TCP ACK': ['-A', '-p', str(port or 80)],
-            'TCP FIN': ['-F', '-p', str(port or 80)],
-            'UDP': ['--udp', '-p', str(port or 53)],
-            'Traceroute': ['--traceroute', '--icmp'],
-        }
-        cmd.extend(mode_map.get(mode, ['--icmp']))
+        # Step 1: Tell the server to start sending multicast
+        try:
+            resp = requests.post(f'http://{server}:5000/api/multicast/start', json={
+                'group': group, 'port': port, 'ttl': ttl,
+                'packet_size': packet_size, 'pps': target_pps, 'dscp': dscp
+            }, timeout=10)
+            result = resp.json()
+            job.log(f"Server multicast sender: {result.get('message', 'started')}")
+        except Exception as e:
+            job.log(f"WARNING: Could not start server multicast sender: {e}")
+            job.log("Continuing — server may need manual multicast configuration")
 
-        if tos > 0:
-            cmd.extend(['--tos', str(tos)])
+        # Step 2: Create multicast receiver socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('', port))
 
-        if flood:
-            cmd.append('--flood')
-        else:
-            # hping3 interval is in microseconds with -i, or use -i uN
-            interval_us = int(interval_cfg * 1000000)
-            cmd.extend(['-i', f'u{interval_us}'])
+        # IGMP join
+        mreq = struct.pack('4sl', socket.inet_aton(group), socket.INADDR_ANY)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        sock.settimeout(2.0)
 
-        if count > 0:
-            cmd.extend(['-c', str(count)])
+        job.log(f"Multicast IGMP JOIN {group}:{port} TTL={ttl} target_pps={target_pps} DSCP={dscp}")
+        job.log(f"NOTE: Firewall must have PIM/IGMP configured for multicast routing")
 
-        mode_str = f"{mode} port={port}" if 'TCP' in mode or mode == 'UDP' else mode
-        job.log(f"hping3 {host} mode={mode_str} size={packet_size} ttl={ttl} "
-                f"flood={flood} DSCP={dscp}(TOS={tos})")
+        # Step 3: Receive loop with per-second stats
+        window_start = time.time()
+        window_count = 0
+        last_seq = -1
 
         try:
-            job.log(f"hping3 cmd: {' '.join(cmd)}")
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            import select
-            while not job.should_stop() and proc.poll() is None:
-                # Read from both stdout and stderr
-                readable, _, _ = select.select([proc.stdout, proc.stderr], [], [], 0.5)
-                for stream in readable:
-                    line = stream.readline()
-                    if line:
-                        stripped = line.strip()
-                        if stripped:
-                            job.stats['requests'] += 1
-                            job.stats['bytes_sent'] += packet_size
-                            if 'rtt=' in stripped or 'flags=' in stripped or 'ip=' in stripped:
-                                job.stats['bytes_recv'] += packet_size
-                            job.log(f"hping3 {host} → {stripped}")
-            if proc.poll() is None:
-                proc.terminate()
-                proc.wait(timeout=5)
-            # Read remaining output from both streams
-            for stream in (proc.stdout, proc.stderr):
-                remaining = stream.read()
-                if remaining:
-                    for line in remaining.strip().split('\n'):
-                        if line.strip():
-                            job.log(f"hping3 {host} → {line.strip()}")
-            rc = proc.returncode
-            if rc and rc != -15:  # -15 is SIGTERM (normal stop)
-                job.log(f"hping3 exited with code {rc}")
-        except Exception as e:
-            job.stats['errors'] += 1
-            job.log(f"hping3 error: {e}")
+            while not job.should_stop():
+                try:
+                    data, addr = sock.recvfrom(65535)
+                    job.stats['bytes_recv'] += len(data)
+                    job.stats['requests'] += 1
+                    window_count += 1
+
+                    # Parse sequence number from first 4 bytes for loss detection
+                    if len(data) >= 4:
+                        seq = struct.unpack('!I', data[:4])[0]
+                        if last_seq >= 0 and seq > last_seq + 1:
+                            lost = seq - last_seq - 1
+                            job.stats['errors'] += lost
+                        last_seq = seq
+
+                except socket.timeout:
+                    pass
+
+                now = time.time()
+                if now - window_start >= 1.0:
+                    elapsed = now - window_start
+                    pps = window_count / elapsed
+                    total = job.stats['requests'] + job.stats['errors']
+                    loss = (job.stats['errors'] / total * 100) if total > 0 else 0
+                    job.stats['pps'] = round(pps, 1)
+                    job.stats['loss_pct'] = round(loss, 2)
+                    job.log(f"Multicast {group}:{port} | {pps:.0f} pps, "
+                            f"recv={job.stats['requests']} loss={loss:.1f}%")
+                    window_start = now
+                    window_count = 0
+        finally:
+            # Cleanup: leave group, stop server sender
+            try:
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
+            except Exception:
+                pass
+            sock.close()
+            try:
+                requests.post(f'http://{server}:5000/api/multicast/stop', timeout=5)
+            except Exception:
+                pass
 
         job.log("Stopped")
+
+    # ─── RTP Audio/Video ─────────────────────────────────────
+
+    def _run_rtp(self, job: TrafficJob):
+        """RTP Audio/Video via ffmpeg — generates real RTP streams for firewall App-ID testing."""
+        cfg = job.config
+        server = cfg.get('host', os.environ.get('SERVER_HOST', 'server'))
+        mode = cfg.get('mode', 'Video Call')
+        audio_codec = cfg.get('audio_codec', 'opus')
+        resolution = cfg.get('resolution', '640x480')
+        video_bitrate = cfg.get('video_bitrate', '1M')
+        audio_bitrate = cfg.get('audio_bitrate', '64k')
+        video_port = int(cfg.get('video_port', 5004))
+        audio_port = int(cfg.get('audio_port', 5006))
+        dscp_video = cfg.get('dscp_video', 'AF41')
+        dscp_audio = cfg.get('dscp_audio', 'EF')
+
+        running_procs = []
+        iptables_rules = []
+
+        try:
+            # Set DSCP marking via iptables (ffmpeg can't set TOS on RTP output)
+            if mode in ('Video Call', 'Streaming'):
+                tos_v = _dscp_to_tos(dscp_video)
+                if tos_v > 0:
+                    rule_v = ['sudo', 'iptables', '-t', 'mangle', '-A', 'OUTPUT',
+                              '-p', 'udp', '--dport', str(video_port),
+                              '-j', 'TOS', '--set-tos', str(tos_v)]
+                    try:
+                        subprocess.run(rule_v, capture_output=True, timeout=5)
+                        iptables_rules.append(rule_v)
+                        job.log(f"DSCP marking: port {video_port} → {dscp_video} (TOS={tos_v})")
+                    except Exception as e:
+                        job.log(f"WARNING: Could not set DSCP for video: {e}")
+
+            if mode in ('Video Call', 'Audio Only'):
+                tos_a = _dscp_to_tos(dscp_audio)
+                if tos_a > 0:
+                    rule_a = ['sudo', 'iptables', '-t', 'mangle', '-A', 'OUTPUT',
+                              '-p', 'udp', '--dport', str(audio_port),
+                              '-j', 'TOS', '--set-tos', str(tos_a)]
+                    try:
+                        subprocess.run(rule_a, capture_output=True, timeout=5)
+                        iptables_rules.append(rule_a)
+                        job.log(f"DSCP marking: port {audio_port} → {dscp_audio} (TOS={tos_a})")
+                    except Exception as e:
+                        job.log(f"WARNING: Could not set DSCP for audio: {e}")
+
+            # Tell server to start RTP receiver
+            try:
+                resp = requests.post(f'http://{server}:5000/api/rtp/receive', json={
+                    'video_port': video_port, 'audio_port': audio_port, 'mode': mode
+                }, timeout=10)
+                result = resp.json()
+                job.log(f"Server RTP receiver: {result.get('message', 'started')}")
+            except Exception as e:
+                job.log(f"WARNING: Could not start server RTP receiver: {e}")
+
+            # For Video Call mode, also have the server send RTP back to us
+            if mode == 'Video Call':
+                try:
+                    # Detect our own IP as seen by the server
+                    client_ip = self._get_client_ip(server)
+                    resp = requests.post(f'http://{server}:5000/api/rtp/start', json={
+                        'client_ip': client_ip,
+                        'video_port': video_port + 10,  # offset to avoid port conflict
+                        'audio_port': audio_port + 10,
+                        'resolution': resolution,
+                        'video_bitrate': video_bitrate,
+                        'audio_codec': audio_codec,
+                        'audio_bitrate': audio_bitrate,
+                    }, timeout=10)
+                    result = resp.json()
+                    job.log(f"Server RTP sender (bidirectional): {result.get('message', 'started')}")
+                except Exception as e:
+                    job.log(f"WARNING: Could not start server RTP sender: {e}")
+
+            # Launch ffmpeg processes
+            if mode in ('Video Call', 'Streaming'):
+                video_cmd = [
+                    'ffmpeg', '-re', '-nostdin',
+                    '-f', 'lavfi', '-i', f'testsrc=size={resolution}:rate=30',
+                    '-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency',
+                    '-b:v', video_bitrate, '-g', '30',
+                    '-f', 'rtp', f'rtp://{server}:{video_port}?pkt_size=1200'
+                ]
+                try:
+                    proc = subprocess.Popen(video_cmd, stdout=subprocess.PIPE,
+                                            stderr=subprocess.PIPE, text=True)
+                    running_procs.append(('video', proc))
+                    job.log(f"RTP Video: H.264 {resolution} {video_bitrate} → "
+                            f"{server}:{video_port} DSCP={dscp_video} (PID {proc.pid})")
+                except Exception as e:
+                    job.stats['errors'] += 1
+                    job.log(f"ffmpeg video failed to start: {e}")
+
+            if mode in ('Video Call', 'Audio Only'):
+                if audio_codec == 'opus':
+                    audio_cmd = [
+                        'ffmpeg', '-re', '-nostdin',
+                        '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000',
+                        '-c:a', 'libopus', '-b:a', audio_bitrate,
+                        '-f', 'rtp', f'rtp://{server}:{audio_port}?pkt_size=160'
+                    ]
+                else:  # g711 / pcm_alaw
+                    audio_cmd = [
+                        'ffmpeg', '-re', '-nostdin',
+                        '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=8000',
+                        '-c:a', 'pcm_alaw', '-ar', '8000', '-ac', '1',
+                        '-f', 'rtp', f'rtp://{server}:{audio_port}?pkt_size=160'
+                    ]
+                try:
+                    proc = subprocess.Popen(audio_cmd, stdout=subprocess.PIPE,
+                                            stderr=subprocess.PIPE, text=True)
+                    running_procs.append(('audio', proc))
+                    job.log(f"RTP Audio: {audio_codec} {audio_bitrate} → "
+                            f"{server}:{audio_port} DSCP={dscp_audio} (PID {proc.pid})")
+                except Exception as e:
+                    job.stats['errors'] += 1
+                    job.log(f"ffmpeg audio failed to start: {e}")
+
+            if not running_procs:
+                job.log("ERROR: No ffmpeg processes started")
+                return
+
+            # Monitor loop — parse ffmpeg stderr for progress
+            import re as _re
+            last_log = time.time()
+            while not job.should_stop():
+                all_exited = True
+                for label, proc in running_procs:
+                    if proc.poll() is not None:
+                        continue
+                    all_exited = False
+
+                if all_exited:
+                    job.log("All ffmpeg processes exited")
+                    break
+
+                # Parse ffmpeg stderr for stats every 2 seconds
+                now = time.time()
+                if now - last_log >= 2.0:
+                    for label, proc in running_procs:
+                        if proc.poll() is not None:
+                            continue
+                        # Non-blocking read of stderr
+                        import select
+                        readable, _, _ = select.select([proc.stderr], [], [], 0)
+                        lines = []
+                        for stream in readable:
+                            while True:
+                                line = stream.readline()
+                                if not line:
+                                    break
+                                lines.append(line.strip())
+
+                        for line in lines:
+                            # Parse: frame= 120 fps= 30 ... size= 456kB ...
+                            size_match = _re.search(r'size=\s*([\d.]+)(\w+)', line)
+                            if size_match:
+                                size_val = float(size_match.group(1))
+                                unit = size_match.group(2).lower()
+                                if 'kb' in unit:
+                                    size_bytes = int(size_val * 1024)
+                                elif 'mb' in unit:
+                                    size_bytes = int(size_val * 1024 * 1024)
+                                else:
+                                    size_bytes = int(size_val)
+                                job.stats['bytes_sent'] = max(job.stats['bytes_sent'], size_bytes)
+
+                            frame_match = _re.search(r'frame=\s*(\d+)', line)
+                            if frame_match:
+                                job.stats['requests'] = max(job.stats['requests'],
+                                                            int(frame_match.group(1)))
+
+                            bitrate_match = _re.search(r'bitrate=\s*([\d.]+)(\w+)', line)
+                            if bitrate_match:
+                                job.log(f"RTP {label}: {line}")
+
+                    last_log = now
+
+                time.sleep(0.5)
+
+        finally:
+            # Cleanup: terminate ffmpeg processes
+            for label, proc in running_procs:
+                if proc.poll() is None:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                    job.log(f"ffmpeg {label} terminated")
+
+            # Clean up iptables DSCP rules
+            for rule in iptables_rules:
+                cleanup = list(rule)
+                cleanup[cleanup.index('-A')] = '-D'
+                try:
+                    subprocess.run(cleanup, capture_output=True, timeout=5)
+                except Exception:
+                    pass
+
+            # Stop server RTP processes
+            try:
+                requests.post(f'http://{server}:5000/api/rtp/stop', timeout=5)
+            except Exception:
+                pass
+
+        job.log("Stopped")
+
+    @staticmethod
+    def _get_client_ip(server_host):
+        """Detect our IP address as seen when connecting to the server."""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect((server_host, 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return '0.0.0.0'
 
     # ─── PCAP Replay ───────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 const SRV = (typeof SERVER_HOST !== 'undefined') ? SERVER_HOST : 'server';
 
 const DSCP_OPTIONS = ['BE','CS1','AF11','AF12','AF13','CS2','AF21','AF22','AF23','CS3','AF31','AF32','AF33','CS4','AF41','AF42','AF43','CS5','VA','EF','CS6','CS7'];
-const ADVANCED_KEYS = ['browser_mode', 'browser_type', 'proxy', 'dscp', 'rate_pps', 'burst_enabled', 'burst_count', 'burst_pause', 'target_cps', 'concurrency', 'ramp_enabled', 'ramp_start_cps', 'ramp_steps'];
+const ADVANCED_KEYS = ['browser_mode', 'browser_type', 'proxy', 'dscp', 'dscp_video', 'dscp_audio', 'rate_pps', 'burst_enabled', 'burst_count', 'burst_pause', 'target_cps', 'concurrency', 'ramp_enabled', 'ramp_start_cps', 'ramp_steps'];
 
 const PROTOCOLS = {
     https: {
@@ -11,7 +11,7 @@ const PROTOCOLS = {
             { key: 'highcps_mode', label: 'High-CPS Mode', type: 'checkbox', default: true },
             { key: 'target_cps', label: 'Target CPS', type: 'number', default: 100, step: 10 },
             { key: 'concurrency', label: 'Concurrency', type: 'number', default: 50, step: 10 },
-            { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: false },
+            { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: true },
             { key: 'ramp_start_cps', label: 'Ramp Start CPS', type: 'number', default: 10, step: 10 },
             { key: 'ramp_steps', label: 'Ramp Steps', type: 'number', default: 5, step: 1 },
             { key: 'url', label: 'URL', type: 'text', get default() { return `https://${SRV}/`; } },
@@ -21,7 +21,7 @@ const PROTOCOLS = {
             { key: 'http2', label: 'HTTP/2', type: 'checkbox', default: false },
             { key: 'ignore_ssl', label: 'Ignore SSL', type: 'checkbox', default: true },
             { key: 'upload', label: 'Upload Mode', type: 'checkbox', default: false },
-            { key: 'random_size', label: 'Random Size', type: 'checkbox', default: false },
+            { key: 'random_size', label: 'Random Size', type: 'checkbox', default: true },
             { key: 'browser_mode', label: 'Browser Mode', type: 'checkbox', default: false },
             { key: 'browser_type', label: 'Browser', type: 'select', options: ['Random', 'Chromium', 'Firefox', 'WebKit'], default: 'Random' },
             { key: 'proxy', label: 'Proxy', type: 'select', options: ['Global', 'On', 'Off', 'Custom'], default: 'Global' },
@@ -49,19 +49,17 @@ const PROTOCOLS = {
             { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
         ]
     },
-    hping3: {
-        name: 'hping3',
-        appId: 'ping, ip-protocol-custom',
+    multicast: {
+        name: 'Multicast',
+        appId: 'igmp, udp',
         fields: [
-            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; } },
-            { key: 'mode', label: 'Mode', type: 'select', options: ['ICMP', 'TCP SYN', 'TCP ACK', 'TCP FIN', 'UDP', 'Traceroute'], default: 'ICMP' },
-            { key: 'port', label: 'Dest Port', type: 'number', default: 0 },
-            { key: 'packet_size', label: 'Data Size (B)', type: 'number', default: 64 },
-            { key: 'count', label: 'Count (0=cont)', type: 'number', default: 0 },
-            { key: 'interval', label: 'Interval (s)', type: 'number', default: 1, step: 0.1 },
-            { key: 'flood', label: 'Flood Mode', type: 'checkbox', default: false },
-            { key: 'ttl', label: 'TTL', type: 'number', default: 64 },
-            { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
+            { key: 'host', label: 'Server Host', type: 'text', get default() { return SRV; } },
+            { key: 'group', label: 'Multicast Group', type: 'text', default: '239.1.1.1' },
+            { key: 'port', label: 'Port', type: 'number', default: 5004 },
+            { key: 'ttl', label: 'TTL', type: 'number', default: 32 },
+            { key: 'packet_size', label: 'Packet Size (B)', type: 'number', default: 1200, step: 64 },
+            { key: 'target_pps', label: 'Target PPS', type: 'number', default: 100, step: 10 },
+            { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'AF41' },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
             { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
         ]
@@ -73,7 +71,7 @@ const PROTOCOLS = {
             { key: 'highcps_mode', label: 'High-CPS Mode', type: 'checkbox', default: true },
             { key: 'target_cps', label: 'Target CPS', type: 'number', default: 100, step: 10 },
             { key: 'concurrency', label: 'Concurrency', type: 'number', default: 50, step: 10 },
-            { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: false },
+            { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: true },
             { key: 'ramp_start_cps', label: 'Ramp Start CPS', type: 'number', default: 10, step: 10 },
             { key: 'ramp_steps', label: 'Ramp Steps', type: 'number', default: 5, step: 1 },
             { key: 'host', label: 'Host', type: 'text', get default() { return SRV; } },
@@ -81,7 +79,7 @@ const PROTOCOLS = {
             { key: 'method', label: 'Method', type: 'select', options: ['GET', 'POST'], default: 'GET' },
             { key: 'data_size_kb', label: 'Data Size (KB)', type: 'number', default: 1 },
             { key: 'interval', label: 'Interval (s)', type: 'number', default: 1, step: 0.1 },
-            { key: 'random_size', label: 'Random Size', type: 'checkbox', default: false },
+            { key: 'random_size', label: 'Random Size', type: 'checkbox', default: true },
             { key: 'browser_mode', label: 'Browser Mode', type: 'checkbox', default: false },
             { key: 'browser_type', label: 'Browser', type: 'select', options: ['Random', 'Chromium', 'Firefox', 'WebKit'], default: 'Random' },
             { key: 'proxy', label: 'Proxy', type: 'select', options: ['Global', 'On', 'Off', 'Custom'], default: 'Global' },
@@ -112,18 +110,20 @@ const PROTOCOLS = {
             { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
         ]
     },
-    udp: {
-        name: 'UDP',
-        appId: 'iperf',
+    rtp: {
+        name: 'RTP Audio/Video',
+        appId: 'rtp, rtcp',
         fields: [
-            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; } },
-            { key: 'port', label: 'Port', type: 'number', default: 5201 },
-            { key: 'packet_size', label: 'Packet Size (B)', type: 'number', default: 512, step: 64 },
-            { key: 'target_pps', label: 'Target PPS', type: 'number', default: 100, step: 10 },
-            { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: false },
-            { key: 'ramp_start_pps', label: 'Ramp Start PPS', type: 'number', default: 10, step: 10 },
-            { key: 'ramp_steps', label: 'Ramp Steps', type: 'number', default: 5, step: 1 },
-            { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
+            { key: 'host', label: 'Server Host', type: 'text', get default() { return SRV; } },
+            { key: 'mode', label: 'Mode', type: 'select', options: ['Video Call', 'Streaming', 'Audio Only'], default: 'Video Call' },
+            { key: 'resolution', label: 'Resolution', type: 'select', options: ['320x240', '640x480', '1280x720', '1920x1080'], default: '640x480' },
+            { key: 'video_bitrate', label: 'Video Bitrate', type: 'text', default: '1M' },
+            { key: 'audio_codec', label: 'Audio Codec', type: 'select', options: ['opus', 'g711'], default: 'opus' },
+            { key: 'audio_bitrate', label: 'Audio Bitrate', type: 'text', default: '64k' },
+            { key: 'video_port', label: 'Video Port', type: 'number', default: 5004 },
+            { key: 'audio_port', label: 'Audio Port', type: 'number', default: 5006 },
+            { key: 'dscp_video', label: 'DSCP Video', type: 'select', options: DSCP_OPTIONS, default: 'AF41' },
+            { key: 'dscp_audio', label: 'DSCP Audio', type: 'select', options: DSCP_OPTIONS, default: 'EF' },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
             { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
         ]
@@ -138,7 +138,7 @@ const PROTOCOLS = {
             { key: 'username', label: 'Username', type: 'text', default: 'anonymous' },
             { key: 'password', label: 'Password', type: 'password', default: '' },
             { key: 'filename', label: 'Filename', type: 'select', options: ['testfile_100mb.bin'], default: 'testfile_100mb.bin' },
-            { key: 'random_size', label: 'Random File', type: 'checkbox', default: false },
+            { key: 'random_size', label: 'Random File', type: 'checkbox', default: true },
             { key: 'proxy', label: 'Proxy', type: 'select', options: ['Global', 'On', 'Off', 'Custom'], default: 'Global' },
             { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
             { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
