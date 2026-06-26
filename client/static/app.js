@@ -137,7 +137,7 @@ const PROTOCOLS = {
             { key: 'port', label: 'Port', type: 'number', default: 21 },
             { key: 'username', label: 'Username', type: 'text', default: 'anonymous' },
             { key: 'password', label: 'Password', type: 'password', default: '' },
-            { key: 'filename', label: 'Filename', type: 'select', options: ['testfile_100mb.bin'], default: 'testfile_100mb.bin' },
+            { key: 'filename', label: 'Filename', type: 'select', options: ['testfile_500mb.bin'], default: 'testfile_500mb.bin' },
             { key: 'random_size', label: 'Random File', type: 'checkbox', default: true },
             { key: 'proxy', label: 'Proxy', type: 'select', options: ['Global', 'On', 'Off', 'Custom'], default: 'Global' },
             { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
@@ -605,12 +605,13 @@ function updateRealWorldDesc() {
 
 async function startRealWorld() {
     const loop = document.getElementById('rw-loop')?.checked || false;
-    const totalDuration = parseInt(document.getElementById('rw-duration')?.value || 900);
+    const rawVal = document.getElementById('rw-duration')?.value;
+    const totalDuration = (rawVal !== '' && rawVal !== null && rawVal !== undefined) ? parseInt(rawVal) : 900;
 
     if (loop) {
         // Loop mode: divide total duration equally among profiles
         const profileCount = Object.keys(_rwProfiles).length || 3;
-        const perProfile = Math.max(60, Math.floor(totalDuration / profileCount));
+        const perProfile = totalDuration === 0 ? 0 : Math.max(60, Math.floor(totalDuration / profileCount));
         const res = await apiPost('/api/realworld/loop/start', { duration: perProfile });
         addLog(`[REALWORLD] ${res.message}`);
     } else {
@@ -1274,7 +1275,7 @@ async function loadFtpFileList() {
         const sel = document.getElementById('cfg-ftp-filename');
         if (!sel || !data.files) return;
         const current = sel.value;
-        const defaultFile = 'testfile_100mb.bin';
+        const defaultFile = 'testfile_500mb.bin';
         sel.innerHTML = data.files.map(f => {
             const isSelected = current ? f.name === current : f.name === defaultFile;
             return '<option value="' + f.name + '"' + (isSelected ? ' selected' : '') + '>' +

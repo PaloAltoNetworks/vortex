@@ -784,7 +784,7 @@ const PROTOCOLS = {
         { key: 'port', label: 'Port', type: 'number', default: 21 },
         { key: 'username', label: 'Username', type: 'text', default: 'anonymous' },
         { key: 'password', label: 'Password', type: 'password', default: '' },
-        { key: 'filename', label: 'Filename', type: 'select', options: ['testfile_100mb.bin'], default: 'testfile_100mb.bin' },
+        { key: 'filename', label: 'Filename', type: 'select', options: ['testfile_500mb.bin'], default: 'testfile_500mb.bin' },
         { key: 'random_size', label: 'Random File', type: 'checkbox', default: true },
         { key: 'proxy', label: 'Proxy', type: 'select', options: ['Global','On','Off','Custom'], default: 'Global' },
         { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
@@ -3096,13 +3096,28 @@ def server_stats():
     ssh = read_json_file('/tmp/ssh_stats.json')
     connections, conn_counts = get_connections_and_counts()
 
+    # Fetch multicast/RTP status from Flask API
+    mcast_info = {'running': False, 'stats': {'packets_sent': 0, 'bytes_sent': 0}}
+    rtp_info = {'running': False, 'processes': []}
+    try:
+        mr = http_client.get('http://127.0.0.1:5000/api/multicast/status', timeout=2)
+        mcast_info = mr.json()
+    except Exception:
+        pass
+    try:
+        rr = http_client.get('http://127.0.0.1:5000/api/rtp/status', timeout=2)
+        rtp_info = rr.json()
+    except Exception:
+        pass
+
     echo_http = echo.get('http', {})
     echo_dns = echo.get('dns', {})
 
     total_recv = (http.get('bytes_recv', 0) + echo_http.get('bytes_recv', 0) +
                   echo_dns.get('bytes_recv', 0) + ftp.get('bytes_recv', 0))
     total_sent = (http.get('bytes_sent', 0) + echo_http.get('bytes_sent', 0) +
-                  echo_dns.get('bytes_sent', 0) + ftp.get('bytes_sent', 0))
+                  echo_dns.get('bytes_sent', 0) + ftp.get('bytes_sent', 0) +
+                  mcast_info.get('stats', {}).get('bytes_sent', 0))
     total_reqs = (http.get('requests', 0) + echo_http.get('requests', 0) +
                   echo_dns.get('queries', 0) + ftp.get('downloads', 0) +
                   ftp.get('uploads', 0) + ssh.get('sessions', 0))
@@ -3163,6 +3178,19 @@ def server_stats():
                 'failed_logins': ssh.get('failed_logins', 0),
             }
         },
+        'Multicast': {
+            'active_connections': 1 if mcast_info.get('running') else 0,
+            'stats': {
+                'packets_sent': mcast_info.get('stats', {}).get('packets_sent', 0),
+                'bytes_sent': mcast_info.get('stats', {}).get('bytes_sent', 0),
+            }
+        },
+        'RTP Audio/Video': {
+            'active_connections': len(rtp_info.get('processes', [])),
+            'stats': {
+                'active_streams': len(rtp_info.get('processes', [])),
+            }
+        },
     }
 
     return jsonify({
@@ -3183,6 +3211,8 @@ SERVICE_PROGRAMS = {
     'iperf3': ['iperf3_5201', 'iperf3_5202', 'iperf3_5203'],
     'FTP': ['vsftpd'],
     'SSH': ['sshd'],
+    'Multicast': ['flask_api'],
+    'RTP Audio/Video': ['flask_api'],
 }
 
 

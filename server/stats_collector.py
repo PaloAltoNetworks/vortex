@@ -84,11 +84,11 @@ def parse_ssh_log():
             f.seek(auth_pos)
             for line in f:
                 line = line.strip()
-                if 'sshd' not in line:
+                if not line:
                     continue
                 if 'Accepted' in line:
                     ssh_stats['sessions'] += 1
-                if 'Failed' in line:
+                if 'Failed' in line or 'fatal' in line.lower():
                     ssh_stats['failed_logins'] += 1
 
             auth_pos = f.tell()

@@ -104,7 +104,7 @@ REALWORLD_PROFILES = {
                 'interval': 0.2, 'dscp': 'CS6',
                 'domains': 'google.com\namazon.com\nmicrosoft.com\ngithub.com\ncloudflare.com\noffice365.com\naws.amazon.com\nazure.microsoft.com'}},
             {'protocol': 'ftp', 'flow_id': 'rw', 'config': {
-                'filename': 'testfile_100mb.bin', 'random_size': True,
+                'filename': 'testfile_500mb.bin', 'random_size': True,
                 'dscp': 'AF11'}},
             {'protocol': 'ssh', 'flow_id': 'rw', 'config': {
                 'interval': 8, 'command': 'uptime', 'dscp': 'CS2'}},
@@ -344,6 +344,11 @@ class TrafficEngine:
         with self._lock:
             for job in self.jobs.values():
                 job.stats = {"bytes_sent": 0, "bytes_recv": 0, "requests": 0, "errors": 0}
+                with job._log_lock:
+                    job.logs.clear()
+                if job.running:
+                    job.start_time = time.time()
+                    job.log("Stats cleared")
 
     @staticmethod
     def _get_proxy_url(cfg):
@@ -787,11 +792,11 @@ class TrafficEngine:
         port = int(cfg.get('port', 21))
         username = cfg.get('username', 'anonymous')
         password = cfg.get('password', '')
-        filename = cfg.get('filename', 'testfile_100mb.bin')
+        filename = cfg.get('filename', 'testfile_500mb.bin')
         random_size = cfg.get('random_size', False)
         dscp = cfg.get('dscp', 'BE')
         tos = _dscp_to_tos(dscp)
-        ftp_files = ['testfile_100mb.bin']
+        ftp_files = ['testfile_500mb.bin']
 
         socks_params = self._get_proxy_socks_params(cfg)
         proxy_url = self._get_proxy_url(cfg)
@@ -819,11 +824,13 @@ class TrafficEngine:
                 if tos > 0:
                     _set_tos(ftp.sock, tos)
                 ftp.login(username, password)
-                ftp.set_pasv(True)
+                use_passive = random.choice([True, False])
+                ftp.set_pasv(use_passive)
+                mode_str = "PASSIVE" if use_passive else "ACTIVE"
 
                 cur_file = random.choice(ftp_files) if random_size else filename
                 size = ftp.size(cur_file) or 0
-                job.log(f"Connected — downloading {cur_file} ({size} bytes)")
+                job.log(f"Connected [{mode_str}] — downloading {cur_file} ({size} bytes)")
 
                 bytes_recv = 0
                 last_log_bytes = 0
@@ -886,7 +893,9 @@ class TrafficEngine:
             '-o', 'UserKnownHostsFile=/dev/null',
             '-o', 'LogLevel=ERROR',
             '-o', 'ConnectTimeout=10',
-            '-o', f'ServerAliveInterval=15',
+            '-o', 'ServerAliveInterval=15',
+            '-o', 'ControlMaster=no',
+            '-o', 'ControlPath=none',
             '-p', str(port),
         ]
 
@@ -909,8 +918,10 @@ class TrafficEngine:
                 if job.should_stop():
                     break
                 try:
+                    # Run command with a brief sleep to keep the session visible
+                    session_cmd = f"{command}; sleep 2"
                     cmd = ['sshpass', '-p', password, 'ssh'] + ssh_opts + [
-                        f'{username}@{host}', command
+                        f'{username}@{host}', session_cmd
                     ]
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                     out = result.stdout.strip()
