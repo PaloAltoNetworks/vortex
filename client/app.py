@@ -281,10 +281,14 @@ def _realworld_loop_worker(duration_per_profile):
             _realworld_active['_jobs'] = started
             _realworld_active['_profile'] = profile_key
 
-            # Wait for duration
-            end_time = _time.time() + duration_per_profile
-            while _time.time() < end_time and _realworld_loop['running']:
-                _time.sleep(2)
+            # Wait for duration (0 = run forever on this profile)
+            if duration_per_profile == 0:
+                while _realworld_loop['running']:
+                    _time.sleep(2)
+            else:
+                end_time = _time.time() + duration_per_profile
+                while _time.time() < end_time and _realworld_loop['running']:
+                    _time.sleep(2)
 
         cycle += 1
 
