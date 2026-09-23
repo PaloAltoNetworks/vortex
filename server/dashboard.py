@@ -67,11 +67,22 @@ DASHBOARD_HTML = r"""
             background: var(--bg-primary); color: var(--text-primary); min-height: 100vh;
         }
         .header {
-            background: linear-gradient(135deg, #1a2a44, #243b5c);
-            padding: 14px 24px; border-bottom: 2px solid var(--accent);
+            background: linear-gradient(135deg, #0f1b2d, #1a2a44 40%, #1e3a5f);
+            padding: 18px 28px; border-bottom: 3px solid var(--accent);
             display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
         }
-        .header h1 { font-size: 18px; font-weight: 600; color: #ffffff; }
+        .header-brand { display: flex; align-items: center; gap: 14px; }
+        .header-logo {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-teal));
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 800; color: #fff;
+            box-shadow: 0 2px 8px rgba(0,102,204,0.3);
+        }
+        .header-text h1 { font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px; }
+        .header-text .subtitle { font-size: 11px; color: rgba(255,255,255,0.55); font-weight: 400; margin-top: 2px; letter-spacing: 0.5px; }
         .header .status { font-size: 11px; color: var(--text-secondary); }
 
         /* Tabs */
@@ -99,34 +110,38 @@ DASHBOARD_HTML = r"""
         .tab-content.active { display: block; }
 
         .container {
-            max-width: 1200px; margin: 0 auto; padding: 16px;
-            display: flex; flex-direction: column; gap: 12px;
+            max-width: 1280px; margin: 0 auto; padding: 20px 24px;
+            display: flex; flex-direction: column; gap: 16px;
         }
         .card {
             background: var(--bg-card); border: 1px solid var(--border);
-            border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.02);
+            transition: box-shadow 0.2s;
         }
+        .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.03); }
         .card-header {
-            padding: 10px 14px; background: var(--bg-card-header);
-            font-weight: 600; font-size: 13px; color: var(--text-primary);
+            padding: 12px 16px; background: var(--bg-card-header);
+            font-weight: 600; font-size: 14px; color: var(--text-primary);
             display: flex; align-items: center; justify-content: space-between;
             border-bottom: 1px solid var(--border);
-            cursor: pointer; user-select: none;
+            cursor: pointer; user-select: none; transition: background 0.15s;
         }
         .card-header:hover { background: var(--bg-hover); }
-        .card-body { padding: 12px; }
+        .card-body { padding: 14px; }
         .card-body.collapsed { display: none; }
-        .chevron { font-size: 10px; color: var(--text-secondary); transition: transform 0.2s; margin-left: 8px; }
+        .chevron { font-size: 11px; color: var(--text-secondary); transition: transform 0.25s ease; margin-left: 8px; }
         .chevron.collapsed { transform: rotate(-90deg); }
 
         /* Stats */
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
         .stat-box {
             background: var(--bg-sub); border: 1px solid var(--border);
-            border-radius: 6px; padding: 10px; text-align: center;
+            border-radius: 8px; padding: 14px 12px; text-align: center;
+            transition: transform 0.15s, box-shadow 0.15s;
         }
-        .stat-label { font-size: 10px; color: var(--text-secondary); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-value { font-size: 16px; font-weight: 700; color: var(--accent); }
+        .stat-box:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .stat-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 500; }
+        .stat-value { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
         .stat-value.client-val { color: var(--accent-teal); }
 
         /* Services grid */
@@ -141,8 +156,8 @@ DASHBOARD_HTML = r"""
             display: flex; align-items: center; justify-content: space-between;
             margin-bottom: 6px;
         }
-        .service-name { font-weight: 600; font-size: 13px; color: var(--accent); text-transform: uppercase; }
-        .service-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; }
+        .service-name { font-weight: 600; font-size: 14px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.3px; }
+        .service-badge { font-size: 11px; padding: 3px 10px; border-radius: 10px; font-weight: 500; }
         .service-badge.active { background: #e6f4ee; color: var(--accent-teal); }
         .service-badge.idle { background: var(--bg-hover); color: var(--text-secondary); }
         .service-stat {
@@ -165,24 +180,25 @@ DASHBOARD_HTML = r"""
 
         /* Protocol cards (client tabs) */
         .protocol-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;
         }
         .proto-card {
             background: var(--bg-sub); border: 1px solid var(--border);
-            border-radius: 6px; padding: 10px; transition: border-color 0.15s;
+            border-radius: 8px; padding: 12px; transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .proto-card.running { border-color: var(--accent-teal); border-width: 2px; }
+        .proto-card:hover { box-shadow: 0 1px 6px rgba(0,0,0,0.05); }
+        .proto-card.running { border-color: var(--accent-teal); border-width: 2px; box-shadow: 0 0 0 3px rgba(0,166,126,0.08); }
         .proto-header {
             display: flex; align-items: center; justify-content: space-between;
             cursor: pointer; user-select: none;
         }
         .proto-select { display: flex; align-items: center; gap: 8px; }
         .proto-checkbox { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
-        .proto-name { font-weight: 600; font-size: 13px; text-transform: uppercase; color: var(--text-primary); }
+        .proto-name { font-weight: 600; font-size: 14px; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.3px; }
         .proto-header-right { display: flex; align-items: center; gap: 6px; }
-        .proto-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--bg-hover); color: var(--text-secondary); }
-        .proto-badge.running { background: #e6f4ee; color: var(--accent-teal); }
-        .proto-badge.countdown { background: #e8f0fe; color: var(--accent); font-variant-numeric: tabular-nums; }
+        .proto-badge { font-size: 11px; padding: 3px 10px; border-radius: 10px; background: var(--bg-hover); color: var(--text-secondary); font-weight: 500; }
+        .proto-badge.running { background: #e6f4ee; color: var(--accent-teal); font-weight: 600; }
+        .proto-badge.countdown { background: #e8f0fe; color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; }
         .proto-details { margin-top: 10px; }
         .proto-fields { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
         .field-row { display: flex; align-items: center; gap: 8px; }
@@ -201,29 +217,29 @@ DASHBOARD_HTML = r"""
 
         /* Buttons */
         .btn {
-            padding: 5px 12px; border: none; border-radius: 4px;
-            cursor: pointer; font-size: 11px; font-weight: 500;
-            transition: background 0.15s, opacity 0.15s;
+            padding: 6px 14px; border: none; border-radius: 6px;
+            cursor: pointer; font-size: 12px; font-weight: 500;
+            transition: background 0.15s, opacity 0.15s, transform 0.1s;
         }
-        .btn:active { opacity: 0.8; }
+        .btn:active { opacity: 0.8; transform: scale(0.97); }
         .btn-start { background: var(--accent-teal); color: #fff; }
         .btn-start:hover { background: #008f6b; }
         .btn-stop { background: var(--danger); color: #fff; }
-        .btn-stop:hover { background: #dc2626; }
+        .btn-stop:hover { background: #c82333; }
         .btn-primary { background: var(--accent); color: #fff; }
         .btn-primary:hover { background: #0055aa; }
         .btn-secondary { background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border); }
         .btn-secondary:hover { background: #dce4ef; }
         .btn-danger { background: var(--danger); color: #fff; }
-        .btn-danger:hover { background: #dc2626; }
+        .btn-danger:hover { background: #c82333; }
 
         /* Log panel */
         .log-panel {
-            background: #1e2a3a; border: 1px solid var(--border); border-radius: 4px;
-            padding: 8px; font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 11px; max-height: 250px; overflow-y: auto; line-height: 1.5;
+            background: #1a2332; border: 1px solid #2a3a4e; border-radius: 8px;
+            padding: 12px; font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 11px; max-height: 280px; overflow-y: auto; line-height: 1.6;
         }
-        .log-entry { color: #b0bec5; white-space: pre-wrap; word-break: break-all; }
+        .log-entry { color: #b0bec5; white-space: pre-wrap; word-break: break-all; padding: 1px 0; }
         .log-entry.error { color: #ff6b6b; }
 
         /* Modal */
@@ -233,9 +249,14 @@ DASHBOARD_HTML = r"""
         }
         .modal-overlay.show { display: flex; }
         .modal {
-            background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
             padding: 24px; width: 400px; max-width: 90vw;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+            animation: modalIn 0.2s ease-out;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95) translateY(8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
         }
         .modal h3 { margin-bottom: 16px; color: var(--accent); }
         .modal-field { margin-bottom: 12px; }
@@ -410,7 +431,7 @@ DASHBOARD_HTML = r"""
         }
         .security-category-header:hover { background: var(--bg-hover); }
         .security-category-title {
-            font-size: 12px; font-weight: 600; color: var(--text-primary);
+            font-size: 13px; font-weight: 600; color: var(--text-primary);
             display: flex; align-items: center; gap: 8px;
         }
         .security-category-badge {
@@ -473,7 +494,7 @@ DASHBOARD_HTML = r"""
         .security-test-desc { font-size: 10px; color: var(--text-secondary); margin-top: 1px; }
         .security-test-feature { font-size: 10px; color: var(--accent); }
         .sec-verdict {
-            font-size: 10px; font-weight: 600; padding: 2px 8px;
+            font-size: 11px; font-weight: 600; padding: 3px 10px;
             border-radius: 10px; text-align: center; display: inline-block;
         }
         .sec-verdict.pass { background: #dcfce7; color: #166534; }
@@ -481,9 +502,9 @@ DASHBOARD_HTML = r"""
         .sec-verdict.error { background: #fef3c7; color: #92400e; }
         .sec-verdict.pending { background: var(--bg-hover); color: var(--text-secondary); }
         .security-summary-bar {
-            display: flex; gap: 12px; align-items: center; padding: 8px 10px;
-            margin-bottom: 10px; background: var(--bg-sub);
-            border: 1px solid var(--border); border-radius: 6px; font-size: 12px;
+            display: flex; gap: 14px; align-items: center; padding: 10px 14px;
+            margin-bottom: 12px; background: var(--bg-sub);
+            border: 1px solid var(--border); border-radius: 8px; font-size: 13px;
         }
         .security-summary-item { display: flex; align-items: center; gap: 4px; font-weight: 600; }
         .security-summary-item .dot {
@@ -550,8 +571,14 @@ DASHBOARD_HTML = r"""
 <body>
 
 <div class="header">
-    <h1>Vortex — Control Panel</h1>
-    <div class="status">Auto-refresh: 2s | <span id="last-update">--</span></div>
+    <div class="header-brand">
+        <div class="header-logo">V</div>
+        <div class="header-text">
+            <h1>Vortex</h1>
+            <div class="subtitle">Control Panel</div>
+        </div>
+    </div>
+    <div class="status" style="color:rgba(255,255,255,0.5)">Auto-refresh: 2s | <span id="last-update">--</span></div>
 </div>
 
 <!-- Tab Bar -->
@@ -893,15 +920,24 @@ function fmtBytes(b) {
     return (b / 1073741824).toFixed(2) + ' GB';
 }
 function fmtTime(s) {
-    if (s < 0) return '--';
-    const m = Math.floor(s / 60); const sec = s % 60;
+    if (s == null || isNaN(s) || s < 0) return '--';
+    s = Math.round(s);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return h + 'h ' + m + 'm';
     return m > 0 ? m + 'm ' + sec + 's' : sec + 's';
 }
 async function apiPost(url, body) {
-    const r = await fetch(url, {
-        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
-    });
-    return r.json();
+    try {
+        const r = await fetch(url, {
+            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+        });
+        return await r.json();
+    } catch(e) {
+        console.error('API call failed:', url, e);
+        return { status: 'error', error: e.message };
+    }
 }
 
 function addClientLog(name, msg) {
@@ -1129,7 +1165,7 @@ async function renderClientTab(name) {
         '<label style="font-size:11px;color:var(--text-secondary)">Profile</label>' +
         '<select id="c-' + name + '-rw-profile" style="flex:1;min-width:180px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px" onchange="clientUpdateRwDesc(\'' + name + '\')"></select>' +
         '<label style="font-size:11px;color:var(--text-secondary)">Duration (s)</label>' +
-        '<input type="number" id="c-' + name + '-rw-duration" value="900" min="30" step="30" style="width:80px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
+        '<input type="number" id="c-' + name + '-rw-duration" value="900" min="0" step="30" style="width:80px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
         '<label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="c-' + name + '-rw-loop" style="cursor:pointer"> Loop</label></div>' +
         '<div id="c-' + name + '-rw-desc" style="margin-top:6px;font-size:11px;color:var(--text-secondary)"></div>' +
         '<div id="c-' + name + '-rw-protos" style="margin-top:4px;font-size:11px;display:flex;gap:4px;flex-wrap:wrap"></div></div>' +
@@ -1284,12 +1320,13 @@ function clientUpdateRwDesc(clientName) {
 async function clientStartRealWorld(clientName) {
     var loopEl = document.getElementById('c-' + clientName + '-rw-loop');
     var loop = loopEl ? loopEl.checked : false;
-    var totalDuration = parseInt((document.getElementById('c-' + clientName + '-rw-duration') || {}).value || 900);
+    var rawVal = (document.getElementById('c-' + clientName + '-rw-duration') || {}).value;
+    var totalDuration = (rawVal !== '' && rawVal !== null && rawVal !== undefined) ? parseInt(rawVal) : 900;
 
     if (loop) {
         var profiles = _clientRwProfiles[clientName] || {};
         var profileCount = Object.keys(profiles).length || 3;
-        var perProfile = Math.max(60, Math.floor(totalDuration / profileCount));
+        var perProfile = totalDuration === 0 ? 0 : Math.max(60, Math.floor(totalDuration / profileCount));
         var res = await apiPost('/api/client/' + clientName + '/realworld/loop/start', { duration: perProfile });
         addClientLog(clientName, '[REALWORLD] ' + (res.message || res.error || 'sent'));
     } else {
@@ -2071,7 +2108,7 @@ async function pollClientStatus(clientName) {
                 card.classList.add('running'); badge.classList.add('running');
                 badge.textContent = agg.flows > 1 ? agg.flows + ' Flows' : 'Running';
                 timer.style.display = '';
-                timer.textContent = agg.remaining >= 0 ? fmtTime(agg.remaining) : fmtTime(agg.elapsed);
+                timer.textContent = agg.remaining >= 0 ? fmtTime(agg.remaining) : '\u221E ' + fmtTime(agg.elapsed);
             } else {
                 card.classList.remove('running'); badge.classList.remove('running');
                 badge.textContent = 'Stopped'; timer.style.display = 'none';

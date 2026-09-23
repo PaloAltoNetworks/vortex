@@ -311,12 +311,17 @@ function renderProtocolCards() {
 // ─── API ───────────────────────────────────────────────────
 
 async function apiPost(url, body) {
-    const r = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    return r.json();
+    try {
+        const r = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        return await r.json();
+    } catch(e) {
+        console.error('API call failed:', url, e);
+        return { status: 'error', error: e.message };
+    }
 }
 
 function getConfig(proto) {
@@ -663,7 +668,8 @@ async function pollRealWorldStatus() {
                 childEl.innerHTML = Object.entries(data.children).map(([key, info]) => {
                     const color = info.running ? 'var(--success)' : 'var(--text-secondary)';
                     const label = key.replace('_rw', '').toUpperCase();
-                    return `<span style="color:${color};margin-right:8px">${label}: ${(info.stats.requests||0).toLocaleString()} reqs</span>`;
+                    const reqs = (info.stats && info.stats.requests) || 0;
+                    return `<span style="color:${color};margin-right:8px">${label}: ${reqs.toLocaleString()} reqs</span>`;
                 }).join('');
             }
         } else {
@@ -1024,9 +1030,12 @@ function fmtBytes(b) {
 }
 
 function fmtTime(s) {
-    if (s < 0) return '--';
-    const m = Math.floor(s / 60);
+    if (s == null || isNaN(s) || s < 0) return '--';
+    s = Math.round(s);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
     const sec = s % 60;
+    if (h > 0) return `${h}h ${m}m`;
     return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
 }
 
@@ -1034,6 +1043,7 @@ async function pollStatus() {
     try {
         const resp = await fetch('/api/status', {signal: AbortSignal.timeout(5000)});
         const data = await resp.json();
+        if (!data || !data.jobs) return;
         let totSent = 0, totRecv = 0, totReqs = 0, totErrs = 0;
 
         const protoAgg = {};
@@ -1074,12 +1084,11 @@ async function pollStatus() {
                 card.classList.add('running');
                 badge.classList.add('running');
                 badge.textContent = agg.flows > 1 ? `${agg.flows} Flows` : 'Running';
+                timer.style.display = '';
                 if (agg.remaining >= 0) {
-                    timer.style.display = '';
                     timer.textContent = fmtTime(agg.remaining);
                 } else {
-                    timer.style.display = '';
-                    timer.textContent = fmtTime(agg.elapsed);
+                    timer.textContent = '\u221E ' + fmtTime(agg.elapsed);
                 }
             } else {
                 card.classList.remove('running');
@@ -1100,10 +1109,14 @@ async function pollStatus() {
             }
         }
 
-        document.getElementById('stat-sent').textContent = fmtBytes(totSent);
-        document.getElementById('stat-recv').textContent = fmtBytes(totRecv);
-        document.getElementById('stat-reqs').textContent = totReqs.toLocaleString();
-        document.getElementById('stat-errors').textContent = totErrs.toLocaleString();
+        const elSent = document.getElementById('stat-sent');
+        const elRecv = document.getElementById('stat-recv');
+        const elReqs = document.getElementById('stat-reqs');
+        const elErrs = document.getElementById('stat-errors');
+        if (elSent) elSent.textContent = fmtBytes(totSent);
+        if (elRecv) elRecv.textContent = fmtBytes(totRecv);
+        if (elReqs) elReqs.textContent = totReqs.toLocaleString();
+        if (elErrs) elErrs.textContent = totErrs.toLocaleString();
 
         for (const [proto, info] of Object.entries(data.jobs)) {
             if (info.logs) {
