@@ -21,7 +21,8 @@ engine = TrafficEngine()
 custom_pattern_store = CustomPatternStore()
 security_engine = SecurityTestEngine(custom_store=custom_pattern_store)
 
-SERVER_HOST = os.environ.get('SERVER_HOST', 'server')
+SERVER_HOST = os.environ.get('SERVER_HOST', '').strip()
+STANDALONE = not SERVER_HOST
 
 # Global proxy configuration
 _proxy_config = {
@@ -41,12 +42,12 @@ def _get_json():
 
 @app.route('/')
 def dashboard():
-    return render_template('dashboard.html', server_host=SERVER_HOST)
+    return render_template('dashboard.html', server_host=SERVER_HOST, standalone=STANDALONE)
 
 
 @app.route('/api/server_host')
 def get_server_host():
-    return jsonify({"server_host": SERVER_HOST})
+    return jsonify({"server_host": SERVER_HOST, "standalone": STANDALONE})
 
 
 @app.route('/api/status')
@@ -161,13 +162,14 @@ def realworld_start():
         config = dict(proto_def['config'])
         config['flow_id'] = proto_def.get('flow_id', 'rw')
         config['duration'] = duration
-        # Set default host/url
-        if proto_def['protocol'] == 'https' and 'url' not in config:
-            config['url'] = f'https://{SERVER_HOST}/'
-        elif proto_def['protocol'] == 'http_plain':
-            config.setdefault('host', SERVER_HOST)
-        elif proto_def['protocol'] not in ('ext_https',):
-            config.setdefault('host', SERVER_HOST)
+        # Set default host/url (only when server is configured)
+        if SERVER_HOST:
+            if proto_def['protocol'] == 'https' and 'url' not in config:
+                config['url'] = f'https://{SERVER_HOST}/'
+            elif proto_def['protocol'] == 'http_plain':
+                config.setdefault('host', SERVER_HOST)
+            elif proto_def['protocol'] not in ('ext_https',):
+                config.setdefault('host', SERVER_HOST)
         # Apply global proxy if enabled
         if _proxy_config.get('enabled') and _proxy_config.get('host'):
             config['_proxy'] = dict(_proxy_config)
@@ -490,29 +492,29 @@ def _run_traceroute(dest, extra_args=None):
 
 def _get_dest_for_proto(proto_key, job_config):
     """Extract destination host from a running job's config."""
+    fallback = SERVER_HOST or ''
     tc = PROTO_TRACEROUTE.get(proto_key, {})
     host_key = tc.get('host_key', 'host')
 
     if host_key == 'url':
         url = job_config.get('url', '')
-        # Extract hostname from URL
         try:
             from urllib.parse import urlparse
-            return urlparse(url).hostname or SERVER_HOST
+            return urlparse(url).hostname or fallback
         except Exception:
-            return SERVER_HOST
+            return fallback
     elif host_key == 'urls':
         raw = job_config.get('urls', job_config.get('url', ''))
         urls = [u.strip() for u in raw.replace(',', '\n').split('\n') if u.strip()]
         if urls:
             try:
                 from urllib.parse import urlparse
-                return urlparse(urls[0]).hostname or SERVER_HOST
+                return urlparse(urls[0]).hostname or fallback
             except Exception:
-                return SERVER_HOST
-        return SERVER_HOST
+                return fallback
+        return fallback
     else:
-        return job_config.get('host', SERVER_HOST)
+        return job_config.get('host', fallback)
 
 
 @app.route('/api/topology')
@@ -521,7 +523,9 @@ def topology():
     client_ip = '--'
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect((SERVER_HOST, 80))
+        # Use SERVER_HOST if configured, otherwise detect via public DNS
+        target = SERVER_HOST if SERVER_HOST else '8.8.8.8'
+        s.connect((target, 80))
         client_ip = s.getsockname()[0]
         s.close()
     except Exception:
@@ -697,6 +701,8 @@ def security_catalog():
 
 @app.route('/api/security/start', methods=['POST'])
 def security_start():
+    if STANDALONE:
+        return jsonify({"ok": False, "message": "Security testing requires Vortex Server. Set SERVER_HOST to enable."}), 400
     data = _get_json()
     test_ids = data.get('tests', [])
     config = data.get('config', {})
