@@ -1,4 +1,5 @@
-const SRV = (typeof SERVER_HOST !== 'undefined') ? SERVER_HOST : 'server';
+const SRV = (typeof SERVER_HOST !== 'undefined' && SERVER_HOST) ? SERVER_HOST : '';
+const STANDALONE = !SRV;
 
 const DSCP_OPTIONS = ['BE','CS1','AF11','AF12','AF13','CS2','AF21','AF22','AF23','CS3','AF31','AF32','AF33','CS4','AF41','AF42','AF43','CS5','VA','EF','CS6','CS7'];
 const ADVANCED_KEYS = ['browser_mode', 'browser_type', 'proxy', 'dscp', 'dscp_video', 'dscp_audio', 'rate_pps', 'burst_enabled', 'burst_count', 'burst_pause', 'target_cps', 'concurrency', 'ramp_enabled', 'ramp_start_cps', 'ramp_steps'];
@@ -14,7 +15,7 @@ const PROTOCOLS = {
             { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: true },
             { key: 'ramp_start_cps', label: 'Ramp Start CPS', type: 'number', default: 10, step: 10 },
             { key: 'ramp_steps', label: 'Ramp Steps', type: 'number', default: 5, step: 1 },
-            { key: 'url', label: 'URL', type: 'text', get default() { return `https://${SRV}/`; } },
+            { key: 'url', label: 'URL', type: 'text', get default() { return SRV ? `https://${SRV}/` : ''; }, placeholder: 'https://your-app.example.com' },
             { key: 'method', label: 'Method', type: 'select', options: ['GET', 'POST'], default: 'GET' },
             { key: 'data_size_kb', label: 'Data KB', type: 'number', default: 0 },
             { key: 'interval', label: 'Interval (s)', type: 'number', default: 1, step: 0.1 },
@@ -38,7 +39,7 @@ const PROTOCOLS = {
         name: 'iperf3',
         appId: 'iperf',
         fields: [
-            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; } },
+            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; }, placeholder: 'iperf-server.example.com' },
             { key: 'port', label: 'Port', type: 'number', default: 5201 },
             { key: 'protocol', label: 'Protocol', type: 'select', options: ['TCP', 'UDP'], default: 'TCP' },
             { key: 'bandwidth', label: 'Bandwidth', type: 'text', default: '100M' },
@@ -53,7 +54,7 @@ const PROTOCOLS = {
         name: 'Multicast',
         appId: 'igmp, udp',
         fields: [
-            { key: 'host', label: 'Server Host', type: 'text', get default() { return SRV; } },
+            { key: 'host', label: 'Server Host', type: 'text', get default() { return SRV; }, placeholder: 'multicast-server.example.com' },
             { key: 'group', label: 'Multicast Group', type: 'text', default: '239.1.1.1' },
             { key: 'port', label: 'Port', type: 'number', default: 5004 },
             { key: 'ttl', label: 'TTL', type: 'number', default: 32 },
@@ -74,8 +75,8 @@ const PROTOCOLS = {
             { key: 'ramp_enabled', label: 'Ramp Up', type: 'checkbox', default: true },
             { key: 'ramp_start_cps', label: 'Ramp Start CPS', type: 'number', default: 10, step: 10 },
             { key: 'ramp_steps', label: 'Ramp Steps', type: 'number', default: 5, step: 1 },
-            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; } },
-            { key: 'port', label: 'Port', type: 'number', default: 9999 },
+            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; }, placeholder: 'your-server.example.com' },
+            { key: 'port', label: 'Port', type: 'number', get default() { return STANDALONE ? 80 : 9999; } },
             { key: 'method', label: 'Method', type: 'select', options: ['GET', 'POST'], default: 'GET' },
             { key: 'data_size_kb', label: 'Data Size (KB)', type: 'number', default: 1 },
             { key: 'interval', label: 'Interval (s)', type: 'number', default: 1, step: 0.1 },
@@ -96,7 +97,7 @@ const PROTOCOLS = {
         name: 'DNS',
         appId: 'dns',
         fields: [
-            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; } },
+            { key: 'host', label: 'Host', type: 'text', get default() { return SRV || '8.8.8.8'; } },
             { key: 'port', label: 'Port', type: 'number', default: 53 },
             { key: 'domains', label: 'Domains (one per line)', type: 'textarea', default: 'google.com\namazon.com\nmicrosoft.com\ngithub.com\ncloudflare.com' },
             { key: 'interval', label: 'Interval (s)', type: 'number', default: 1, step: 0.1 },
@@ -114,7 +115,7 @@ const PROTOCOLS = {
         name: 'RTP Audio/Video',
         appId: 'rtp, rtcp',
         fields: [
-            { key: 'host', label: 'Server Host', type: 'text', get default() { return SRV; } },
+            { key: 'host', label: 'Server Host', type: 'text', get default() { return SRV; }, placeholder: 'rtp-server.example.com' },
             { key: 'mode', label: 'Mode', type: 'select', options: ['Video Call', 'Streaming', 'Audio Only'], default: 'Video Call' },
             { key: 'resolution', label: 'Resolution', type: 'select', options: ['320x240', '640x480', '1280x720', '1920x1080'], default: '640x480' },
             { key: 'video_bitrate', label: 'Video Bitrate', type: 'text', default: '1M' },
@@ -133,11 +134,11 @@ const PROTOCOLS = {
         appId: 'ftp',
         maxFlows: 1,
         fields: [
-            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; } },
+            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; }, placeholder: 'ftp.example.com' },
             { key: 'port', label: 'Port', type: 'number', default: 21 },
-            { key: 'username', label: 'Username', type: 'text', default: 'anonymous' },
+            { key: 'username', label: 'Username', type: 'text', get default() { return STANDALONE ? '' : 'anonymous'; }, placeholder: 'username' },
             { key: 'password', label: 'Password', type: 'password', default: '' },
-            { key: 'filename', label: 'Filename', type: 'select', options: ['testfile_500mb.bin'], default: 'testfile_500mb.bin' },
+            { key: 'filename', label: 'Filename', get type() { return STANDALONE ? 'text' : 'select'; }, options: ['testfile_500mb.bin'], get default() { return STANDALONE ? '' : 'testfile_500mb.bin'; }, placeholder: 'path/to/file.bin' },
             { key: 'random_size', label: 'Random File', type: 'checkbox', default: true },
             { key: 'proxy', label: 'Proxy', type: 'select', options: ['Global', 'On', 'Off', 'Custom'], default: 'Global' },
             { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
@@ -148,10 +149,10 @@ const PROTOCOLS = {
         name: 'SSH',
         appId: 'ssh',
         fields: [
-            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; } },
-            { key: 'port', label: 'Port', type: 'number', default: 2222 },
-            { key: 'username', label: 'Username', type: 'text', default: 'testuser' },
-            { key: 'password', label: 'Password', type: 'password', default: 'testpass' },
+            { key: 'host', label: 'Host', type: 'text', get default() { return SRV; }, placeholder: 'your-server.example.com' },
+            { key: 'port', label: 'Port', type: 'number', get default() { return STANDALONE ? 22 : 2222; } },
+            { key: 'username', label: 'Username', type: 'text', get default() { return STANDALONE ? '' : 'testuser'; }, placeholder: 'username' },
+            { key: 'password', label: 'Password', type: 'password', get default() { return STANDALONE ? '' : 'testpass'; } },
             { key: 'command', label: 'Command', type: 'text', default: 'uptime' },
             { key: 'interval', label: 'Interval (s)', type: 'number', default: 5 },
             { key: 'proxy', label: 'Proxy', type: 'select', options: ['Global', 'On', 'Off', 'Custom'], default: 'Global' },
@@ -265,7 +266,8 @@ function renderProtocolCards() {
                 input = `<input type="checkbox" id="cfg-${proto}-${f.key}" ${f.default ? 'checked' : ''}>`;
             } else {
                 const step = f.step ? `step="${f.step}"` : '';
-                input = `<input type="${f.type}" id="cfg-${proto}-${f.key}" value="${f.default}" ${step}>`;
+                const ph = f.placeholder ? `placeholder="${f.placeholder}"` : '';
+                input = `<input type="${f.type}" id="cfg-${proto}-${f.key}" value="${f.default}" ${step} ${ph}>`;
             }
             const row = `<div class="field-row"><label>${f.label}</label>${input}</div>`;
             if (isAdv) { advancedHtml += row; hasAdvanced = true; }
@@ -1282,6 +1284,7 @@ async function testProxy() {
 // ─── FTP File List ──────────────────────────────────────────
 
 async function loadFtpFileList() {
+    if (STANDALONE) return;
     try {
         const resp = await fetch('http://' + SRV + ':5000/api/files');
         const data = await resp.json();
