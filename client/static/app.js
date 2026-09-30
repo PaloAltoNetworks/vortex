@@ -1321,6 +1321,8 @@ const TOPO_ICONS = {
     router: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter></defs><circle cx="28" cy="28" r="22" fill="${fill}" stroke="${stroke}" stroke-width="2.5" filter="url(#s)"/><circle cx="28" cy="28" r="6" fill="${stroke}" opacity="0.8"/><path d="M28 10v10M28 36v10M10 28h10M36 28h10" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/><path d="M16 16l7 7M33 33l7 7M40 16l-7 7M23 33l-7 7" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/><polygon points="28,8 26,13 30,13" fill="${stroke}" opacity="0.7"/><polygon points="28,48 26,43 30,43" fill="${stroke}" opacity="0.7"/><polygon points="8,28 13,26 13,30" fill="${stroke}" opacity="0.7"/><polygon points="48,28 43,26 43,30" fill="${stroke}" opacity="0.7"/></svg>`)}`,
     hop: (fill, stroke, num) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${fill}"/><stop offset="100%" stop-color="#dbeafe"/></linearGradient></defs><circle cx="18" cy="18" r="13" fill="url(#hg)" stroke="${stroke}" stroke-width="2"/><text x="18" y="22" text-anchor="middle" fill="${stroke}" font-size="12" font-weight="700" font-family="-apple-system,sans-serif">${num}</text></svg>`)}`,
     timeout: (num) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="13" fill="#fef2f2" stroke="#ef4444" stroke-width="2" stroke-dasharray="4 3"/><line x1="13" y1="13" x2="23" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/><line x1="23" y1="13" x2="13" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/></svg>`)}`,
+    internet: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="72" height="56" viewBox="0 0 72 56"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18"/></filter><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${fill}"/><stop offset="100%" stop-color="#e0f2fe"/></linearGradient></defs><path d="M18 38c-6 0-11-4-11-9s4-9 9-9c0-8 7-14 15-14s14 5 15 12c6 1 10 5 10 10s-5 10-11 10z" fill="url(#cg)" stroke="${stroke}" stroke-width="2" filter="url(#s)"/><circle cx="30" cy="26" r="8" fill="none" stroke="${stroke}" stroke-width="1.5" opacity="0.4"/><ellipse cx="30" cy="26" rx="3" ry="8" fill="none" stroke="${stroke}" stroke-width="1" opacity="0.3"/><line x1="22" y1="26" x2="38" y2="26" stroke="${stroke}" stroke-width="1" opacity="0.3"/></svg>`)}`,
+    datacenter: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${fill}"/><stop offset="100%" stop-color="#dbeafe"/></linearGradient></defs><rect x="14" y="8" width="36" height="48" rx="4" fill="url(#dg)" stroke="${stroke}" stroke-width="2" filter="url(#s)"/><rect x="19" y="14" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="17" width="12" height="2" rx="1" fill="${stroke}" opacity="0.3"/><circle cx="40" cy="18.5" r="2" fill="#22c55e"/><rect x="19" y="27" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="30" width="12" height="2" rx="1" fill="${stroke}" opacity="0.3"/><circle cx="40" cy="31.5" r="2" fill="#3b82f6"/><rect x="19" y="40" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="43" width="12" height="2" rx="1" fill="${stroke}" opacity="0.3"/><circle cx="40" cy="44.5" r="2" fill="#f59e0b"/></svg>`)}`,
 };
 
 async function refreshTopology() {
@@ -1356,6 +1358,26 @@ function _latencyHtml(rtt) {
     return `<span class="topo-tip-row"><span class="topo-tip-label">Latency</span><span class="${cls}">${rtt} ms</span></span>`;
 }
 
+// Classify a destination as 'internet' (cloud icon) or 'server' (datacenter icon)
+function classifyDest(pathKey, dest, serverHost) {
+    // Known internet-bound protocols
+    if (pathKey === 'ext_https') return 'internet';
+    if (pathKey === 'dns') return 'internet';
+    // Public DNS resolvers
+    if (['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1', '9.9.9.9'].includes(dest)) return 'internet';
+    // Well-known public domains
+    if (dest && /\.(com|org|net|io|dev|cloud|edu|gov)$/i.test(dest)) return 'internet';
+    // Vortex server or private infra
+    if (dest === serverHost) return 'server';
+    // Default to server for private/internal targets
+    return 'server';
+}
+
+const DEST_STYLES = {
+    internet: { fill: '#f0fdfa', stroke: '#0891b2', icon: 'internet', labelPrefix: '\u2601' },
+    server:   { fill: '#eff6ff', stroke: '#2563eb', icon: 'datacenter', labelPrefix: '\u2756' },
+};
+
 function renderTopology(data) {
     const container = document.getElementById('topology-container');
     if (!container) return;
@@ -1376,50 +1398,92 @@ function renderTopology(data) {
     const runningPaths = pathKeys.filter(k => pathsObj[k].running);
     topoHasTraffic = runningPaths.length > 0;
 
-    // Group paths by hop signature for merging
+    // Group paths by hop signature + destination for merging
     const hopSigMap = {};
     pathKeys.forEach(k => {
         const p = pathsObj[k];
-        const sig = (p.hops || []).map(h => h.ip).join(',');
+        const dest = p.dest || data.server_host || 'server';
+        const sig = (p.hops || []).map(h => h.ip).join(',') + '->' + dest;
         if (!hopSigMap[sig]) hopSigMap[sig] = [];
         hopSigMap[sig].push(k);
     });
 
     // CLIENT node — laptop icon
+    const clientLabel = data.standalone ? 'Client\n(Standalone)' : 'Client\n' + data.client_ip;
     nodes.add({
-        id: 'client', label: 'Client\n' + data.client_ip, shape: 'image', size: 36,
+        id: 'client', label: clientLabel, shape: 'image', size: 36,
         image: TOPO_ICONS.client('#ecfdf5', '#059669'),
         font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
         level: 0, shadow: { enabled: true, color: 'rgba(5,150,105,0.15)', size: 12 },
         title: _topoTooltip([
-            '<div class="topo-tip-header">Client</div>',
+            '<div class="topo-tip-header">Client' + (data.standalone ? ' (Standalone)' : '') + '</div>',
             '<span class="topo-tip-row"><span class="topo-tip-label">IP Address</span><strong>' + data.client_ip + '</strong></span>',
-            '<span class="topo-tip-row"><span class="topo-tip-label">Active Flows</span><strong>' + runningPaths.length + '</strong></span>'
+            '<span class="topo-tip-row"><span class="topo-tip-label">Active Flows</span><strong>' + runningPaths.length + '</strong></span>',
+            '<span class="topo-tip-row"><span class="topo-tip-label">Destinations</span><strong>' + Object.keys(destMap).length + '</strong></span>'
         ], '#059669'),
     });
 
-    // SERVER node — server rack icon
     const maxHops = Math.max(1, ...pathKeys.map(k => (pathsObj[k].hops || []).length));
-    nodes.add({
-        id: 'server', label: 'Server\n' + data.server_host, shape: 'image', size: 36,
-        image: TOPO_ICONS.server('#eff6ff', '#2563eb'),
-        font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
-        level: maxHops + 1, shadow: { enabled: true, color: 'rgba(37,99,235,0.15)', size: 12 },
-        title: _topoTooltip([
-            '<div class="topo-tip-header">Server</div>',
-            '<span class="topo-tip-row"><span class="topo-tip-label">IP Address</span><strong>' + data.server_host + '</strong></span>'
-        ], '#2563eb'),
+
+    // Build unique destination nodes grouped by dest host
+    const destMap = {};  // dest -> { type, protocols: [{key, label, port, running, stats}] }
+    pathKeys.forEach(k => {
+        const p = pathsObj[k];
+        const dest = p.dest || data.server_host || 'server';
+        if (!destMap[dest]) {
+            destMap[dest] = { type: classifyDest(k, dest, data.server_host), protocols: [] };
+        }
+        destMap[dest].protocols.push({ key: k, label: p.label, port: p.port, running: p.running, stats: p.stats || {} });
+    });
+
+    // Create a destination node for each unique target
+    const destNodeIds = {};
+    Object.entries(destMap).forEach(([dest, info]) => {
+        const nodeId = 'dest_' + dest.replace(/[^a-zA-Z0-9]/g, '_');
+        destNodeIds[dest] = nodeId;
+        const style = DEST_STYLES[info.type];
+        const iconFn = TOPO_ICONS[style.icon] || TOPO_ICONS.server;
+        const protoNames = info.protocols.map(p => p.label).join(', ');
+        const isAnyRunning = info.protocols.some(p => p.running);
+        const displayName = dest.length > 20 ? dest.slice(0, 18) + '…' : dest;
+        const typeLabel = info.type === 'internet' ? 'Internet' : 'Data Center';
+
+        const tipLines = [
+            '<div class="topo-tip-header">' + typeLabel + '</div>',
+            '<span class="topo-tip-row"><span class="topo-tip-label">Host</span><strong>' + dest + '</strong></span>',
+            '<span class="topo-tip-row"><span class="topo-tip-label">Protocols</span>' + protoNames + '</span>',
+        ];
+        info.protocols.forEach(p => {
+            const s = p.stats;
+            const metrics = [];
+            if (s.bytes_recv) metrics.push(fmtBytes(s.bytes_recv) + ' recv');
+            else if (s.bytes_sent) metrics.push(fmtBytes(s.bytes_sent) + ' sent');
+            if (s.requests) metrics.push(s.requests + ' reqs');
+            if (metrics.length) {
+                tipLines.push('<span class="topo-tip-row"><span class="topo-tip-label">' + p.label + '</span>' + metrics.join(' · ') + '</span>');
+            }
+        });
+
+        nodes.add({
+            id: nodeId, label: style.labelPrefix + ' ' + displayName, shape: 'image', size: 36,
+            image: iconFn(style.fill, style.stroke),
+            font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
+            level: maxHops + 1,
+            shadow: { enabled: true, color: style.stroke + '25', size: 12 },
+            title: _topoTooltip(tipLines, style.stroke),
+        });
     });
 
     const renderedSigs = new Set();
     let pathIndex = 0;
-    const addedNodes = new Set(['client', 'server']);
+    const addedNodes = new Set(['client', ...Object.values(destNodeIds)]);
     const legendItems = [];
 
     pathKeys.forEach(pathKey => {
         const path = pathsObj[pathKey];
         const hops = path.hops || [];
-        const sig = hops.map(h => h.ip).join(',');
+        const pathDest = path.dest || data.server_host || 'server';
+        const sig = hops.map(h => h.ip).join(',') + '->' + pathDest;
 
         if (renderedSigs.has(sig)) return;
         renderedSigs.add(sig);
@@ -1442,7 +1506,7 @@ function renderTopology(data) {
             const isLast = i === hops.length - 1;
             const isTimeout = h.ip === '*';
 
-            if (isLast && !isTimeout && (h.ip === data.server_host || h.ip === data.client_ip)) return;
+            if (isLast && !isTimeout && (h.ip === pathDest || h.ip === data.server_host || h.ip === data.client_ip)) return;
 
             const sharedId = 'hop_shared_' + h.hop + '_' + h.ip;
             if (addedNodes.has(sharedId)) { nodeChain.push(sharedId); return; }
@@ -1509,7 +1573,9 @@ function renderTopology(data) {
             addedNodes.add(sharedId);
             nodeChain.push(sharedId);
         });
-        nodeChain.push('server');
+        // Route edge to actual destination node
+        const destNodeId = destNodeIds[pathDest] || Object.values(destNodeIds)[0];
+        nodeChain.push(destNodeId);
 
         // Edges — smooth curves with latency labels and arrows
         const curveDir = pathIndex % 2 === 0 ? 'curvedCW' : 'curvedCCW';
@@ -1541,7 +1607,20 @@ function renderTopology(data) {
     // If no active flows, show empty state with placeholder
     if (pathKeys.length === 0) {
         container.innerHTML = `<div class="topo-empty">
-            <svg width="120" height="50" viewBox="0 0 120 50"><circle cx="15" cy="25" r="8" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><circle cx="60" cy="25" r="6" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><circle cx="105" cy="25" r="8" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><line x1="23" y1="25" x2="54" y2="25" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/><line x1="66" y1="25" x2="97" y2="25" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/></svg>
+            <svg width="180" height="80" viewBox="0 0 180 80">
+                <rect x="6" y="28" width="24" height="18" rx="3" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/>
+                <rect x="9" y="31" width="18" height="12" rx="2" fill="#f1f5f9"/>
+                <line x1="12" y1="48" x2="24" y2="48" stroke="#94a3b8" stroke-width="1.5"/>
+                <circle cx="90" cy="25" r="6" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/>
+                <rect x="140" y="12" width="28" height="22" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="1.5"/>
+                <rect x="144" y="16" width="20" height="4" rx="1" fill="#bfdbfe"/>
+                <rect x="144" y="22" width="20" height="4" rx="1" fill="#bfdbfe"/>
+                <rect x="144" y="28" width="20" height="4" rx="1" fill="#bfdbfe"/>
+                <path d="M138 62c-4 0-7-3-7-6s3-6 6-6c0-5 5-9 10-9s9 3 10 8c4 0 7 3 7 7s-3 6-7 6z" fill="#e0f2fe" stroke="#67e8f9" stroke-width="1.5"/>
+                <line x1="30" y1="37" x2="84" y2="25" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/>
+                <line x1="96" y1="22" x2="140" y2="22" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/>
+                <line x1="96" y1="28" x2="138" y2="52" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/>
+            </svg>
             <span>Start a protocol to see network topology</span></div>`;
         if (topoNetwork) { topoNetwork.destroy(); topoNetwork = null; }
         const legendEl = document.getElementById('topology-legend');
@@ -1552,7 +1631,7 @@ function renderTopology(data) {
     }
 
     const options = {
-        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 160, nodeSpacing: 60 } },
+        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 180, nodeSpacing: 80 } },
         physics: false,
         interaction: { hover: true, tooltipDelay: 80, dragNodes: true, zoomView: true, dragView: true },
         edges: { chosen: { edge: function(values) { values.width = values.width * 1.3; } } },

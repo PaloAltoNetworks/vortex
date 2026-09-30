@@ -600,6 +600,7 @@ def topology():
     return jsonify({
         'client_ip': client_ip,
         'server_host': SERVER_HOST,
+        'standalone': STANDALONE,
         'paths': paths,
         'routers': routers,
     })
