@@ -1790,7 +1790,23 @@ var TOPO_ICONS = {
     server: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter></defs><rect x="12" y="6" width="40" height="52" rx="4" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2" filter="url(#s)"/><rect x="17" y="12" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="15" width="14" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><rect x="20" y="18" width="8" height="2" rx="1" fill="' + stroke + '" opacity="0.2"/><circle cx="40" cy="17" r="2.5" fill="#22c55e"/><rect x="17" y="26" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="29" width="14" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><rect x="20" y="32" width="8" height="2" rx="1" fill="' + stroke + '" opacity="0.2"/><circle cx="40" cy="31" r="2.5" fill="#2563eb"/><rect x="17" y="40" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="43" width="14" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><rect x="20" y="46" width="8" height="2" rx="1" fill="' + stroke + '" opacity="0.2"/><circle cx="40" cy="45" r="2.5" fill="#d97706"/></svg>'); },
     router: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter></defs><circle cx="28" cy="28" r="22" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2.5" filter="url(#s)"/><circle cx="28" cy="28" r="6" fill="' + stroke + '" opacity="0.8"/><path d="M28 10v10M28 36v10M10 28h10M36 28h10" stroke="' + stroke + '" stroke-width="2" stroke-linecap="round"/><path d="M16 16l7 7M33 33l7 7M40 16l-7 7M23 33l-7 7" stroke="' + stroke + '" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/><polygon points="28,8 26,13 30,13" fill="' + stroke + '" opacity="0.7"/><polygon points="28,48 26,43 30,43" fill="' + stroke + '" opacity="0.7"/><polygon points="8,28 13,26 13,30" fill="' + stroke + '" opacity="0.7"/><polygon points="48,28 43,26 43,30" fill="' + stroke + '" opacity="0.7"/></svg>'); },
     hop: function(fill, stroke, num) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + fill + '"/><stop offset="100%" stop-color="#dbeafe"/></linearGradient></defs><circle cx="18" cy="18" r="13" fill="url(#hg)" stroke="' + stroke + '" stroke-width="2"/><text x="18" y="22" text-anchor="middle" fill="' + stroke + '" font-size="12" font-weight="700" font-family="-apple-system,sans-serif">' + num + '</text></svg>'); },
-    timeout: function(num) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="13" fill="#fef2f2" stroke="#ef4444" stroke-width="2" stroke-dasharray="4 3"/><line x1="13" y1="13" x2="23" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/><line x1="23" y1="13" x2="13" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/></svg>'); }
+    timeout: function(num) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="13" fill="#fef2f2" stroke="#ef4444" stroke-width="2" stroke-dasharray="4 3"/><line x1="13" y1="13" x2="23" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/><line x1="23" y1="13" x2="13" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/></svg>'); },
+    internet: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="72" height="56" viewBox="0 0 72 56"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18"/></filter><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + fill + '"/><stop offset="100%" stop-color="#e0f2fe"/></linearGradient></defs><path d="M18 38c-6 0-11-4-11-9s4-9 9-9c0-8 7-14 15-14s14 5 15 12c6 1 10 5 10 10s-5 10-11 10z" fill="url(#cg)" stroke="' + stroke + '" stroke-width="2" filter="url(#s)"/><circle cx="30" cy="26" r="8" fill="none" stroke="' + stroke + '" stroke-width="1.5" opacity="0.4"/><ellipse cx="30" cy="26" rx="3" ry="8" fill="none" stroke="' + stroke + '" stroke-width="1" opacity="0.3"/><line x1="22" y1="26" x2="38" y2="26" stroke="' + stroke + '" stroke-width="1" opacity="0.3"/></svg>'); },
+    datacenter: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + fill + '"/><stop offset="100%" stop-color="#dbeafe"/></linearGradient></defs><rect x="14" y="8" width="36" height="48" rx="4" fill="url(#dg)" stroke="' + stroke + '" stroke-width="2" filter="url(#s)"/><rect x="19" y="14" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="17" width="12" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><circle cx="40" cy="18.5" r="2" fill="#22c55e"/><rect x="19" y="27" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="30" width="12" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><circle cx="40" cy="31.5" r="2" fill="#3b82f6"/><rect x="19" y="40" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="43" width="12" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><circle cx="40" cy="44.5" r="2" fill="#f59e0b"/></svg>'); }
+};
+
+function classifyDest(pathKey, dest, serverHost) {
+    if (pathKey === 'ext_https') return 'internet';
+    if (pathKey === 'dns') return 'internet';
+    if (['8.8.8.8','8.8.4.4','1.1.1.1','1.0.0.1','9.9.9.9'].indexOf(dest) !== -1) return 'internet';
+    if (dest && /\\.(com|org|net|io|dev|cloud|edu|gov)$/i.test(dest)) return 'internet';
+    if (dest === serverHost) return 'server';
+    return 'server';
+}
+
+var DEST_STYLES = {
+    internet: { fill: '#f0fdfa', stroke: '#0891b2', icon: 'internet', labelPrefix: '\\u2601' },
+    server:   { fill: '#eff6ff', stroke: '#2563eb', icon: 'datacenter', labelPrefix: '\\u2756' }
 };
 
 async function clientRefreshTopology(clientName) {
@@ -1839,12 +1855,65 @@ function clientRenderTopology(clientName, data) {
     var hasTraffic = runningPaths.length > 0;
     clientTopoHasTraffic[clientName] = hasTraffic;
 
+    // Group paths by hop signature + destination for merging
     var hopSigMap = {};
     pathKeys.forEach(function(k) {
         var p = pathsObj[k];
-        var sig = (p.hops || []).map(function(h) { return h.ip; }).join(',');
+        var dest = p.dest || data.server_host || 'server';
+        var sig = (p.hops || []).map(function(h) { return h.ip; }).join(',') + '->' + dest;
         if (!hopSigMap[sig]) hopSigMap[sig] = [];
         hopSigMap[sig].push(k);
+    });
+
+    var maxHops = 1;
+    pathKeys.forEach(function(k) { var h = (pathsObj[k].hops || []).length; if (h > maxHops) maxHops = h; });
+
+    // Build unique destination nodes grouped by dest host
+    var destMap = {};
+    pathKeys.forEach(function(k) {
+        var p = pathsObj[k];
+        var dest = p.dest || data.server_host || 'server';
+        if (!destMap[dest]) {
+            destMap[dest] = { type: classifyDest(k, dest, data.server_host), protocols: [] };
+        }
+        destMap[dest].protocols.push({ key: k, label: p.label, port: p.port, running: p.running, stats: p.stats || {} });
+    });
+
+    var destNodeIds = {};
+    var destKeys = Object.keys(destMap);
+    destKeys.forEach(function(dest) {
+        var info = destMap[dest];
+        var nodeId = 'dest_' + dest.replace(/[^a-zA-Z0-9]/g, '_');
+        destNodeIds[dest] = nodeId;
+        var style = DEST_STYLES[info.type];
+        var iconFn = TOPO_ICONS[style.icon] || TOPO_ICONS.server;
+        var protoNames = info.protocols.map(function(p) { return p.label; }).join(', ');
+        var isAnyRunning = info.protocols.some(function(p) { return p.running; });
+        var displayName = dest.length > 20 ? dest.substring(0, 18) + '\u2026' : dest;
+        var typeLabel = info.type === 'internet' ? 'Internet' : 'Data Center';
+
+        var tipLines = [
+            '<div class="topo-tip-header">' + typeLabel + '</div>',
+            '<span class="topo-tip-row"><span class="topo-tip-label">Host</span><strong>' + dest + '</strong></span>',
+            '<span class="topo-tip-row"><span class="topo-tip-label">Protocols</span>' + protoNames + '</span>'
+        ];
+        info.protocols.forEach(function(p) {
+            var s = p.stats;
+            var metrics = [];
+            if (s.bytes_recv) metrics.push(fmtBytes(s.bytes_recv) + ' recv');
+            else if (s.bytes_sent) metrics.push(fmtBytes(s.bytes_sent) + ' sent');
+            if (s.requests) metrics.push(s.requests + ' reqs');
+            if (metrics.length) {
+                tipLines.push('<span class="topo-tip-row"><span class="topo-tip-label">' + p.label + '</span>' + metrics.join(' \u00b7 ') + '</span>');
+            }
+        });
+
+        nodes.add({ id: nodeId, label: style.labelPrefix + ' ' + displayName, shape: 'image', size: 36,
+            image: iconFn(style.fill, style.stroke),
+            font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
+            level: maxHops + 1,
+            shadow: { enabled: true, color: style.stroke + '25', size: 12 },
+            title: _topoTip(tipLines, style.stroke) });
     });
 
     // CLIENT node
@@ -1854,27 +1923,21 @@ function clientRenderTopology(clientName, data) {
         level: 0, shadow: { enabled: true, color: 'rgba(5,150,105,0.15)', size: 12 },
         title: _topoTip(['<div class="topo-tip-header">Client</div>',
             '<span class="topo-tip-row"><span class="topo-tip-label">IP Address</span><strong>' + data.client_ip + '</strong></span>',
-            '<span class="topo-tip-row"><span class="topo-tip-label">Active Flows</span><strong>' + runningPaths.length + '</strong></span>'], '#059669') });
-
-    // SERVER node
-    var maxHops = 1;
-    pathKeys.forEach(function(k) { var h = (pathsObj[k].hops || []).length; if (h > maxHops) maxHops = h; });
-    nodes.add({ id: 'server', label: 'Server\\n' + data.server_host, shape: 'image', size: 36,
-        image: TOPO_ICONS.server('#eff6ff', '#2563eb'),
-        font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
-        level: maxHops + 1, shadow: { enabled: true, color: 'rgba(37,99,235,0.15)', size: 12 },
-        title: _topoTip(['<div class="topo-tip-header">Server</div>',
-            '<span class="topo-tip-row"><span class="topo-tip-label">IP Address</span><strong>' + data.server_host + '</strong></span>'], '#2563eb') });
+            '<span class="topo-tip-row"><span class="topo-tip-label">Active Flows</span><strong>' + runningPaths.length + '</strong></span>',
+            '<span class="topo-tip-row"><span class="topo-tip-label">Destinations</span><strong>' + destKeys.length + '</strong></span>'], '#059669') });
 
     var renderedSigs = {};
     var pathIndex = 0;
-    var addedNodes = { client: true, server: true };
+    var addedNodes = { client: true };
+    destKeys.forEach(function(d) { addedNodes[destNodeIds[d]] = true; });
     var legendItems = [];
 
     pathKeys.forEach(function(pathKey) {
         var path = pathsObj[pathKey];
         var hops = path.hops || [];
-        var sig = hops.map(function(h) { return h.ip; }).join(',');
+        var pathDest = path.dest || data.server_host || 'server';
+        var destNodeId = destNodeIds[pathDest] || 'dest_unknown';
+        var sig = hops.map(function(h) { return h.ip; }).join(',') + '->' + pathDest;
 
         if (renderedSigs[sig]) return;
         renderedSigs[sig] = true;
@@ -1897,7 +1960,7 @@ function clientRenderTopology(clientName, data) {
             var isLast = i === hops.length - 1;
             var isTimeout = h.ip === '*';
 
-            if (isLast && !isTimeout && (h.ip === data.server_host || h.ip === data.client_ip)) continue;
+            if (isLast && !isTimeout && (h.ip === pathDest || h.ip === data.server_host || h.ip === data.client_ip)) continue;
 
             var sharedId = 'hop_shared_' + h.hop + '_' + h.ip;
             if (addedNodes[sharedId]) { nodeChain.push(sharedId); continue; }
@@ -1948,7 +2011,7 @@ function clientRenderTopology(clientName, data) {
             addedNodes[sharedId] = true;
             nodeChain.push(sharedId);
         }
-        nodeChain.push('server');
+        nodeChain.push(destNodeId);
 
         var curveDir = pathIndex % 2 === 0 ? 'curvedCW' : 'curvedCCW';
         var roundness = pathIndex > 1 ? 0.1 + (pathIndex * 0.08) : 0;
@@ -1973,7 +2036,7 @@ function clientRenderTopology(clientName, data) {
     });
 
     if (pathKeys.length === 0) {
-        container.innerHTML = '<div class="topo-empty"><svg width="120" height="50" viewBox="0 0 120 50"><circle cx="15" cy="25" r="8" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><circle cx="60" cy="25" r="6" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><circle cx="105" cy="25" r="8" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><line x1="23" y1="25" x2="54" y2="25" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/><line x1="66" y1="25" x2="97" y2="25" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/></svg><span>Start a protocol to see network topology</span></div>';
+        container.innerHTML = '<div class="topo-empty"><svg width="160" height="70" viewBox="0 0 160 70"><circle cx="15" cy="35" r="8" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><circle cx="70" cy="35" r="6" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><rect x="115" y="18" width="30" height="16" rx="4" fill="#e2e8f0" stroke="#2563eb" stroke-width="1.2"/><rect x="115" y="42" width="30" height="16" rx="8" fill="#e2e8f0" stroke="#0d9488" stroke-width="1.2"/><line x1="23" y1="35" x2="64" y2="35" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/><line x1="76" y1="33" x2="115" y2="26" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="4 3"/><line x1="76" y1="37" x2="115" y2="50" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="4 3"/></svg><span>Start a protocol to see network topology</span></div>';
         if (clientTopoNetworks[clientName]) { clientTopoNetworks[clientName].destroy(); clientTopoNetworks[clientName] = null; }
         var _legendEl = document.getElementById('c-' + clientName + '-topo-legend');
         if (_legendEl) _legendEl.innerHTML = '';
@@ -1983,7 +2046,7 @@ function clientRenderTopology(clientName, data) {
     }
 
     var options = {
-        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 160, nodeSpacing: 60 } },
+        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 180, nodeSpacing: 80 } },
         physics: false,
         interaction: { hover: true, tooltipDelay: 80, dragNodes: true, zoomView: true, dragView: true }
     };
