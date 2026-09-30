@@ -169,7 +169,7 @@ const PROTOCOLS = {
         name: 'External HTTPS',
         appId: 'ssl, web-browsing',
         fields: [
-            { key: 'urls', label: 'Target URLs (one per line)', type: 'textarea', default: 'https://www.google.com' },
+            { key: 'urls', label: 'Target URLs (one per line)', type: 'textarea', default: 'https://www.salesforce.com\nhttps://www.office.com\nhttps://www.dropbox.com\nhttps://slack.com\nhttps://zoom.us' },
             { key: 'method', label: 'Method', type: 'select', options: ['GET', 'POST', 'HEAD'], default: 'GET' },
             { key: 'interval', label: 'Interval (s)', type: 'number', default: 1, step: 0.1 },
             { key: 'ignore_ssl', label: 'Ignore SSL', type: 'checkbox', default: false },
@@ -1361,7 +1361,7 @@ function _latencyHtml(rtt) {
 // Classify a destination as 'internet' (cloud icon) or 'server' (datacenter icon)
 function classifyDest(pathKey, dest, serverHost) {
     // Known internet-bound protocols
-    if (pathKey === 'ext_https') return 'internet';
+    if (pathKey === 'ext_https' || pathKey.startsWith('ext_https_')) return 'internet';
     if (pathKey === 'dns') return 'internet';
     // Public DNS resolvers
     if (['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1', '9.9.9.9'].includes(dest)) return 'internet';

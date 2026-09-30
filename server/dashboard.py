@@ -1796,7 +1796,7 @@ var TOPO_ICONS = {
 };
 
 function classifyDest(pathKey, dest, serverHost) {
-    if (pathKey === 'ext_https') return 'internet';
+    if (pathKey === 'ext_https' || pathKey.indexOf('ext_https_') === 0) return 'internet';
     if (pathKey === 'dns') return 'internet';
     if (['8.8.8.8','8.8.4.4','1.1.1.1','1.0.0.1','9.9.9.9'].indexOf(dest) !== -1) return 'internet';
     if (dest && /\\.(com|org|net|io|dev|cloud|edu|gov)$/i.test(dest)) return 'internet';
