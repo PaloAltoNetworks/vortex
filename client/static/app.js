@@ -1374,8 +1374,8 @@ function classifyDest(pathKey, dest, serverHost) {
 }
 
 const DEST_STYLES = {
-    internet: { fill: '#f0fdfa', stroke: '#0891b2', icon: 'internet', labelPrefix: '\u2601' },
-    server:   { fill: '#eff6ff', stroke: '#2563eb', icon: 'datacenter', labelPrefix: '\u2756' },
+    internet: { fill: '#f0fdfa', stroke: '#0891b2', icon: 'internet', typeLabel: 'Internet' },
+    server:   { fill: '#eff6ff', stroke: '#2563eb', icon: 'datacenter', typeLabel: 'App Server' },
 };
 
 function renderTopology(data) {
@@ -1446,10 +1446,9 @@ function renderTopology(data) {
         const protoNames = info.protocols.map(p => p.label).join(', ');
         const isAnyRunning = info.protocols.some(p => p.running);
         const displayName = dest.length > 20 ? dest.slice(0, 18) + '…' : dest;
-        const typeLabel = info.type === 'internet' ? 'Internet' : 'Data Center';
 
         const tipLines = [
-            '<div class="topo-tip-header">' + typeLabel + '</div>',
+            '<div class="topo-tip-header">' + style.typeLabel + '</div>',
             '<span class="topo-tip-row"><span class="topo-tip-label">Host</span><strong>' + dest + '</strong></span>',
             '<span class="topo-tip-row"><span class="topo-tip-label">Protocols</span>' + protoNames + '</span>',
         ];
@@ -1465,7 +1464,7 @@ function renderTopology(data) {
         });
 
         nodes.add({
-            id: nodeId, label: style.labelPrefix + ' ' + displayName, shape: 'image', size: 36,
+            id: nodeId, label: style.typeLabel + '\n' + displayName, shape: 'image', size: 36,
             image: iconFn(style.fill, style.stroke),
             font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
             level: maxHops + 1,
