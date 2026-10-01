@@ -32,7 +32,7 @@ const PROTOCOLS = {
             { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
             { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     iperf: {
@@ -47,7 +47,7 @@ const PROTOCOLS = {
             { key: 'reverse', label: 'Reverse (download)', type: 'checkbox', default: false },
             { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     multicast: {
@@ -62,7 +62,7 @@ const PROTOCOLS = {
             { key: 'target_pps', label: 'Target PPS', type: 'number', default: 100, step: 10 },
             { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'AF41' },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     http_plain: {
@@ -90,7 +90,7 @@ const PROTOCOLS = {
             { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
             { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     dns: {
@@ -108,7 +108,7 @@ const PROTOCOLS = {
             { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
             { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     rtp: {
@@ -126,7 +126,7 @@ const PROTOCOLS = {
             { key: 'dscp_video', label: 'DSCP Video', type: 'select', options: DSCP_OPTIONS, default: 'AF41' },
             { key: 'dscp_audio', label: 'DSCP Audio', type: 'select', options: DSCP_OPTIONS, default: 'EF' },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     ftp: {
@@ -142,7 +142,7 @@ const PROTOCOLS = {
             { key: 'random_size', label: 'Random File', type: 'checkbox', default: true },
             { key: 'proxy', label: 'Proxy', type: 'select', options: ['Global', 'On', 'Off', 'Custom'], default: 'Global' },
             { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     ssh: {
@@ -162,7 +162,7 @@ const PROTOCOLS = {
             { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
             { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     ext_https: {
@@ -182,7 +182,7 @@ const PROTOCOLS = {
             { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
             { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
 };

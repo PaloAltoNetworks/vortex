@@ -730,7 +730,7 @@ const PROTOCOLS = {
         { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
         { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
         { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-        { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+        { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
     ]},
     iperf: { name: 'iperf3', fields: [
         { key: 'host', label: 'Host', type: 'text', default: 'server' },
@@ -741,7 +741,7 @@ const PROTOCOLS = {
         { key: 'reverse', label: 'Reverse (download)', type: 'checkbox', default: false },
         { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
         { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-        { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+        { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
     ]},
     multicast: { name: 'Multicast', fields: [
         { key: 'host', label: 'Server Host', type: 'text', default: 'server' },
@@ -752,7 +752,7 @@ const PROTOCOLS = {
         { key: 'target_pps', label: 'Target PPS', type: 'number', default: 100, step: 10 },
         { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'AF41' },
         { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-        { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+        { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
     ]},
     http_plain: { name: 'HTTP (Plain)', fields: [
         { key: 'highcps_mode', label: 'High-CPS Mode', type: 'checkbox', default: true },
@@ -776,7 +776,7 @@ const PROTOCOLS = {
         { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
         { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
         { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-        { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+        { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
     ]},
     dns: { name: 'DNS', fields: [
         { key: 'host', label: 'Host', type: 'text', default: 'server' },
@@ -790,7 +790,7 @@ const PROTOCOLS = {
         { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
         { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
         { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-        { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+        { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
     ]},
     rtp: { name: 'RTP Audio/Video', fields: [
         { key: 'host', label: 'Server Host', type: 'text', default: 'server' },
@@ -804,7 +804,7 @@ const PROTOCOLS = {
         { key: 'dscp_video', label: 'DSCP Video', type: 'select', options: DSCP_OPTIONS, default: 'AF41' },
         { key: 'dscp_audio', label: 'DSCP Audio', type: 'select', options: DSCP_OPTIONS, default: 'EF' },
         { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-        { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+        { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
     ]},
     ftp: { name: 'FTP', fields: [
         { key: 'host', label: 'Host', type: 'text', default: 'server' },
@@ -820,7 +820,7 @@ const PROTOCOLS = {
         { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
         { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
         { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-        { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+        { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
     ]},
     ssh: { name: 'SSH', fields: [
         { key: 'host', label: 'Host', type: 'text', default: 'server' },
@@ -836,7 +836,7 @@ const PROTOCOLS = {
         { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
         { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
         { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-        { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+        { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
     ]},
     ext_https: { name: 'External HTTPS', fields: [
         { key: 'urls', label: 'Target URLs (one per line)', type: 'textarea', default: 'https://www.google.com' },
@@ -852,7 +852,7 @@ const PROTOCOLS = {
         { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
         { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
         { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-        { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+        { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
     ]},
 };
 
@@ -1164,8 +1164,8 @@ async function renderClientTab(name) {
         '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">' +
         '<label style="font-size:11px;color:var(--text-secondary)">Profile</label>' +
         '<select id="c-' + name + '-rw-profile" style="flex:1;min-width:180px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px" onchange="clientUpdateRwDesc(\'' + name + '\')"></select>' +
-        '<label style="font-size:11px;color:var(--text-secondary)">Duration (s)</label>' +
-        '<input type="number" id="c-' + name + '-rw-duration" value="900" min="0" step="30" style="width:80px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
+        '<label style="font-size:11px;color:var(--text-secondary)">Duration (s, 0=\u221E)</label>' +
+        '<input type="number" id="c-' + name + '-rw-duration" value="0" min="0" step="30" style="width:80px;padding:5px 8px;font-size:12px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:4px">' +
         '<label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="c-' + name + '-rw-loop" style="cursor:pointer"> Loop</label></div>' +
         '<div id="c-' + name + '-rw-desc" style="margin-top:6px;font-size:11px;color:var(--text-secondary)"></div>' +
         '<div id="c-' + name + '-rw-protos" style="margin-top:4px;font-size:11px;display:flex;gap:4px;flex-wrap:wrap"></div></div>' +
