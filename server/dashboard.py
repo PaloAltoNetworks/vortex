@@ -1786,13 +1786,12 @@ var clientTopoActiveEdgeIds = {};
 var TOPO_COLORS = ['#2563eb','#059669','#d97706','#7c3aed','#0891b2','#dc2626','#0d9488','#ea580c','#4f46e5','#16a34a'];
 
 var TOPO_ICONS = {
-    client: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter><linearGradient id="scr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e0f2fe"/><stop offset="100%" stop-color="#bae6fd"/></linearGradient></defs><rect x="10" y="14" width="44" height="30" rx="3" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2" filter="url(#s)"/><rect x="15" y="18" width="34" height="22" rx="2" fill="url(#scr)"/><circle cx="32" cy="29" r="6" fill="' + stroke + '" opacity="0.15"/><path d="M22 48h20M32 44v4" stroke="' + stroke + '" stroke-width="2" stroke-linecap="round"/><rect x="20" y="48" width="24" height="3" rx="1.5" fill="' + stroke + '" opacity="0.4"/><circle cx="48" cy="18" r="3" fill="#22c55e" opacity="0.9"/></svg>'); },
-    server: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter></defs><rect x="12" y="6" width="40" height="52" rx="4" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2" filter="url(#s)"/><rect x="17" y="12" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="15" width="14" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><rect x="20" y="18" width="8" height="2" rx="1" fill="' + stroke + '" opacity="0.2"/><circle cx="40" cy="17" r="2.5" fill="#22c55e"/><rect x="17" y="26" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="29" width="14" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><rect x="20" y="32" width="8" height="2" rx="1" fill="' + stroke + '" opacity="0.2"/><circle cx="40" cy="31" r="2.5" fill="#2563eb"/><rect x="17" y="40" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="43" width="14" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><rect x="20" y="46" width="8" height="2" rx="1" fill="' + stroke + '" opacity="0.2"/><circle cx="40" cy="45" r="2.5" fill="#d97706"/></svg>'); },
-    router: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter></defs><circle cx="28" cy="28" r="22" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2.5" filter="url(#s)"/><circle cx="28" cy="28" r="6" fill="' + stroke + '" opacity="0.8"/><path d="M28 10v10M28 36v10M10 28h10M36 28h10" stroke="' + stroke + '" stroke-width="2" stroke-linecap="round"/><path d="M16 16l7 7M33 33l7 7M40 16l-7 7M23 33l-7 7" stroke="' + stroke + '" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/><polygon points="28,8 26,13 30,13" fill="' + stroke + '" opacity="0.7"/><polygon points="28,48 26,43 30,43" fill="' + stroke + '" opacity="0.7"/><polygon points="8,28 13,26 13,30" fill="' + stroke + '" opacity="0.7"/><polygon points="48,28 43,26 43,30" fill="' + stroke + '" opacity="0.7"/></svg>'); },
-    hop: function(fill, stroke, num) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + fill + '"/><stop offset="100%" stop-color="#dbeafe"/></linearGradient></defs><circle cx="18" cy="18" r="13" fill="url(#hg)" stroke="' + stroke + '" stroke-width="2"/><text x="18" y="22" text-anchor="middle" fill="' + stroke + '" font-size="12" font-weight="700" font-family="-apple-system,sans-serif">' + num + '</text></svg>'); },
-    timeout: function(num) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="13" fill="#fef2f2" stroke="#ef4444" stroke-width="2" stroke-dasharray="4 3"/><line x1="13" y1="13" x2="23" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/><line x1="23" y1="13" x2="13" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/></svg>'); },
-    internet: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="72" height="56" viewBox="0 0 72 56"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18"/></filter><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + fill + '"/><stop offset="100%" stop-color="#e0f2fe"/></linearGradient></defs><path d="M18 38c-6 0-11-4-11-9s4-9 9-9c0-8 7-14 15-14s14 5 15 12c6 1 10 5 10 10s-5 10-11 10z" fill="url(#cg)" stroke="' + stroke + '" stroke-width="2" filter="url(#s)"/><circle cx="30" cy="26" r="8" fill="none" stroke="' + stroke + '" stroke-width="1.5" opacity="0.4"/><ellipse cx="30" cy="26" rx="3" ry="8" fill="none" stroke="' + stroke + '" stroke-width="1" opacity="0.3"/><line x1="22" y1="26" x2="38" y2="26" stroke="' + stroke + '" stroke-width="1" opacity="0.3"/></svg>'); },
-    datacenter: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + fill + '"/><stop offset="100%" stop-color="#dbeafe"/></linearGradient></defs><rect x="14" y="8" width="36" height="48" rx="4" fill="url(#dg)" stroke="' + stroke + '" stroke-width="2" filter="url(#s)"/><rect x="19" y="14" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="17" width="12" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><circle cx="40" cy="18.5" r="2" fill="#22c55e"/><rect x="19" y="27" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="30" width="12" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><circle cx="40" cy="31.5" r="2" fill="#3b82f6"/><rect x="19" y="40" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="43" width="12" height="2" rx="1" fill="' + stroke + '" opacity="0.3"/><circle cx="40" cy="44.5" r="2" fill="#f59e0b"/></svg>'); }
+    client: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="' + fill + '" stroke="' + stroke + '" stroke-width="4"/><circle cx="32" cy="24" r="7" fill="' + stroke + '" opacity="0.75"/><path d="M19 46c0-7 5.8-13 13-13s13 6 13 13" fill="' + stroke + '" opacity="0.55"/></svg>'); },
+    router: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="' + fill + '" stroke="' + stroke + '" stroke-width="4"/><circle cx="32" cy="32" r="5" fill="' + stroke + '" opacity="0.8"/><path d="M32 15v10M32 39v10M15 32h10M39 32h10" stroke="' + stroke + '" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/><polygon points="32,13 30,18 34,18" fill="' + stroke + '" opacity="0.6"/><polygon points="32,51 30,46 34,46" fill="' + stroke + '" opacity="0.6"/><polygon points="13,32 18,30 18,34" fill="' + stroke + '" opacity="0.6"/><polygon points="51,32 46,30 46,34" fill="' + stroke + '" opacity="0.6"/></svg>'); },
+    hop: function(fill, stroke, num) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="' + fill + '" stroke="' + stroke + '" stroke-width="4"/><text x="32" y="38" text-anchor="middle" fill="' + stroke + '" font-size="18" font-weight="700" font-family="-apple-system,sans-serif">' + num + '</text></svg>'); },
+    timeout: function(num) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="#fef2f2" stroke="#ef4444" stroke-width="4" stroke-dasharray="6 4"/><line x1="23" y1="23" x2="41" y2="41" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/><line x1="41" y1="23" x2="23" y2="41" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/></svg>'); },
+    internet: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="' + fill + '" stroke="' + stroke + '" stroke-width="4"/><path d="M20 36c-2 0-4-2-4-4s2-4 4-4c0-4 4-7 8-7s7 2 8 6c3 0 5 2 5 4s-2 5-5 5z" fill="' + stroke + '" opacity="0.5" transform="translate(4,-4)"/><circle cx="32" cy="38" r="5" fill="none" stroke="' + stroke + '" stroke-width="1.2" opacity="0.35"/><ellipse cx="32" cy="38" rx="2" ry="5" fill="none" stroke="' + stroke + '" stroke-width="0.8" opacity="0.25"/></svg>'); },
+    datacenter: function(fill, stroke) { return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="' + fill + '" stroke="' + stroke + '" stroke-width="4"/><rect x="21" y="16" width="22" height="32" rx="3" fill="' + stroke + '" opacity="0.15"/><rect x="24" y="20" width="16" height="6" rx="1.5" fill="' + stroke + '" opacity="0.45"/><circle cx="37" cy="23" r="1.5" fill="#22c55e"/><rect x="24" y="29" width="16" height="6" rx="1.5" fill="' + stroke + '" opacity="0.45"/><circle cx="37" cy="32" r="1.5" fill="#3b82f6"/><rect x="24" y="38" width="16" height="6" rx="1.5" fill="' + stroke + '" opacity="0.45"/><circle cx="37" cy="41" r="1.5" fill="#f59e0b"/></svg>'); }
 };
 
 function classifyDest(pathKey, dest, serverHost) {
@@ -1886,7 +1885,7 @@ function clientRenderTopology(clientName, data) {
         var nodeId = 'dest_' + dest.replace(/[^a-zA-Z0-9]/g, '_');
         destNodeIds[dest] = nodeId;
         var style = DEST_STYLES[info.type];
-        var iconFn = TOPO_ICONS[style.icon] || TOPO_ICONS.server;
+        var iconFn = TOPO_ICONS[style.icon] || TOPO_ICONS.datacenter;
         var protoNames = info.protocols.map(function(p) { return p.label; }).join(', ');
         var isAnyRunning = info.protocols.some(function(p) { return p.running; });
         var displayName = dest.length > 20 ? dest.substring(0, 18) + '\u2026' : dest;
@@ -1907,20 +1906,20 @@ function clientRenderTopology(clientName, data) {
             }
         });
 
-        nodes.add({ id: nodeId, label: style.typeLabel + '\\n' + displayName, shape: 'image', size: 36,
+        nodes.add({ id: nodeId, label: style.typeLabel + '\\n' + displayName, shape: 'image', size: 40,
             image: iconFn(style.fill, style.stroke),
-            font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
+            font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 14, multi: true },
             level: maxHops + 1,
             shadow: { enabled: true, color: style.stroke + '25', size: 12 },
             title: _topoTip(tipLines, style.stroke) });
     });
 
     // CLIENT node
-    nodes.add({ id: 'client', label: 'Client\\n' + data.client_ip, shape: 'image', size: 36,
-        image: TOPO_ICONS.client('#ecfdf5', '#059669'),
-        font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
-        level: 0, shadow: { enabled: true, color: 'rgba(5,150,105,0.15)', size: 12 },
-        title: _topoTip(['<div class="topo-tip-header">Client</div>',
+    nodes.add({ id: 'client', label: 'Branch Office\\n' + data.client_ip, shape: 'image', size: 40,
+        image: TOPO_ICONS.client('#ecfdf5', '#0d9488'),
+        font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 14, multi: true },
+        level: 0, shadow: { enabled: true, color: 'rgba(13,148,136,0.15)', size: 12 },
+        title: _topoTip(['<div class="topo-tip-header">Branch Office</div>',
             '<span class="topo-tip-row"><span class="topo-tip-label">IP Address</span><strong>' + data.client_ip + '</strong></span>',
             '<span class="topo-tip-row"><span class="topo-tip-label">Active Flows</span><strong>' + runningPaths.length + '</strong></span>',
             '<span class="topo-tip-row"><span class="topo-tip-label">Destinations</span><strong>' + destKeys.length + '</strong></span>'], '#059669') });
@@ -1951,7 +1950,7 @@ function clientRenderTopology(clientName, data) {
 
         legendItems.push({ labels: labels, color: color, running: isRunning, defaultOnly: isDefaultOnly });
 
-        var edgeWidth = isRunning ? 3.5 : 1.5;
+        var edgeWidth = isRunning ? 3 : 1.5;
 
         var nodeChain = ['client'];
         for (var i = 0; i < hops.length; i++) {
@@ -1970,13 +1969,13 @@ function clientRenderTopology(clientName, data) {
             var tipColor = color;
             if (isTimeout) {
                 nodeImage = TOPO_ICONS.timeout(h.hop);
-                nodeSize = 18; nodeLabel = ''; tipColor = '#ef4444';
+                nodeSize = 22; nodeLabel = ''; tipColor = '#ef4444';
                 tipLines = ['<div class="topo-tip-header" style="color:#ef4444">Hop ' + h.hop + ' \u2014 Timeout</div>', '<span style="color:#ef4444">Request timed out</span>'];
             } else if (router) {
                 var modeColorMap = { healthy: { fill: '#ecfdf5', stroke: '#059669' }, impaired: { fill: '#fffbeb', stroke: '#d97706' }, link_down: { fill: '#fef2f2', stroke: '#dc2626' } };
                 var mc = modeColorMap[router.current_mode] || { fill: '#eff6ff', stroke: color };
                 nodeImage = TOPO_ICONS.router(mc.fill, mc.stroke);
-                nodeLabel = router.name + '\\n' + h.ip; nodeSize = 30; tipColor = mc.stroke;
+                nodeLabel = router.name + '\\n' + h.ip; nodeSize = 34; tipColor = mc.stroke;
                 var mode = router.current_mode ? router.current_mode.replace('_', ' ') : 'unknown';
                 var modeTextColors = { healthy: '#059669', impaired: '#d97706', link_down: '#dc2626' };
                 var modeClr = modeTextColors[router.current_mode] || '#6b7a8d';
@@ -1995,7 +1994,7 @@ function clientRenderTopology(clientName, data) {
                 }
             } else {
                 nodeImage = TOPO_ICONS.hop('#eff6ff', color, h.hop);
-                nodeSize = 20; nodeLabel = h.ip;
+                nodeSize = 24; nodeLabel = h.ip;
                 tipLines = ['<div class="topo-tip-header">Hop ' + h.hop + '</div>',
                     '<span class="topo-tip-row"><span class="topo-tip-label">IP</span><strong>' + h.ip + '</strong></span>'];
                 if (h.rtt && h.rtt !== '--') tipLines.push(_latencyHtml(h.rtt));
@@ -2021,21 +2020,21 @@ function clientRenderTopology(clientName, data) {
                 edgeLabel = hops[j].rtt + ' ms';
             }
             edges.add({ id: edgeId, from: nodeChain[j], to: nodeChain[j + 1],
-                arrows: { to: { enabled: true, scaleFactor: 0.5, type: 'vee' } },
-                color: { color: isRunning ? color : '#cbd5e1', highlight: color, hover: color },
+                arrows: { to: { enabled: true, scaleFactor: 0.3, type: 'arrow' } },
+                color: { color: isRunning ? '#0d9488' : '#cbd5e1', highlight: color, hover: color },
                 width: edgeWidth,
                 label: edgeLabel,
-                font: { size: 8, color: color, strokeWidth: 3, strokeColor: '#ffffff', align: 'top' },
-                dashes: isRunning ? [10, 5] : false,
+                font: { size: 8, color: '#475569', strokeWidth: 3, strokeColor: '#ffffff', align: 'top' },
+                dashes: false,
                 smooth: roundness > 0 ? { type: curveDir, roundness: roundness } : { type: 'cubicBezier' },
                 hoverWidth: 1.5, selectionWidth: 2,
-                shadow: isRunning ? { enabled: true, color: color + '20', size: 4 } : false });
+                shadow: isRunning ? { enabled: true, color: '#0d948820', size: 4 } : false });
             if (isRunning) clientTopoActiveEdgeIds[clientName].push({ id: edgeId, color: color });
         }
     });
 
     if (pathKeys.length === 0) {
-        container.innerHTML = '<div class="topo-empty"><svg width="160" height="70" viewBox="0 0 160 70"><circle cx="15" cy="35" r="8" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><circle cx="70" cy="35" r="6" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><rect x="115" y="18" width="30" height="16" rx="4" fill="#e2e8f0" stroke="#2563eb" stroke-width="1.2"/><rect x="115" y="42" width="30" height="16" rx="8" fill="#e2e8f0" stroke="#0d9488" stroke-width="1.2"/><line x1="23" y1="35" x2="64" y2="35" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/><line x1="76" y1="33" x2="115" y2="26" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="4 3"/><line x1="76" y1="37" x2="115" y2="50" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="4 3"/></svg><span>Start a protocol to see network topology</span></div>';
+        container.innerHTML = '<div class="topo-empty"><svg width="160" height="70" viewBox="0 0 160 70"><circle cx="18" cy="35" r="12" fill="none" stroke="#0d9488" stroke-width="2.5" stroke-dasharray="4 3" opacity="0.4"/><circle cx="75" cy="35" r="8" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="3 3" opacity="0.35"/><circle cx="130" cy="22" r="10" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="4 3" opacity="0.4"/><circle cx="130" cy="52" r="10" fill="none" stroke="#0891b2" stroke-width="2.5" stroke-dasharray="4 3" opacity="0.4"/><line x1="30" y1="35" x2="67" y2="35" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/><line x1="83" y1="32" x2="120" y2="24" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="4 3"/><line x1="83" y1="38" x2="120" y2="50" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="4 3"/></svg><span>Start a protocol to see network topology</span></div>';
         if (clientTopoNetworks[clientName]) { clientTopoNetworks[clientName].destroy(); clientTopoNetworks[clientName] = null; }
         var _legendEl = document.getElementById('c-' + clientName + '-topo-legend');
         if (_legendEl) _legendEl.innerHTML = '';
@@ -2045,7 +2044,7 @@ function clientRenderTopology(clientName, data) {
     }
 
     var options = {
-        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 180, nodeSpacing: 80 } },
+        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 220, nodeSpacing: 100 } },
         physics: false,
         interaction: { hover: true, tooltipDelay: 80, dragNodes: true, zoomView: true, dragView: true }
     };
@@ -2114,7 +2113,7 @@ function clientRenderTopology(clientName, data) {
             var st = (clientTopoAnimState[clientName] + 1) % 8;
             clientTopoAnimState[clientName] = st;
             var dp = [[12,4],[10,5],[8,6],[6,7],[5,8],[6,7],[8,6],[10,5]];
-            var wp = [3.5, 3.8, 4, 4.2, 4, 3.8, 3.5, 3.2];
+            var wp = [3, 3.1, 3.2, 3.5, 3.2, 3.1, 3, 2.8];
             var op = [1, 0.95, 0.9, 0.85, 0.9, 0.95, 1, 1];
             activeEdges.forEach(function(e) {
                 var r = parseInt(e.color.slice(1,3),16);

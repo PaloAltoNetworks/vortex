@@ -1314,15 +1314,14 @@ const TOPO_COLORS = [
     '#dc2626', '#0d9488', '#ea580c', '#4f46e5', '#16a34a'
 ];
 
-// SVG icon data URIs for topology nodes
+// SVG icon data URIs for topology nodes — Prisma SD-WAN circular ring style
 const TOPO_ICONS = {
-    client: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter><linearGradient id="scr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e0f2fe"/><stop offset="100%" stop-color="#bae6fd"/></linearGradient></defs><rect x="10" y="14" width="44" height="30" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="2" filter="url(#s)"/><rect x="15" y="18" width="34" height="22" rx="2" fill="url(#scr)"/><circle cx="32" cy="29" r="6" fill="${stroke}" opacity="0.15"/><path d="M22 48h20M32 44v4" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/><rect x="20" y="48" width="24" height="3" rx="1.5" fill="${stroke}" opacity="0.4"/><circle cx="48" cy="18" r="3" fill="#22c55e" opacity="0.9"/></svg>`)}`,
-    server: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter></defs><rect x="12" y="6" width="40" height="52" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="2" filter="url(#s)"/><rect x="17" y="12" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="15" width="14" height="2" rx="1" fill="${stroke}" opacity="0.3"/><rect x="20" y="18" width="8" height="2" rx="1" fill="${stroke}" opacity="0.2"/><circle cx="40" cy="17" r="2.5" fill="#22c55e"/><rect x="17" y="26" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="29" width="14" height="2" rx="1" fill="${stroke}" opacity="0.3"/><rect x="20" y="32" width="8" height="2" rx="1" fill="${stroke}" opacity="0.2"/><circle cx="40" cy="31" r="2.5" fill="#2563eb"/><rect x="17" y="40" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="43" width="14" height="2" rx="1" fill="${stroke}" opacity="0.3"/><rect x="20" y="46" width="8" height="2" rx="1" fill="${stroke}" opacity="0.2"/><circle cx="40" cy="45" r="2.5" fill="#d97706"/></svg>`)}`,
-    router: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter></defs><circle cx="28" cy="28" r="22" fill="${fill}" stroke="${stroke}" stroke-width="2.5" filter="url(#s)"/><circle cx="28" cy="28" r="6" fill="${stroke}" opacity="0.8"/><path d="M28 10v10M28 36v10M10 28h10M36 28h10" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/><path d="M16 16l7 7M33 33l7 7M40 16l-7 7M23 33l-7 7" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/><polygon points="28,8 26,13 30,13" fill="${stroke}" opacity="0.7"/><polygon points="28,48 26,43 30,43" fill="${stroke}" opacity="0.7"/><polygon points="8,28 13,26 13,30" fill="${stroke}" opacity="0.7"/><polygon points="48,28 43,26 43,30" fill="${stroke}" opacity="0.7"/></svg>`)}`,
-    hop: (fill, stroke, num) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${fill}"/><stop offset="100%" stop-color="#dbeafe"/></linearGradient></defs><circle cx="18" cy="18" r="13" fill="url(#hg)" stroke="${stroke}" stroke-width="2"/><text x="18" y="22" text-anchor="middle" fill="${stroke}" font-size="12" font-weight="700" font-family="-apple-system,sans-serif">${num}</text></svg>`)}`,
-    timeout: (num) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="13" fill="#fef2f2" stroke="#ef4444" stroke-width="2" stroke-dasharray="4 3"/><line x1="13" y1="13" x2="23" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/><line x1="23" y1="13" x2="13" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/></svg>`)}`,
-    internet: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="72" height="56" viewBox="0 0 72 56"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18"/></filter><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${fill}"/><stop offset="100%" stop-color="#e0f2fe"/></linearGradient></defs><path d="M18 38c-6 0-11-4-11-9s4-9 9-9c0-8 7-14 15-14s14 5 15 12c6 1 10 5 10 10s-5 10-11 10z" fill="url(#cg)" stroke="${stroke}" stroke-width="2" filter="url(#s)"/><circle cx="30" cy="26" r="8" fill="none" stroke="${stroke}" stroke-width="1.5" opacity="0.4"/><ellipse cx="30" cy="26" rx="3" ry="8" fill="none" stroke="${stroke}" stroke-width="1" opacity="0.3"/><line x1="22" y1="26" x2="38" y2="26" stroke="${stroke}" stroke-width="1" opacity="0.3"/></svg>`)}`,
-    datacenter: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${fill}"/><stop offset="100%" stop-color="#dbeafe"/></linearGradient></defs><rect x="14" y="8" width="36" height="48" rx="4" fill="url(#dg)" stroke="${stroke}" stroke-width="2" filter="url(#s)"/><rect x="19" y="14" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="17" width="12" height="2" rx="1" fill="${stroke}" opacity="0.3"/><circle cx="40" cy="18.5" r="2" fill="#22c55e"/><rect x="19" y="27" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="30" width="12" height="2" rx="1" fill="${stroke}" opacity="0.3"/><circle cx="40" cy="31.5" r="2" fill="#3b82f6"/><rect x="19" y="40" width="26" height="9" rx="2" fill="#fff" opacity="0.6"/><rect x="22" y="43" width="12" height="2" rx="1" fill="${stroke}" opacity="0.3"/><circle cx="40" cy="44.5" r="2" fill="#f59e0b"/></svg>`)}`,
+    client: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="${fill}" stroke="${stroke}" stroke-width="4"/><circle cx="32" cy="24" r="7" fill="${stroke}" opacity="0.75"/><path d="M19 46c0-7 5.8-13 13-13s13 6 13 13" fill="${stroke}" opacity="0.55"/></svg>`)}`,
+    router: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="${fill}" stroke="${stroke}" stroke-width="4"/><circle cx="32" cy="32" r="5" fill="${stroke}" opacity="0.8"/><path d="M32 15v10M32 39v10M15 32h10M39 32h10" stroke="${stroke}" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/><polygon points="32,13 30,18 34,18" fill="${stroke}" opacity="0.6"/><polygon points="32,51 30,46 34,46" fill="${stroke}" opacity="0.6"/><polygon points="13,32 18,30 18,34" fill="${stroke}" opacity="0.6"/><polygon points="51,32 46,30 46,34" fill="${stroke}" opacity="0.6"/></svg>`)}`,
+    hop: (fill, stroke, num) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="${fill}" stroke="${stroke}" stroke-width="4"/><text x="32" y="38" text-anchor="middle" fill="${stroke}" font-size="18" font-weight="700" font-family="-apple-system,sans-serif">${num}</text></svg>`)}`,
+    timeout: (num) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="#fef2f2" stroke="#ef4444" stroke-width="4" stroke-dasharray="6 4"/><line x1="23" y1="23" x2="41" y2="41" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/><line x1="41" y1="23" x2="23" y2="41" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/></svg>`)}`,
+    internet: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="${fill}" stroke="${stroke}" stroke-width="4"/><path d="M20 36c-2 0-4-2-4-4s2-4 4-4c0-4 4-7 8-7s7 2 8 6c3 0 5 2 5 4s-2 5-5 5z" fill="${stroke}" opacity="0.5" transform="translate(4,-4)"/><circle cx="32" cy="38" r="5" fill="none" stroke="${stroke}" stroke-width="1.2" opacity="0.35"/><ellipse cx="32" cy="38" rx="2" ry="5" fill="none" stroke="${stroke}" stroke-width="0.8" opacity="0.25"/></svg>`)}`,
+    datacenter: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="${fill}" stroke="${stroke}" stroke-width="4"/><rect x="21" y="16" width="22" height="32" rx="3" fill="${stroke}" opacity="0.15"/><rect x="24" y="20" width="16" height="6" rx="1.5" fill="${stroke}" opacity="0.45"/><circle cx="37" cy="23" r="1.5" fill="#22c55e"/><rect x="24" y="29" width="16" height="6" rx="1.5" fill="${stroke}" opacity="0.45"/><circle cx="37" cy="32" r="1.5" fill="#3b82f6"/><rect x="24" y="38" width="16" height="6" rx="1.5" fill="${stroke}" opacity="0.45"/><circle cx="37" cy="41" r="1.5" fill="#f59e0b"/></svg>`)}`,
 };
 
 async function refreshTopology() {
@@ -1408,12 +1407,12 @@ function renderTopology(data) {
         hopSigMap[sig].push(k);
     });
 
-    // CLIENT node — laptop icon
-    const clientLabel = data.standalone ? 'Client\n(Standalone)' : 'Client\n' + data.client_ip;
+    // CLIENT node — person icon in teal ring
+    const clientLabel = data.standalone ? 'Branch Office\n(Standalone)' : 'Branch Office\n' + data.client_ip;
     nodes.add({
-        id: 'client', label: clientLabel, shape: 'image', size: 36,
-        image: TOPO_ICONS.client('#ecfdf5', '#059669'),
-        font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
+        id: 'client', label: clientLabel, shape: 'image', size: 40,
+        image: TOPO_ICONS.client('#ecfdf5', '#0d9488'),
+        font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 14, multi: true },
         level: 0, shadow: { enabled: true, color: 'rgba(5,150,105,0.15)', size: 12 },
         title: _topoTooltip([
             '<div class="topo-tip-header">Client' + (data.standalone ? ' (Standalone)' : '') + '</div>',
@@ -1464,9 +1463,9 @@ function renderTopology(data) {
         });
 
         nodes.add({
-            id: nodeId, label: style.typeLabel + '\n' + displayName, shape: 'image', size: 36,
+            id: nodeId, label: style.typeLabel + '\n' + displayName, shape: 'image', size: 40,
             image: iconFn(style.fill, style.stroke),
-            font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
+            font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 14, multi: true },
             level: maxHops + 1,
             shadow: { enabled: true, color: style.stroke + '25', size: 12 },
             title: _topoTooltip(tipLines, style.stroke),
@@ -1497,7 +1496,7 @@ function renderTopology(data) {
 
         legendItems.push({ labels, color, running: isRunning, defaultOnly: isDefaultOnly });
 
-        const edgeWidth = isRunning ? 3.5 : 1.5;
+        const edgeWidth = isRunning ? 3 : 1.5;
 
         // Create hop nodes with appropriate icons
         const nodeChain = ['client'];
@@ -1516,7 +1515,7 @@ function renderTopology(data) {
             let tipColor = color;
             if (isTimeout) {
                 nodeImage = TOPO_ICONS.timeout(h.hop);
-                nodeSize = 18;
+                nodeSize = 22;
                 nodeLabel = '';
                 tipColor = '#ef4444';
                 tipLines = [
@@ -1531,7 +1530,7 @@ function renderTopology(data) {
                 };
                 const mc = modeColors[router.current_mode] || { fill: '#eff6ff', stroke: color };
                 nodeImage = TOPO_ICONS.router(mc.fill, mc.stroke);
-                nodeLabel = router.name + '\n' + h.ip; nodeSize = 30;
+                nodeLabel = router.name + '\n' + h.ip; nodeSize = 34;
                 tipColor = mc.stroke;
                 const mode = router.current_mode ? router.current_mode.replace('_', ' ') : 'unknown';
                 const modeColor = { healthy: '#059669', impaired: '#d97706', link_down: '#dc2626' }[router.current_mode] || '#6b7a8d';
@@ -1552,7 +1551,7 @@ function renderTopology(data) {
                 }
             } else {
                 nodeImage = TOPO_ICONS.hop('#eff6ff', color, h.hop);
-                nodeSize = 20;
+                nodeSize = 24;
                 nodeLabel = h.ip;
                 tipLines = [
                     '<div class="topo-tip-header">Hop ' + h.hop + '</div>',
@@ -1588,12 +1587,12 @@ function renderTopology(data) {
             }
             edges.add({
                 id: edgeId, from: nodeChain[i], to: nodeChain[i + 1],
-                arrows: { to: { enabled: true, scaleFactor: 0.5, type: 'vee' } },
-                color: { color: isRunning ? color : '#cbd5e1', highlight: color, hover: color },
+                arrows: { to: { enabled: true, scaleFactor: 0.3, type: 'arrow' } },
+                color: { color: isRunning ? '#0d9488' : '#cbd5e1', highlight: color, hover: color },
                 width: edgeWidth,
                 label: edgeLabel,
-                font: { size: 8, color: color, strokeWidth: 3, strokeColor: '#ffffff', align: 'top' },
-                dashes: isRunning ? [10, 5] : false,
+                font: { size: 9, color: '#475569', strokeWidth: 3, strokeColor: '#ffffff', align: 'top' },
+                dashes: false,
                 smooth: roundness > 0 ? { type: curveDir, roundness } : { type: 'cubicBezier' },
                 hoverWidth: 1.5,
                 selectionWidth: 2,
@@ -1606,19 +1605,22 @@ function renderTopology(data) {
     // If no active flows, show empty state with placeholder
     if (pathKeys.length === 0) {
         container.innerHTML = `<div class="topo-empty">
-            <svg width="180" height="80" viewBox="0 0 180 80">
-                <rect x="6" y="28" width="24" height="18" rx="3" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/>
-                <rect x="9" y="31" width="18" height="12" rx="2" fill="#f1f5f9"/>
-                <line x1="12" y1="48" x2="24" y2="48" stroke="#94a3b8" stroke-width="1.5"/>
-                <circle cx="90" cy="25" r="6" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/>
-                <rect x="140" y="12" width="28" height="22" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="1.5"/>
-                <rect x="144" y="16" width="20" height="4" rx="1" fill="#bfdbfe"/>
-                <rect x="144" y="22" width="20" height="4" rx="1" fill="#bfdbfe"/>
-                <rect x="144" y="28" width="20" height="4" rx="1" fill="#bfdbfe"/>
-                <path d="M138 62c-4 0-7-3-7-6s3-6 6-6c0-5 5-9 10-9s9 3 10 8c4 0 7 3 7 7s-3 6-7 6z" fill="#e0f2fe" stroke="#67e8f9" stroke-width="1.5"/>
-                <line x1="30" y1="37" x2="84" y2="25" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/>
-                <line x1="96" y1="22" x2="140" y2="22" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/>
-                <line x1="96" y1="28" x2="138" y2="52" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <svg width="240" height="72" viewBox="0 0 240 72">
+                <circle cx="32" cy="36" r="22" fill="#ecfdf5" stroke="#0d9488" stroke-width="3" opacity="0.4"/>
+                <circle cx="32" cy="28" r="5" fill="#0d9488" opacity="0.3"/>
+                <path d="M24 42c0-4 3.5-8 8-8s8 4 8 8" fill="#0d9488" opacity="0.2"/>
+                <circle cx="120" cy="36" r="16" fill="#f1f5f9" stroke="#94a3b8" stroke-width="3" opacity="0.4"/>
+                <circle cx="120" cy="36" r="3" fill="#94a3b8" opacity="0.3"/>
+                <path d="M120 24v6M120 42v6M108 36h6M128 36h6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+                <circle cx="208" cy="26" r="18" fill="#eff6ff" stroke="#2563eb" stroke-width="3" opacity="0.4"/>
+                <rect x="200" y="20" width="16" height="4" rx="1" fill="#2563eb" opacity="0.2"/>
+                <rect x="200" y="26" width="16" height="4" rx="1" fill="#2563eb" opacity="0.2"/>
+                <rect x="200" y="32" width="16" height="4" rx="1" fill="#2563eb" opacity="0.2"/>
+                <circle cx="208" cy="54" r="14" fill="#f0fdfa" stroke="#0891b2" stroke-width="3" opacity="0.4"/>
+                <path d="M200 56c-1.5 0-3-1.5-3-3s1.5-3 3-3c0-3 3-5 6-5s5 1.5 6 4.5c2 0 3.5 1.5 3.5 3s-1.5 3.5-3.5 3.5z" fill="#0891b2" opacity="0.25"/>
+                <line x1="54" y1="36" x2="104" y2="36" stroke="#0d9488" stroke-width="2" stroke-dasharray="4 3" opacity="0.3"/>
+                <line x1="136" y1="32" x2="190" y2="26" stroke="#0d9488" stroke-width="2" stroke-dasharray="4 3" opacity="0.3"/>
+                <line x1="136" y1="40" x2="194" y2="52" stroke="#0d9488" stroke-width="2" stroke-dasharray="4 3" opacity="0.3"/>
             </svg>
             <span>Start a protocol to see network topology</span></div>`;
         if (topoNetwork) { topoNetwork.destroy(); topoNetwork = null; }
@@ -1630,7 +1632,7 @@ function renderTopology(data) {
     }
 
     const options = {
-        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 180, nodeSpacing: 80 } },
+        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 220, nodeSpacing: 100 } },
         physics: false,
         interaction: { hover: true, tooltipDelay: 80, dragNodes: true, zoomView: true, dragView: true },
         edges: { chosen: { edge: function(values) { values.width = values.width * 1.3; } } },
@@ -1699,7 +1701,7 @@ function animateTopology() {
     if (!topoEdges || !topoHasTraffic) return;
     topoAnimState = (topoAnimState + 1) % 8;
     const dashPatterns = [[12,4],[10,5],[8,6],[6,7],[5,8],[6,7],[8,6],[10,5]];
-    const widthPulse = [3.5, 3.8, 4, 4.2, 4, 3.8, 3.5, 3.2];
+    const widthPulse = [3, 3.1, 3.2, 3.5, 3.2, 3.1, 3, 2.8];
     const opacities = [1, 0.95, 0.9, 0.85, 0.9, 0.95, 1, 1];
     topoActiveEdgeIds.forEach(e => {
         const r = parseInt(e.color.slice(1,3),16);
