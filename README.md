@@ -1,6 +1,6 @@
 # Vortex
 
-Docker-based network traffic generation, security validation, and performance testing tool with a web UI. Designed for NGFW PoCs, SD-WAN demos, and network testing. Two containers — client and server — deploy in minutes.
+Docker-based network traffic generation, security validation, and performance testing tool with a web UI. Designed for NGFW PoCs, SD-WAN demos, and network testing. Two containers — client and server — deploy in minutes. Supports standalone mode (client only) for quick demos.
 
 ## Quick Start
 
@@ -39,6 +39,20 @@ docker run -d --name vortex-client \
 **Access:**
 - Client dashboard: `https://<client-ip>:8443` or `http://<client-ip>:8080`
 - Server dashboard: `https://<server-ip>:8443` or `http://<server-ip>:8082`
+
+### Standalone Mode (Client Only)
+
+Run the client without a server container — useful for quick demos, security testing, or external site traffic generation:
+
+```bash
+docker run -d --name vortex-client \
+  --cap-add NET_ADMIN --cap-add NET_RAW \
+  -p 8080:8080 -p 8443:8443 \
+  --restart unless-stopped \
+  ajaymare/vortex-client:latest
+```
+
+Omit `SERVER_HOST` to start in standalone mode. Protocols that require the server (iperf3, FTP, SSH, RTP, Multicast) are hidden automatically.
 
 ### Using Docker Compose
 
@@ -100,14 +114,27 @@ docker compose up -d
 - Configurable multicast group (default 239.1.1.1), TTL, packet size, target PPS
 - Note: Firewall must have PIM/IGMP configured for multicast routing between subnets
 
+### Real World Traffic (One-Click Profiles)
+- Pre-built profiles that launch mixed protocol flows simultaneously: **Office Worker**, **Video Conferencing**, **Developer**
+- One click to start realistic enterprise traffic across HTTPS, DNS, SSH, RTP, External SaaS, and more
+- Loop mode for continuous traffic generation
+- Browser mode and DSCP marking enabled by default
+
 ### Security Testing (NGFW Validation)
-- **30+ attack simulations** across 6 categories:
+- **60+ attack simulations** across 13 categories:
   - Web Attacks: SQLi, XSS, Command Injection, Path Traversal, Log4Shell, XXE, SSRF, and more
   - Malware/Threats: EICAR download (HTTP/HTTPS/ZIP), C2 callback, malicious User-Agent
   - URL Filtering: PAN-DB category test URLs (malware, phishing, hacking, proxy)
   - DNS Attacks: DNS tunneling, DGA detection, DNS rebinding
   - Protocol Abuse: SSH brute force, FTP bounce, HTTP smuggling, Slowloris
   - File-Based Threats: PDF with JS, Office macros, PE executable download
+  - Spyware/C2: C2 callbacks, beacon patterns, encrypted C2 channels
+  - CVE Exploits: Log4Shell, Spring4Shell, and more
+  - Credential Phishing: Fake login pages, credential harvesting simulation
+  - SSL Decryption Validation: Verify SSL inspection is working
+  - App-ID Validation: Confirm firewall identifies applications correctly
+  - DLP: Data loss prevention pattern testing
+  - Evasion Techniques: Encoding, fragmentation, and obfuscation tests
 - Automated pass/fail verdicts based on connection resets, block pages, and response analysis
 - Edit any test (built-in or custom), add custom attack patterns
 - See [Security Testing Guide](SECURITY_TESTING.md) for details
@@ -119,8 +146,10 @@ docker compose up -d
 - Browser rotation: specific engine or random per burst cycle
 
 ### Traffic Topology Visualization
+- Prisma SD-WAN circular ring style topology with animated traffic flow
 - Per-protocol traceroute (TCP/UDP) showing SD-WAN path differences
-- vis.js network graph with animated traffic flow, latency labels, and router health status
+- Multi-destination topology: separate nodes for datacenter apps vs internet/SaaS targets
+- vis.js network graph with latency labels and router health status
 - Enterprise SVG icons: client, server, router, hops, timeout markers
 
 ### Router Link Simulation (SSH)
@@ -129,13 +158,19 @@ docker compose up -d
 - Presets: Degraded WAN (300ms/5%), Voice SLA (200ms/2%), Video SLA (150ms/3%)
 - Multiple routers, independent control per router
 
+### Local ISP Simulation
+- Simulate ISP conditions directly on the client container (no router/SSH needed)
+- Pre-built scenarios: **Peak Hours Congestion**, **Intermittent Loss Bursts**, **Flapping Link**, **Satellite Link**
+- Multi-phase scenarios with automatic transitions between network conditions
+- Uses tc/netem for realistic latency, jitter, packet loss, and bandwidth shaping
+
 ### Multi-Client Control
 - Server dashboard (`http://<server>:8082`) manages multiple client instances
 - Add clients by name + URL — each gets a full control tab
 - All API calls proxied through server for centralized management
 
 ### Traffic Control
-- Duration control (default 15 min), rate control (PPS), burst mode
+- Duration control (default: run forever until stopped), rate control (PPS), burst mode
 - Up to 20 parallel flows per protocol
 - DSCP marking on all protocols (EF, AF, CS classes)
 - Random data sizes, select-all / bulk start-stop
