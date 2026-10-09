@@ -48,7 +48,7 @@ REALWORLD_PROFILES = {
                 'dscp': 'AF21'}},
             {'protocol': 'ext_https', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 5, 'ignore_ssl': True,
-                'urls': 'https://www.google.com\nhttps://www.microsoft.com\nhttps://www.github.com\nhttps://www.wikipedia.org',
+                'urls': 'https://www.salesforce.com\nhttps://www.office.com\nhttps://www.dropbox.com\nhttps://slack.com\nhttps://zoom.us',
                 'dscp': 'AF21'}},
             {'protocol': 'http_plain', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 5,
@@ -71,7 +71,7 @@ REALWORLD_PROFILES = {
                 'dscp': 'AF21'}},
             {'protocol': 'ext_https', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 5, 'ignore_ssl': True,
-                'urls': 'https://www.google.com\nhttps://www.microsoft.com\nhttps://www.github.com\nhttps://www.amazon.com',
+                'urls': 'https://www.salesforce.com\nhttps://www.office.com\nhttps://www.dropbox.com\nhttps://slack.com\nhttps://zoom.us',
                 'dscp': 'AF21'}},
             {'protocol': 'dns', 'flow_id': 'rw', 'config': {
                 'interval': 0.3, 'dscp': 'CS6',
@@ -94,7 +94,7 @@ REALWORLD_PROFILES = {
                 'dscp': 'AF21'}},
             {'protocol': 'ext_https', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 4, 'ignore_ssl': True,
-                'urls': 'https://www.google.com\nhttps://www.microsoft.com\nhttps://www.github.com\nhttps://www.wikipedia.org\nhttps://www.amazon.com',
+                'urls': 'https://www.salesforce.com\nhttps://www.office.com\nhttps://www.dropbox.com\nhttps://slack.com\nhttps://zoom.us',
                 'dscp': 'AF21'}},
             {'protocol': 'http_plain', 'flow_id': 'rw', 'config': {
                 'browser_mode': True, 'interval': 5,
@@ -951,7 +951,7 @@ class TrafficEngine:
     def _run_ext_https(self, job: TrafficJob):
         cfg = job.config
         # Support multi-URL: 'urls' textarea (newline/comma separated) or legacy 'url' field
-        raw = cfg.get('urls', cfg.get('url', 'https://www.google.com'))
+        raw = cfg.get('urls', cfg.get('url', 'https://www.salesforce.com\nhttps://www.office.com\nhttps://www.dropbox.com\nhttps://slack.com\nhttps://zoom.us'))
         urls = [u.strip() for u in raw.replace(',', '\n').split('\n') if u.strip()]
         if cfg.get('browser_mode') and urls:
             return self._run_browser_mode(job, urls, ignore_ssl=cfg.get('ignore_ssl', False))

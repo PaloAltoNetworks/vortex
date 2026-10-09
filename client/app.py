@@ -565,6 +565,40 @@ def topology():
         tc = PROTO_TRACEROUTE.get(proto_key)
         if not tc:
             return None
+
+        # ext_https: expand each URL into its own path entry
+        if tc.get('host_key') == 'urls':
+            from urllib.parse import urlparse
+            raw = agg['config'].get('urls', agg['config'].get('url', ''))
+            urls = [u.strip() for u in raw.replace(',', '\n').split('\n') if u.strip()]
+            if not urls:
+                return None
+            results = []
+            per_url_stats = {k: v // max(len(urls), 1) for k, v in agg['stats'].items()}
+            for i, url in enumerate(urls):
+                try:
+                    dest = urlparse(url).hostname or url
+                except Exception:
+                    dest = url
+                ck = proto_key + ':' + dest
+                cached = _topo_path_cache.get(ck)
+                if cached and now - cached['time'] <= _TOPO_CACHE_TTL:
+                    proto_hops = cached['hops']
+                else:
+                    args = tc['args'] if tc['args'] else []
+                    proto_hops = _run_traceroute(dest, args)
+                    _topo_path_cache[ck] = {'hops': proto_hops, 'time': now}
+                results.append({
+                    'key': proto_key + '_' + str(i),
+                    'label': dest,
+                    'dest': dest,
+                    'port': tc['port'],
+                    'hops': proto_hops,
+                    'running': agg['running'],
+                    'stats': per_url_stats,
+                })
+            return results
+
         dest = _get_dest_for_proto(proto_key, agg['config'])
         ck = proto_key + ':' + dest
         cached = _topo_path_cache.get(ck)
@@ -592,7 +626,11 @@ def topology():
             for fut in concurrent.futures.as_completed(futures):
                 result = fut.result()
                 if result:
-                    paths[result['key']] = result
+                    if isinstance(result, list):
+                        for r in result:
+                            paths[r['key']] = r
+                    else:
+                        paths[result['key']] = result
 
     # Routers for impairment overlay
     routers = router_manager.list_routers()
@@ -600,6 +638,7 @@ def topology():
     return jsonify({
         'client_ip': client_ip,
         'server_host': SERVER_HOST,
+        'standalone': STANDALONE,
         'paths': paths,
         'routers': routers,
     })

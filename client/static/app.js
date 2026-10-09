@@ -32,7 +32,7 @@ const PROTOCOLS = {
             { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
             { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     iperf: {
@@ -47,7 +47,7 @@ const PROTOCOLS = {
             { key: 'reverse', label: 'Reverse (download)', type: 'checkbox', default: false },
             { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     multicast: {
@@ -62,7 +62,7 @@ const PROTOCOLS = {
             { key: 'target_pps', label: 'Target PPS', type: 'number', default: 100, step: 10 },
             { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'AF41' },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     http_plain: {
@@ -90,7 +90,7 @@ const PROTOCOLS = {
             { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
             { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     dns: {
@@ -108,7 +108,7 @@ const PROTOCOLS = {
             { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
             { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     rtp: {
@@ -126,7 +126,7 @@ const PROTOCOLS = {
             { key: 'dscp_video', label: 'DSCP Video', type: 'select', options: DSCP_OPTIONS, default: 'AF41' },
             { key: 'dscp_audio', label: 'DSCP Audio', type: 'select', options: DSCP_OPTIONS, default: 'EF' },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     ftp: {
@@ -142,7 +142,7 @@ const PROTOCOLS = {
             { key: 'random_size', label: 'Random File', type: 'checkbox', default: true },
             { key: 'proxy', label: 'Proxy', type: 'select', options: ['Global', 'On', 'Off', 'Custom'], default: 'Global' },
             { key: 'dscp', label: 'DSCP', type: 'select', options: DSCP_OPTIONS, default: 'BE' },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     ssh: {
@@ -162,14 +162,14 @@ const PROTOCOLS = {
             { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
             { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
     ext_https: {
         name: 'External HTTPS',
         appId: 'ssl, web-browsing',
         fields: [
-            { key: 'urls', label: 'Target URLs (one per line)', type: 'textarea', default: 'https://www.google.com' },
+            { key: 'urls', label: 'Target URLs (one per line)', type: 'textarea', default: 'https://www.salesforce.com\nhttps://www.office.com\nhttps://www.dropbox.com\nhttps://slack.com\nhttps://zoom.us' },
             { key: 'method', label: 'Method', type: 'select', options: ['GET', 'POST', 'HEAD'], default: 'GET' },
             { key: 'interval', label: 'Interval (s)', type: 'number', default: 1, step: 0.1 },
             { key: 'ignore_ssl', label: 'Ignore SSL', type: 'checkbox', default: false },
@@ -182,7 +182,7 @@ const PROTOCOLS = {
             { key: 'burst_count', label: 'Burst Size', type: 'number', default: 5 },
             { key: 'burst_pause', label: 'Burst Pause (s)', type: 'number', default: 2, step: 0.5 },
             { key: 'flows', label: 'Flows', type: 'number', default: 1 },
-            { key: 'duration', label: 'Duration (s)', type: 'number', default: 900 },
+            { key: 'duration', label: 'Duration (s, 0=∞)', type: 'number', default: 0 },
         ]
     },
 };
@@ -1314,13 +1314,14 @@ const TOPO_COLORS = [
     '#dc2626', '#0d9488', '#ea580c', '#4f46e5', '#16a34a'
 ];
 
-// SVG icon data URIs for topology nodes
+// SVG icon data URIs for topology nodes — Prisma SD-WAN circular ring style
 const TOPO_ICONS = {
-    client: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter><linearGradient id="scr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e0f2fe"/><stop offset="100%" stop-color="#bae6fd"/></linearGradient></defs><rect x="10" y="14" width="44" height="30" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="2" filter="url(#s)"/><rect x="15" y="18" width="34" height="22" rx="2" fill="url(#scr)"/><circle cx="32" cy="29" r="6" fill="${stroke}" opacity="0.15"/><path d="M22 48h20M32 44v4" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/><rect x="20" y="48" width="24" height="3" rx="1.5" fill="${stroke}" opacity="0.4"/><circle cx="48" cy="18" r="3" fill="#22c55e" opacity="0.9"/></svg>`)}`,
-    server: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter></defs><rect x="12" y="6" width="40" height="52" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="2" filter="url(#s)"/><rect x="17" y="12" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="15" width="14" height="2" rx="1" fill="${stroke}" opacity="0.3"/><rect x="20" y="18" width="8" height="2" rx="1" fill="${stroke}" opacity="0.2"/><circle cx="40" cy="17" r="2.5" fill="#22c55e"/><rect x="17" y="26" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="29" width="14" height="2" rx="1" fill="${stroke}" opacity="0.3"/><rect x="20" y="32" width="8" height="2" rx="1" fill="${stroke}" opacity="0.2"/><circle cx="40" cy="31" r="2.5" fill="#2563eb"/><rect x="17" y="40" width="30" height="10" rx="2" fill="#fff" opacity="0.5"/><rect x="20" y="43" width="14" height="2" rx="1" fill="${stroke}" opacity="0.3"/><rect x="20" y="46" width="8" height="2" rx="1" fill="${stroke}" opacity="0.2"/><circle cx="40" cy="45" r="2.5" fill="#d97706"/></svg>`)}`,
-    router: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56"><defs><filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter></defs><circle cx="28" cy="28" r="22" fill="${fill}" stroke="${stroke}" stroke-width="2.5" filter="url(#s)"/><circle cx="28" cy="28" r="6" fill="${stroke}" opacity="0.8"/><path d="M28 10v10M28 36v10M10 28h10M36 28h10" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/><path d="M16 16l7 7M33 33l7 7M40 16l-7 7M23 33l-7 7" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/><polygon points="28,8 26,13 30,13" fill="${stroke}" opacity="0.7"/><polygon points="28,48 26,43 30,43" fill="${stroke}" opacity="0.7"/><polygon points="8,28 13,26 13,30" fill="${stroke}" opacity="0.7"/><polygon points="48,28 43,26 43,30" fill="${stroke}" opacity="0.7"/></svg>`)}`,
-    hop: (fill, stroke, num) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${fill}"/><stop offset="100%" stop-color="#dbeafe"/></linearGradient></defs><circle cx="18" cy="18" r="13" fill="url(#hg)" stroke="${stroke}" stroke-width="2"/><text x="18" y="22" text-anchor="middle" fill="${stroke}" font-size="12" font-weight="700" font-family="-apple-system,sans-serif">${num}</text></svg>`)}`,
-    timeout: (num) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="13" fill="#fef2f2" stroke="#ef4444" stroke-width="2" stroke-dasharray="4 3"/><line x1="13" y1="13" x2="23" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/><line x1="23" y1="13" x2="13" y2="23" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/></svg>`)}`,
+    client: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="${fill}" stroke="${stroke}" stroke-width="4"/><circle cx="32" cy="24" r="7" fill="${stroke}" opacity="0.75"/><path d="M19 46c0-7 5.8-13 13-13s13 6 13 13" fill="${stroke}" opacity="0.55"/></svg>`)}`,
+    router: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="${fill}" stroke="${stroke}" stroke-width="4"/><circle cx="32" cy="32" r="5" fill="${stroke}" opacity="0.8"/><path d="M32 15v10M32 39v10M15 32h10M39 32h10" stroke="${stroke}" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/><polygon points="32,13 30,18 34,18" fill="${stroke}" opacity="0.6"/><polygon points="32,51 30,46 34,46" fill="${stroke}" opacity="0.6"/><polygon points="13,32 18,30 18,34" fill="${stroke}" opacity="0.6"/><polygon points="51,32 46,30 46,34" fill="${stroke}" opacity="0.6"/></svg>`)}`,
+    hop: (fill, stroke, num) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="${fill}" stroke="${stroke}" stroke-width="4"/><text x="32" y="38" text-anchor="middle" fill="${stroke}" font-size="18" font-weight="700" font-family="-apple-system,sans-serif">${num}</text></svg>`)}`,
+    timeout: (num) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="#fef2f2" stroke="#ef4444" stroke-width="4" stroke-dasharray="6 4"/><line x1="23" y1="23" x2="41" y2="41" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/><line x1="41" y1="23" x2="23" y2="41" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/></svg>`)}`,
+    internet: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="${fill}" stroke="${stroke}" stroke-width="4"/><path d="M20 36c-2 0-4-2-4-4s2-4 4-4c0-4 4-7 8-7s7 2 8 6c3 0 5 2 5 4s-2 5-5 5z" fill="${stroke}" opacity="0.5" transform="translate(4,-4)"/><circle cx="32" cy="38" r="5" fill="none" stroke="${stroke}" stroke-width="1.2" opacity="0.35"/><ellipse cx="32" cy="38" rx="2" ry="5" fill="none" stroke="${stroke}" stroke-width="0.8" opacity="0.25"/></svg>`)}`,
+    datacenter: (fill, stroke) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="${fill}" stroke="${stroke}" stroke-width="4"/><rect x="21" y="16" width="22" height="32" rx="3" fill="${stroke}" opacity="0.15"/><rect x="24" y="20" width="16" height="6" rx="1.5" fill="${stroke}" opacity="0.45"/><circle cx="37" cy="23" r="1.5" fill="#22c55e"/><rect x="24" y="29" width="16" height="6" rx="1.5" fill="${stroke}" opacity="0.45"/><circle cx="37" cy="32" r="1.5" fill="#3b82f6"/><rect x="24" y="38" width="16" height="6" rx="1.5" fill="${stroke}" opacity="0.45"/><circle cx="37" cy="41" r="1.5" fill="#f59e0b"/></svg>`)}`,
 };
 
 async function refreshTopology() {
@@ -1356,6 +1357,26 @@ function _latencyHtml(rtt) {
     return `<span class="topo-tip-row"><span class="topo-tip-label">Latency</span><span class="${cls}">${rtt} ms</span></span>`;
 }
 
+// Classify a destination as 'internet' (cloud icon) or 'server' (datacenter icon)
+function classifyDest(pathKey, dest, serverHost) {
+    // Known internet-bound protocols
+    if (pathKey === 'ext_https' || pathKey.startsWith('ext_https_')) return 'internet';
+    if (pathKey === 'dns') return 'internet';
+    // Public DNS resolvers
+    if (['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1', '9.9.9.9'].includes(dest)) return 'internet';
+    // Well-known public domains
+    if (dest && /\.(com|org|net|io|dev|cloud|edu|gov)$/i.test(dest)) return 'internet';
+    // Vortex server or private infra
+    if (dest === serverHost) return 'server';
+    // Default to server for private/internal targets
+    return 'server';
+}
+
+const DEST_STYLES = {
+    internet: { fill: '#f0fdfa', stroke: '#0891b2', icon: 'internet', typeLabel: 'Internet' },
+    server:   { fill: '#eff6ff', stroke: '#2563eb', icon: 'datacenter', typeLabel: 'App Server' },
+};
+
 function renderTopology(data) {
     const container = document.getElementById('topology-container');
     if (!container) return;
@@ -1376,50 +1397,91 @@ function renderTopology(data) {
     const runningPaths = pathKeys.filter(k => pathsObj[k].running);
     topoHasTraffic = runningPaths.length > 0;
 
-    // Group paths by hop signature for merging
+    // Group paths by hop signature + destination for merging
     const hopSigMap = {};
     pathKeys.forEach(k => {
         const p = pathsObj[k];
-        const sig = (p.hops || []).map(h => h.ip).join(',');
+        const dest = p.dest || data.server_host || 'server';
+        const sig = (p.hops || []).map(h => h.ip).join(',') + '->' + dest;
         if (!hopSigMap[sig]) hopSigMap[sig] = [];
         hopSigMap[sig].push(k);
     });
 
-    // CLIENT node — laptop icon
+    // CLIENT node — person icon in teal ring
+    const clientLabel = data.standalone ? 'Branch Office\n(Standalone)' : 'Branch Office\n' + data.client_ip;
     nodes.add({
-        id: 'client', label: 'Client\n' + data.client_ip, shape: 'image', size: 36,
-        image: TOPO_ICONS.client('#ecfdf5', '#059669'),
-        font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
+        id: 'client', label: clientLabel, shape: 'image', size: 40,
+        image: TOPO_ICONS.client('#ecfdf5', '#0d9488'),
+        font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 14, multi: true },
         level: 0, shadow: { enabled: true, color: 'rgba(5,150,105,0.15)', size: 12 },
         title: _topoTooltip([
-            '<div class="topo-tip-header">Client</div>',
+            '<div class="topo-tip-header">Client' + (data.standalone ? ' (Standalone)' : '') + '</div>',
             '<span class="topo-tip-row"><span class="topo-tip-label">IP Address</span><strong>' + data.client_ip + '</strong></span>',
-            '<span class="topo-tip-row"><span class="topo-tip-label">Active Flows</span><strong>' + runningPaths.length + '</strong></span>'
+            '<span class="topo-tip-row"><span class="topo-tip-label">Active Flows</span><strong>' + runningPaths.length + '</strong></span>',
+            '<span class="topo-tip-row"><span class="topo-tip-label">Destinations</span><strong>' + Object.keys(destMap).length + '</strong></span>'
         ], '#059669'),
     });
 
-    // SERVER node — server rack icon
     const maxHops = Math.max(1, ...pathKeys.map(k => (pathsObj[k].hops || []).length));
-    nodes.add({
-        id: 'server', label: 'Server\n' + data.server_host, shape: 'image', size: 36,
-        image: TOPO_ICONS.server('#eff6ff', '#2563eb'),
-        font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 10, multi: true },
-        level: maxHops + 1, shadow: { enabled: true, color: 'rgba(37,99,235,0.15)', size: 12 },
-        title: _topoTooltip([
-            '<div class="topo-tip-header">Server</div>',
-            '<span class="topo-tip-row"><span class="topo-tip-label">IP Address</span><strong>' + data.server_host + '</strong></span>'
-        ], '#2563eb'),
+
+    // Build unique destination nodes grouped by dest host
+    const destMap = {};  // dest -> { type, protocols: [{key, label, port, running, stats}] }
+    pathKeys.forEach(k => {
+        const p = pathsObj[k];
+        const dest = p.dest || data.server_host || 'server';
+        if (!destMap[dest]) {
+            destMap[dest] = { type: classifyDest(k, dest, data.server_host), protocols: [] };
+        }
+        destMap[dest].protocols.push({ key: k, label: p.label, port: p.port, running: p.running, stats: p.stats || {} });
+    });
+
+    // Create a destination node for each unique target
+    const destNodeIds = {};
+    Object.entries(destMap).forEach(([dest, info]) => {
+        const nodeId = 'dest_' + dest.replace(/[^a-zA-Z0-9]/g, '_');
+        destNodeIds[dest] = nodeId;
+        const style = DEST_STYLES[info.type];
+        const iconFn = TOPO_ICONS[style.icon] || TOPO_ICONS.server;
+        const protoNames = info.protocols.map(p => p.label).join(', ');
+        const isAnyRunning = info.protocols.some(p => p.running);
+        const displayName = dest.length > 20 ? dest.slice(0, 18) + '…' : dest;
+
+        const tipLines = [
+            '<div class="topo-tip-header">' + style.typeLabel + '</div>',
+            '<span class="topo-tip-row"><span class="topo-tip-label">Host</span><strong>' + dest + '</strong></span>',
+            '<span class="topo-tip-row"><span class="topo-tip-label">Protocols</span>' + protoNames + '</span>',
+        ];
+        info.protocols.forEach(p => {
+            const s = p.stats;
+            const metrics = [];
+            if (s.bytes_recv) metrics.push(fmtBytes(s.bytes_recv) + ' recv');
+            else if (s.bytes_sent) metrics.push(fmtBytes(s.bytes_sent) + ' sent');
+            if (s.requests) metrics.push(s.requests + ' reqs');
+            if (metrics.length) {
+                tipLines.push('<span class="topo-tip-row"><span class="topo-tip-label">' + p.label + '</span>' + metrics.join(' · ') + '</span>');
+            }
+        });
+
+        nodes.add({
+            id: nodeId, label: style.typeLabel + '\n' + displayName, shape: 'image', size: 40,
+            image: iconFn(style.fill, style.stroke),
+            font: { size: 11, face: '-apple-system, sans-serif', color: '#1e2a3a', vadjust: 14, multi: true },
+            level: maxHops + 1,
+            shadow: { enabled: true, color: style.stroke + '25', size: 12 },
+            title: _topoTooltip(tipLines, style.stroke),
+        });
     });
 
     const renderedSigs = new Set();
     let pathIndex = 0;
-    const addedNodes = new Set(['client', 'server']);
+    const addedNodes = new Set(['client', ...Object.values(destNodeIds)]);
     const legendItems = [];
 
     pathKeys.forEach(pathKey => {
         const path = pathsObj[pathKey];
         const hops = path.hops || [];
-        const sig = hops.map(h => h.ip).join(',');
+        const pathDest = path.dest || data.server_host || 'server';
+        const sig = hops.map(h => h.ip).join(',') + '->' + pathDest;
 
         if (renderedSigs.has(sig)) return;
         renderedSigs.add(sig);
@@ -1434,7 +1496,7 @@ function renderTopology(data) {
 
         legendItems.push({ labels, color, running: isRunning, defaultOnly: isDefaultOnly });
 
-        const edgeWidth = isRunning ? 3.5 : 1.5;
+        const edgeWidth = isRunning ? 3 : 1.5;
 
         // Create hop nodes with appropriate icons
         const nodeChain = ['client'];
@@ -1442,7 +1504,7 @@ function renderTopology(data) {
             const isLast = i === hops.length - 1;
             const isTimeout = h.ip === '*';
 
-            if (isLast && !isTimeout && (h.ip === data.server_host || h.ip === data.client_ip)) return;
+            if (isLast && !isTimeout && (h.ip === pathDest || h.ip === data.server_host || h.ip === data.client_ip)) return;
 
             const sharedId = 'hop_shared_' + h.hop + '_' + h.ip;
             if (addedNodes.has(sharedId)) { nodeChain.push(sharedId); return; }
@@ -1453,7 +1515,7 @@ function renderTopology(data) {
             let tipColor = color;
             if (isTimeout) {
                 nodeImage = TOPO_ICONS.timeout(h.hop);
-                nodeSize = 18;
+                nodeSize = 22;
                 nodeLabel = '';
                 tipColor = '#ef4444';
                 tipLines = [
@@ -1468,7 +1530,7 @@ function renderTopology(data) {
                 };
                 const mc = modeColors[router.current_mode] || { fill: '#eff6ff', stroke: color };
                 nodeImage = TOPO_ICONS.router(mc.fill, mc.stroke);
-                nodeLabel = router.name + '\n' + h.ip; nodeSize = 30;
+                nodeLabel = router.name + '\n' + h.ip; nodeSize = 34;
                 tipColor = mc.stroke;
                 const mode = router.current_mode ? router.current_mode.replace('_', ' ') : 'unknown';
                 const modeColor = { healthy: '#059669', impaired: '#d97706', link_down: '#dc2626' }[router.current_mode] || '#6b7a8d';
@@ -1489,7 +1551,7 @@ function renderTopology(data) {
                 }
             } else {
                 nodeImage = TOPO_ICONS.hop('#eff6ff', color, h.hop);
-                nodeSize = 20;
+                nodeSize = 24;
                 nodeLabel = h.ip;
                 tipLines = [
                     '<div class="topo-tip-header">Hop ' + h.hop + '</div>',
@@ -1509,7 +1571,9 @@ function renderTopology(data) {
             addedNodes.add(sharedId);
             nodeChain.push(sharedId);
         });
-        nodeChain.push('server');
+        // Route edge to actual destination node
+        const destNodeId = destNodeIds[pathDest] || Object.values(destNodeIds)[0];
+        nodeChain.push(destNodeId);
 
         // Edges — smooth curves with latency labels and arrows
         const curveDir = pathIndex % 2 === 0 ? 'curvedCW' : 'curvedCCW';
@@ -1523,12 +1587,12 @@ function renderTopology(data) {
             }
             edges.add({
                 id: edgeId, from: nodeChain[i], to: nodeChain[i + 1],
-                arrows: { to: { enabled: true, scaleFactor: 0.5, type: 'vee' } },
-                color: { color: isRunning ? color : '#cbd5e1', highlight: color, hover: color },
+                arrows: { to: { enabled: true, scaleFactor: 0.3, type: 'arrow' } },
+                color: { color: isRunning ? '#0d9488' : '#cbd5e1', highlight: color, hover: color },
                 width: edgeWidth,
                 label: edgeLabel,
-                font: { size: 8, color: color, strokeWidth: 3, strokeColor: '#ffffff', align: 'top' },
-                dashes: isRunning ? [10, 5] : false,
+                font: { size: 9, color: '#475569', strokeWidth: 3, strokeColor: '#ffffff', align: 'top' },
+                dashes: false,
                 smooth: roundness > 0 ? { type: curveDir, roundness } : { type: 'cubicBezier' },
                 hoverWidth: 1.5,
                 selectionWidth: 2,
@@ -1541,7 +1605,23 @@ function renderTopology(data) {
     // If no active flows, show empty state with placeholder
     if (pathKeys.length === 0) {
         container.innerHTML = `<div class="topo-empty">
-            <svg width="120" height="50" viewBox="0 0 120 50"><circle cx="15" cy="25" r="8" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><circle cx="60" cy="25" r="6" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><circle cx="105" cy="25" r="8" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><line x1="23" y1="25" x2="54" y2="25" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/><line x1="66" y1="25" x2="97" y2="25" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/></svg>
+            <svg width="240" height="72" viewBox="0 0 240 72">
+                <circle cx="32" cy="36" r="22" fill="#ecfdf5" stroke="#0d9488" stroke-width="3" opacity="0.4"/>
+                <circle cx="32" cy="28" r="5" fill="#0d9488" opacity="0.3"/>
+                <path d="M24 42c0-4 3.5-8 8-8s8 4 8 8" fill="#0d9488" opacity="0.2"/>
+                <circle cx="120" cy="36" r="16" fill="#f1f5f9" stroke="#94a3b8" stroke-width="3" opacity="0.4"/>
+                <circle cx="120" cy="36" r="3" fill="#94a3b8" opacity="0.3"/>
+                <path d="M120 24v6M120 42v6M108 36h6M128 36h6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+                <circle cx="208" cy="26" r="18" fill="#eff6ff" stroke="#2563eb" stroke-width="3" opacity="0.4"/>
+                <rect x="200" y="20" width="16" height="4" rx="1" fill="#2563eb" opacity="0.2"/>
+                <rect x="200" y="26" width="16" height="4" rx="1" fill="#2563eb" opacity="0.2"/>
+                <rect x="200" y="32" width="16" height="4" rx="1" fill="#2563eb" opacity="0.2"/>
+                <circle cx="208" cy="54" r="14" fill="#f0fdfa" stroke="#0891b2" stroke-width="3" opacity="0.4"/>
+                <path d="M200 56c-1.5 0-3-1.5-3-3s1.5-3 3-3c0-3 3-5 6-5s5 1.5 6 4.5c2 0 3.5 1.5 3.5 3s-1.5 3.5-3.5 3.5z" fill="#0891b2" opacity="0.25"/>
+                <line x1="54" y1="36" x2="104" y2="36" stroke="#0d9488" stroke-width="2" stroke-dasharray="4 3" opacity="0.3"/>
+                <line x1="136" y1="32" x2="190" y2="26" stroke="#0d9488" stroke-width="2" stroke-dasharray="4 3" opacity="0.3"/>
+                <line x1="136" y1="40" x2="194" y2="52" stroke="#0d9488" stroke-width="2" stroke-dasharray="4 3" opacity="0.3"/>
+            </svg>
             <span>Start a protocol to see network topology</span></div>`;
         if (topoNetwork) { topoNetwork.destroy(); topoNetwork = null; }
         const legendEl = document.getElementById('topology-legend');
@@ -1552,7 +1632,7 @@ function renderTopology(data) {
     }
 
     const options = {
-        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 160, nodeSpacing: 60 } },
+        layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 220, nodeSpacing: 100 } },
         physics: false,
         interaction: { hover: true, tooltipDelay: 80, dragNodes: true, zoomView: true, dragView: true },
         edges: { chosen: { edge: function(values) { values.width = values.width * 1.3; } } },
@@ -1621,7 +1701,7 @@ function animateTopology() {
     if (!topoEdges || !topoHasTraffic) return;
     topoAnimState = (topoAnimState + 1) % 8;
     const dashPatterns = [[12,4],[10,5],[8,6],[6,7],[5,8],[6,7],[8,6],[10,5]];
-    const widthPulse = [3.5, 3.8, 4, 4.2, 4, 3.8, 3.5, 3.2];
+    const widthPulse = [3, 3.1, 3.2, 3.5, 3.2, 3.1, 3, 2.8];
     const opacities = [1, 0.95, 0.9, 0.85, 0.9, 0.95, 1, 1];
     topoActiveEdgeIds.forEach(e => {
         const r = parseInt(e.color.slice(1,3),16);
